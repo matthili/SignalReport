@@ -17,6 +17,15 @@ public class Measurement {
         this.type = type;
     }
 
+    // Für das Laden aus der Datenbank (mit festem Zeitstempel)
+    public Measurement(String target, double latencyMs, boolean success, String type, Instant timestamp) {
+        this.timestamp = timestamp;
+        this.target = target;
+        this.latencyMs = latencyMs;
+        this.success = success;
+        this.type = type;
+}
+
     // Getter (für späteren Zugriff)
     public Instant getTimestamp() { return timestamp; }
     public String getTarget() { return target; }
