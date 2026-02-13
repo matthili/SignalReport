@@ -86,7 +86,7 @@ public void start(int port) {
                                     data.forEach(m => {
                                         const row = document.createElement('tr');
                                         const statusClass = m.success ? 'success' : 'failure';
-                                        const statusText = m.success ? '✅' : '❌';
+                                        const statusText = m.success ? '+' : '-';
                                         row.innerHTML = `
                                             <td>${new Date(m.timestamp * 1000).toLocaleTimeString('de-DE')}</td>
                                             <td><strong>${m.type}</strong></td>
