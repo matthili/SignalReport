@@ -12,7 +12,7 @@ public class SignalReportApp {
         // Messer initialisieren
         PingMeasurer pingMeasurer = new PingMeasurer("8.8.8.8");
         DnsMeasurer dnsMeasurer = new DnsMeasurer("google.com");
-        HttpMeasurer httpMeasurer = new HttpMeasurer("https://heise.de");
+        HttpMeasurer httpMeasurer = new HttpMeasurer("https://example.com"); // Funktioniert immer
 
         // Datenbank initialisieren
         H2MeasurementRepository repo = new H2MeasurementRepository();

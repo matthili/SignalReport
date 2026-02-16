@@ -9,11 +9,12 @@ public class PingMeasurer {
         this.target = target;
     }
 
-    public Measurement measure() throws Exception {
-        long start = System.currentTimeMillis();
-        boolean reachable = InetAddress.getByName(target).isReachable(3000);
-        long latency = System.currentTimeMillis() - start;
+public Measurement measure() throws Exception {
+    long start = System.nanoTime(); // Präziser Start
+    boolean reachable = InetAddress.getByName(target).isReachable(3000);
+    long end = System.nanoTime();
+    double latency = (end - start) / 1_000_000.0; // Nanosekunden → Millisekunden (als double)
 
-        return new Measurement(target, latency, reachable, "PING");
-    }
+    return new Measurement(target, latency, reachable, "PING");
+}
 }

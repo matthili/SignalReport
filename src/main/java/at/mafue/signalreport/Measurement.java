@@ -9,22 +9,23 @@ public class Measurement {
     private final boolean success;
     private final String type; // "PING" oder später "DNS", "HTTP"
 
+    // Hauptkonstruktor
     public Measurement(String target, double latencyMs, boolean success, String type) {
         this.timestamp = Instant.now();
-        this.target = target;
+        this.target = target.trim(); // 🔑 Entfernt führende/abschließende Leerzeichen
         this.latencyMs = latencyMs;
         this.success = success;
         this.type = type;
     }
 
-    // Für das Laden aus der Datenbank (mit festem Zeitstempel)
+    // Konstruktor für DB-Laden
     public Measurement(String target, double latencyMs, boolean success, String type, Instant timestamp) {
         this.timestamp = timestamp;
-        this.target = target;
+        this.target = target.trim(); // 🔑 Auch hier trimmen!
         this.latencyMs = latencyMs;
         this.success = success;
         this.type = type;
-}
+    }
 
     // Getter (für späteren Zugriff)
     public Instant getTimestamp() { return timestamp; }
