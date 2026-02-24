@@ -14,15 +14,11 @@ public class H2MeasurementRepository {
 
     public H2MeasurementRepository() throws SQLException {
         try {
-            // H2-Treiber laden (embedded)
             Class.forName("org.h2.Driver");
-            // Datenbank-Verzeichnis erstellen
             Files.createDirectories(Paths.get("./data"));
         } catch (ClassNotFoundException | IOException e) {
             throw new SQLException("Fehler bei der Datenbank-Initialisierung", e);
         }
-
-        // Verbindung herstellen
         this.connection = DriverManager.getConnection(jdbcUrl, "sa", "");
         createTable();
     }
@@ -77,5 +73,133 @@ public class H2MeasurementRepository {
         if (connection != null && !connection.isClosed()) {
             connection.close();
         }
+    }
+
+    // ========== STATISTIK ==========
+    public static class Statistics {
+        private final double avgLatency;
+        private final double p95Latency;
+        private final double maxLatency;
+        private final double packetLossPercent;
+        private final double jitter;
+
+        public Statistics(double avgLatency, double p95Latency, double maxLatency,
+                         double packetLossPercent, double jitter) {
+            this.avgLatency = avgLatency;
+            this.p95Latency = p95Latency;
+            this.maxLatency = maxLatency;
+            this.packetLossPercent = packetLossPercent;
+            this.jitter = jitter;
+        }
+
+        public double getAvgLatency() { return avgLatency; }
+        public double getP95Latency() { return p95Latency; }
+        public double getMaxLatency() { return maxLatency; }
+        public double getPacketLossPercent() { return packetLossPercent; }
+        public double getJitter() { return jitter; }
+    }
+
+    public Statistics calculateStatistics(String type, int hours) throws SQLException {
+        String sql = """
+            SELECT latency_ms, success
+            FROM measurements
+            WHERE type = ?
+              AND timestamp >= DATEADD('HOUR', ?, CURRENT_TIMESTAMP)
+            ORDER BY latency_ms
+            """;
+
+        List<Double> latencies = new ArrayList<>();
+        int total = 0;
+        int failed = 0;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, type);
+            pstmt.setInt(2, -hours);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                double latency = rs.getDouble("latency_ms");
+                boolean success = rs.getBoolean("success");
+
+                total++;
+                if (success) {
+                    latencies.add(latency);
+                } else {
+                    failed++;
+                }
+            }
+        }
+
+        if (latencies.isEmpty()) {
+            return new Statistics(0, 0, 0, failed > 0 ? 100.0 : 0, 0);
+        }
+
+        double avgLatency = latencies.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+
+        int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
+        p95Index = Math.max(0, Math.min(p95Index, latencies.size() - 1));
+        double p95Latency = latencies.get(p95Index);
+
+        double maxLatency = latencies.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+
+        double packetLossPercent = total > 0 ? (failed * 100.0) / total : 0;
+
+        double jitter = 0;
+        if (latencies.size() > 1) {
+            double sumDiff = 0;
+            for (int i = 1; i < latencies.size(); i++) {
+                sumDiff += Math.abs(latencies.get(i) - latencies.get(i - 1));
+            }
+            jitter = sumDiff / (latencies.size() - 1);
+        }
+
+        return new Statistics(avgLatency, p95Latency, maxLatency, packetLossPercent, jitter);
+    }
+
+    // ========== HOURLY AVERAGES ==========
+    public static class HourlyAverage {
+        private final int hourOfDay;
+        private final double avgLatency;
+        private final int count;
+
+        public HourlyAverage(int hourOfDay, double avgLatency, int count) {
+            this.hourOfDay = hourOfDay;
+            this.avgLatency = avgLatency;
+            this.count = count;
+        }
+
+        public int getHourOfDay() { return hourOfDay; }
+        public double getAvgLatency() { return avgLatency; }
+        public int getCount() { return count; }
+    }
+
+    public List<HourlyAverage> calculateHourlyAverages(String type, int days) throws SQLException {
+        String sql = """
+            SELECT
+                EXTRACT(HOUR FROM timestamp) AS hour_of_day,
+                AVG(latency_ms) AS avg_latency,
+                COUNT(*) AS measurement_count
+            FROM measurements
+            WHERE type = ?
+              AND success = true
+              AND timestamp >= DATEADD('DAY', ?, CURRENT_TIMESTAMP)
+            GROUP BY EXTRACT(HOUR FROM timestamp)
+            ORDER BY hour_of_day
+            """;
+
+        List<HourlyAverage> results = new ArrayList<>();
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, type);
+            pstmt.setInt(2, -days);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                results.add(new HourlyAverage(
+                    rs.getInt("hour_of_day"),
+                    rs.getDouble("avg_latency"),
+                    rs.getInt("measurement_count")
+                ));
+            }
+        }
+        return results;
     }
 }

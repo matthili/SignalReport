@@ -3,6 +3,8 @@ package at.mafue.signalreport;
 import io.javalin.Javalin;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -44,6 +46,10 @@ public void start(int port) {
                     .success { color: #28a745; font-weight: bold; }
                     .failure { color: #dc3545; font-weight: bold; }
                     .footer { text-align: center; margin-top: 30px; color: #6c757d; font-size: 0.9em; }
+                    .excellent { color: #198754; font-weight: bold; }
+                    .good { color: #ffc107; font-weight: bold; }
+                    .poor { color: #dc3545; font-weight: bold; }
+                    .failure { color: #6c757d; text-decoration: line-through; }
                 </style>
             </head>
             <body>
@@ -52,8 +58,30 @@ public void start(int port) {
                     <p>Letzte Messungen der Internet-Qualität</p>
                 </div>
                 
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                            <div class="stat-card" style="background: #e7f3ff; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 0.9em; color: #6c757d;">⌀ PING (24h)</div>
+                                <div style="font-size: 1.8em; font-weight: bold; color: #0d6efd;" id="stat-avg">-- ms</div>
+                            </div>
+                            <div class="stat-card" style="background: #fff3e0; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 0.9em; color: #6c757d;">95th Percentile</div>
+                                <div style="font-size: 1.8em; font-weight: bold; color: #fd7e14;" id="stat-p95">-- ms</div>
+                            </div>
+                            <div class="stat-card" style="background: #ffe7e7; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 0.9em; color: #6c757d;">Paketverlust</div>
+                                <div style="font-size: 1.8em; font-weight: bold; color: #dc3545;" id="stat-loss">-- %</div>
+                            </div>
+                            <div class="stat-card" style="background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 0.9em; color: #6c757d;">Jitter</div>
+                                <div style="font-size: 1.8em; font-weight: bold; color: #198754;" id="stat-jitter">-- ms</div>
+                            </div>
+                        </div>
+                
                 <div class="chart-container">
                     <canvas id="latencyChart"></canvas>
+                </div>
+                <div class="chart-container" style="height: 200px; margin-top: 20px;">
+                            <canvas id="hourlyChart"></canvas>
                 </div>
                 
                 <table>
@@ -76,90 +104,170 @@ public void start(int port) {
                 </div>
                 
                     <script>
-                        function loadMeasurements() {
-                            fetch('/api/measurements?limit=20')
-                                .then(response => response.json())
-                                .then(data => {
-                                    // Tabelle füllen
-                                    const tableBody = document.getElementById('measurementsTable');
-                                    tableBody.innerHTML = '';
-                                    data.forEach(m => {
-                                        const row = document.createElement('tr');
-                                        const statusClass = m.success ? 'success' : 'failure';
-                                        const statusText = m.success ? '+' : '-';
-                                        row.innerHTML = `
-                                            <td>${new Date(m.timestamp * 1000).toLocaleTimeString('de-DE')}</td>
-                                            <td><strong>${m.type}</strong></td>
-                                            <td>${m.target}</td>
-                                            <td><strong>${m.latencyMs.toFixed(1)}</strong> ms</td>
-                                            <td class="${statusClass}">${statusText}</td>
-                                        `;
-                                        tableBody.appendChild(row);
-                                    });
+                                     function loadHourlyChart() {
+                                         fetch('/api/hourly-averages?days=7&type=PING')
+                                             .then(response => response.json())
+                                             .then(data => {
+                                                 const hours = Array.from({length: 24}, (_, i) => i);
+                                                 const latencies = hours.map(h => {
+                                                     const entry = data.find(e => e.hourOfDay === h);
+                                                     return entry ? entry.avgLatency : 0;
+                                                 });
                     
-                                    // Chart neu erstellen (Chart.js v3)
-                                    const pingData = data.filter(m => m.type === 'PING').slice(0, 10).reverse();
-                                    const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}));
-                                    const values = pingData.map(m => m.latencyMs);
+                                                 const ctx = document.getElementById('hourlyChart').getContext('2d');
                     
-                                    const ctx = document.getElementById('latencyChart').getContext('2d');
+                                                 if (window.hourlyChart && typeof window.hourlyChart.destroy === 'function') {
+                                                     window.hourlyChart.destroy();
+                                                 }
                     
-                                    // Chart zerstören falls existiert und gültig
-                                    if (window.latencyChart && typeof window.latencyChart.destroy === 'function') {
-                                        window.latencyChart.destroy();
-                                    }
+                                                 window.hourlyChart = new Chart(ctx, {
+                                                     type: 'bar',
+                                                     data: {
+                                                         labels: hours.map(h => h + ':00'),
+                                                         datasets: [{
+                                                             label: '⌀ Latenz pro Stunde (letzte 7 Tage)',
+                                                             data: latencies,
+                                                             backgroundColor: latencies.map(l =>
+                                                                 l < 50 ? '#198754' :
+                                                                 l < 100 ? '#ffc107' : '#dc3545'
+                                                             ),
+                                                             borderWidth: 0
+                                                         }]
+                                                     },
+                                                     options: {
+                                                         responsive: true,
+                                                         maintainAspectRatio: false,
+                                                         plugins: {
+                                                             legend: { display: false },
+                                                             tooltip: {
+                                                                 callbacks: {
+                                                                     label: context => `${context.parsed.y.toFixed(1)} ms`
+                                                                 }
+                                                             }
+                                                         },
+                                                         scales: {
+                                                             y: {
+                                                                 beginAtZero: true,
+                                                                 title: { display: true, text: 'Latenz (ms)' }
+                                                             },
+                                                             x: {
+                                                                 title: { display: true, text: 'Uhrzeit' }
+                                                             }
+                                                         }
+                                                     }
+                                                 });
+                                             })
+                                             .catch(error => console.error('Stunden-Chart-Fehler:', error));
+                                     }
                     
-                                    // Neuen Chart erstellen
-                                    window.latencyChart = new Chart(ctx, {
-                                        type: 'line',
-                                         data: {
-                                            labels: labels,
-                                            datasets: [{
-                                                label: 'PING Latenz (ms)',
-                                                data: values,
-                                                borderColor: '#0d6efd',
-                                                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                                                borderWidth: 2,
-                                                tension: 0.3,
-                                                fill: true,
-                                                pointRadius: 4,
-                                                pointHoverRadius: 6
-                                            }]
-                                        },
-                                        options: {
-                                            responsive: true,
-                                            maintainAspectRatio: false,
-                                            plugins: {
-                                                title: {
-                                                    display: true,
-                                                    text: 'PING Latenz über Zeit'
-                                                }
-                                            },
-                                            scales: {
-                                                y: {
-                                                    beginAtZero: true,
-                                                    title: { display: true, text: 'Latenz (ms)' }
-                                                },
-                                                x: {
-                                                    title: { display: true, text: 'Uhrzeit' }
-                                                }
-                                            }
-                                        }
-                                    });
-                                })
-                                .catch(error => {
-                                    console.error('Fehler beim Laden:', error);
-                                    document.getElementById('measurementsTable').innerHTML =\s
-                                        '<tr><td colspan="5" style="text-align:center;color:red">Fehler beim Laden der Daten</td></tr>';
-                                });
-                        }
+                                     // Initial laden + alle 5 Minuten aktualisieren
+                                     loadHourlyChart();
+                                     setInterval(loadHourlyChart, 300000);
                     
-                        // Initial laden
-                        loadMeasurements();
+                                     function loadStatistics() {
+                                         fetch('/api/statistics?hours=24')
+                                             .then(response => response.json())
+                                             .then(stats => {
+                                                 document.getElementById('stat-avg').textContent = stats.ping.avgLatency.toFixed(1) + ' ms';
+                                                 document.getElementById('stat-p95').textContent = stats.ping.p95Latency.toFixed(1) + ' ms';
+                                                 document.getElementById('stat-loss').textContent = stats.ping.packetLossPercent.toFixed(1) + ' %';
+                                                 document.getElementById('stat-jitter').textContent = stats.ping.jitter.toFixed(1) + ' ms';
+                                             })
+                                             .catch(error => console.error('Statistik-Fehler:', error));
+                                     }
                     
-                        // Alle 5 Sekunden aktualisieren
-                        setInterval(loadMeasurements, 5000);
-                    </script>
+                                     // Initial laden + alle 30 Sekunden aktualisieren
+                                     loadStatistics();
+                                     setInterval(loadStatistics, 30000);
+                    
+                                     function loadMeasurements() {
+                                         fetch('/api/measurements?limit=20')
+                                             .then(response => response.json())
+                                             .then(data => {
+                                                 // Tabelle füllen
+                                                 const tableBody = document.getElementById('measurementsTable');
+                                                 tableBody.innerHTML = '';
+                                                 data.forEach(m => {
+                                                     const row = document.createElement('tr');
+                    
+                                                     // Neu: Farbe basierend auf Latenz + Erfolg
+                                                     const latencyClass = m.success ? (m.latencyMs < 50 ? 'excellent' : m.latencyMs < 100 ? 'good' : 'poor') : 'failure';
+                    
+                                                     row.innerHTML = `
+                                                         <td>${new Date(m.timestamp * 1000).toLocaleTimeString('de-DE')}</td>
+                                                         <td><strong>${m.type}</strong></td>
+                                                         <td>${m.target}</td>
+                                                         <td class="${latencyClass}"><strong>${m.latencyMs.toFixed(1)}</strong> ms</td>
+                                                         <td>${m.success ? '✅' : '❌'}</td>
+                                                     `;
+                    
+                                                     tableBody.appendChild(row);
+                                                 });
+                    
+                                                 // Chart neu erstellen (Chart.js v3)
+                                                 const pingData = data.filter(m => m.type === 'PING').slice(0, 10).reverse();
+                                                 const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}));
+                                                 const values = pingData.map(m => m.latencyMs);
+                    
+                                                 const ctx = document.getElementById('latencyChart').getContext('2d');
+                    
+                                                 // Chart zerstören falls existiert und gültig
+                                                 if (window.latencyChart && typeof window.latencyChart.destroy === 'function') {
+                                                     window.latencyChart.destroy();
+                                                 }
+                    
+                                                 // Neuen Chart erstellen
+                                                 window.latencyChart = new Chart(ctx, {
+                                                     type: 'line',
+                                                     data: {
+                                                         labels: labels,
+                                                         datasets: [{
+                                                             label: 'PING Latenz (ms)',
+                                                             data: values,
+                                                             borderColor: '#0d6efd',
+                                                             backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                                             borderWidth: 2,
+                                                             tension: 0.3,
+                                                             fill: true,
+                                                             pointRadius: 4,
+                                                             pointHoverRadius: 6
+                                                         }]
+                                                     },
+                                                     options: {
+                                                         responsive: true,
+                                                         maintainAspectRatio: false,
+                                                         plugins: {
+                                                             title: {
+                                                                 display: true,
+                                                                 text: 'PING Latenz über Zeit'
+                                                             }
+                                                         },
+                                                         scales: {
+                                                             y: {
+                                                                 beginAtZero: true,
+                                                                 title: { display: true, text: 'Latenz (ms)' }
+                                                             },
+                                                             x: {
+                                                                 title: { display: true, text: 'Uhrzeit' }
+                                                             }
+                                                         }
+                                                     }
+                                                 });
+                                             })
+                                             .catch(error => {
+                                                 console.error('Fehler beim Laden:', error);
+                                                 document.getElementById('measurementsTable').innerHTML =\s
+                                                     '<tr><td colspan="5" style="text-align:center;color:red">Fehler beim Laden der Daten</td></tr>';
+                                             });
+                                     }
+                    
+                                     // Initial laden
+                                     loadMeasurements();
+                    
+                                     // Alle 5 Sekunden aktualisieren
+                                     setInterval(loadMeasurements, 5000);
+                                     </script>
+                    
             </body>
             </html>
             """);
@@ -182,6 +290,50 @@ public void start(int port) {
                 ctx.json(new ErrorResponse("Datenbankfehler: " + e.getMessage()));
             }
         });
+        // Statistik-API
+        app.get("/api/statistics", ctx -> {
+            try {
+                int hours = ctx.queryParam("hours") != null
+                    ? Integer.parseInt(ctx.queryParam("hours"))
+                    : 24;
+
+                var pingStats = repository.calculateStatistics("PING", hours);
+                var dnsStats = repository.calculateStatistics("DNS", hours);
+                var httpStats = repository.calculateStatistics("HTTP", hours);
+
+                ctx.json(Map.of(
+                    "ping", pingStats,
+                    "dns", dnsStats,
+                    "http", httpStats,
+                    "periodHours", hours
+                ));
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Statistik-Fehler: " + e.getMessage()));
+            }
+        });
+
+           app.get("/api/hourly-averages", ctx -> {
+    try {
+        // SICHER: Manueller Default-Wert
+        int days = ctx.queryParam("days") != null
+            ? Integer.parseInt(ctx.queryParam("days"))
+            : 7;
+
+        String type = ctx.queryParam("type") != null
+            ? ctx.queryParam("type")
+            : "PING";
+
+        var averages = repository.calculateHourlyAverages(type, days);
+        ctx.json(averages);
+    } catch (NumberFormatException e) {
+        ctx.status(400);
+        ctx.json(new ErrorResponse("Ungültiger Parameter: " + e.getMessage()));
+    } catch (Exception e) {
+        ctx.status(500);
+        ctx.json(new ErrorResponse("Stunden-Daten-Fehler: " + e.getMessage()));
+    }
+});
 
         System.out.println("Web-Interface läuft unter: http://localhost:" + port);
     }
@@ -197,4 +349,6 @@ public void start(int port) {
             app.stop();
         }
     }
+
+
 }
