@@ -168,6 +168,7 @@ public class H2MeasurementRepository {
             this.count = count;
         }
 
+        // Getter (wichtig für Jackson JSON-Serialisierung!)
         public int getHourOfDay() { return hourOfDay; }
         public double getAvgLatency() { return avgLatency; }
         public int getCount() { return count; }

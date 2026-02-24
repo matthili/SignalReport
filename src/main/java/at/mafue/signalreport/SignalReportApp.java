@@ -7,20 +7,27 @@ public class SignalReportApp {
         System.out.println("   Web-UI:    http://localhost:4567");
         System.out.println("   (Beenden mit STRG+C)\n");
 
+        // Messer initialisieren (OHNE Leerzeichen!)
         PingMeasurer pingMeasurer = new PingMeasurer("8.8.8.8");
         DnsMeasurer dnsMeasurer = new DnsMeasurer("google.com");
         HttpMeasurer httpMeasurer = new HttpMeasurer("https://example.com");
 
+        // Datenbank initialisieren
         H2MeasurementRepository repo = new H2MeasurementRepository();
+
+        // Webserver starten (NUR EINMAL!)
         WebServer webServer = new WebServer(repo);
         webServer.start(4567);
 
+        // Kontinuierliche Messung
         int round = 1;
         while (true) {
             System.out.println("🔄 Messrunde #" + round);
+
             repo.save(pingMeasurer.measure());
             repo.save(dnsMeasurer.measure());
             repo.save(httpMeasurer.measure());
+
             System.out.println("   ✅ 3 Messungen gespeichert");
             System.out.println("   ---");
 
@@ -31,6 +38,7 @@ public class SignalReportApp {
                 System.out.println("   Öffne im Browser: http://localhost:4567");
                 break;
             }
+
             round++;
         }
     }
