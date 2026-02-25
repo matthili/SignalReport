@@ -1,0 +1,52 @@
+@startuml SignalReport - Sequenz PDF-Export
+!theme plain
+skinparam sequenceFontSize 13
+skinparam sequenceArrowThickness 1
+skinparam roundcorner 10
+
+actor Benutzer
+participant Browser
+participant WebServer
+participant PdfReportGenerator
+participant H2MeasurementRepository
+database H2_Database as DB
+participant JFreeChart
+participant OpenPDF
+
+Benutzer -> Browser : Klicke "PDF-Bericht (24h)"
+Browser -> WebServer : GET /api/report?hours=24
+
+WebServer -> PdfReportGenerator : new PdfReportGenerator(repo)
+WebServer -> PdfReportGenerator : generateReport(24)
+
+PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("PING", 24)
+H2MeasurementRepository -> DB : SELECT latency_ms, success FROM measurements WHERE timestamp >= ...
+DB --> H2MeasurementRepository : Ergebnisse
+H2MeasurementRepository --> PdfReportGenerator : Statistics (avg, p95, max, loss, jitter)
+
+PdfReportGenerator -> H2MeasurementRepository : findLastN(144)
+H2MeasurementRepository -> DB : SELECT ... ORDER BY timestamp DESC LIMIT 144
+DB --> H2MeasurementRepository : 144 Messungen
+H2MeasurementRepository --> PdfReportGenerator : List<Measurement>
+
+PdfReportGenerator -> JFreeChart : createXYLineChart()
+JFreeChart --> PdfReportGenerator : JFreeChart-Objekt
+PdfReportGenerator -> JFreeChart : render als BufferedImage
+
+PdfReportGenerator -> OpenPDF : new Document()
+PdfReportGenerator -> OpenPDF : add(Paragraph "SignalReport – Bericht")
+PdfReportGenerator -> OpenPDF : add(Paragraph "Statistiken")
+PdfReportGenerator -> OpenPDF : add(Image chartImage)
+OpenPDF --> PdfReportGenerator : PDF-Bytes
+
+PdfReportGenerator --> WebServer : byte[] pdfBytes
+WebServer -> Browser : HTTP 200 + Content-Disposition: attachment
+Browser -> Benutzer : Speichere PDF-Datei
+
+note over PdfReportGenerator, OpenPDF
+  PDF enthält:
+  • Titel + Zeitraum
+  • 5 Statistiken (avg, p95, max, loss, jitter)
+  • Latenz-Chart als Bild
+end note
+@enduml

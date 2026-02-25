@@ -1,0 +1,124 @@
+@startuml SignalReport - Klassen-Diagramm
+!theme plain
+skinparam classFontSize 13
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "measurement" {
+  class PingMeasurer {
+    -String target
+    +Measurement measure()
+  }
+
+  class DnsMeasurer {
+    -String hostname
+    +Measurement measure()
+  }
+
+  class HttpMeasurer {
+    -String url
+    -HttpClient client
+    +Measurement measure()
+  }
+}
+
+package "model" {
+  class Measurement {
+    -Instant timestamp
+    -String target
+    -double latencyMs
+    -boolean success
+    -String type
+    +Instant getTimestamp()
+    +String getTarget()
+    +double getLatencyMs()
+    +boolean isSuccess()
+    +String getType()
+  }
+}
+
+package "persistence" {
+  class H2MeasurementRepository {
+    -String jdbcUrl
+    -Connection connection
+    +void save(Measurement m)
+    +List<Measurement> findLastN(int n)
+    +Statistics calculateStatistics(String type, int hours)
+    +List<HourlyAverage> calculateHourlyAverages(String type, int days)
+  }
+
+  class "H2MeasurementRepository.Statistics" as RepoStats {
+    -double avgLatency
+    -double p95Latency
+    -double maxLatency
+    -double packetLossPercent
+    -double jitter
+    +double getAvgLatency()
+    +double getP95Latency()
+    +double getMaxLatency()
+    +double getPacketLossPercent()
+    +double getJitter()
+  }
+
+  class "H2MeasurementRepository.HourlyAverage" as RepoHourlyAvg {
+    -int hourOfDay
+    -double avgLatency
+    -int count
+    +int getHourOfDay()
+    +double getAvgLatency()
+    +int getCount()
+  }
+}
+
+package "web" {
+  class WebServer {
+    -H2MeasurementRepository repository
+    +void start(int port)
+  }
+}
+
+package "export" {
+  class PdfReportGenerator {
+    -H2MeasurementRepository repository
+    +byte[] generateReport(int hours)
+    -BufferedImage createLatencyChart(List<Measurement> measurements)
+  }
+}
+
+package "main" {
+  class SignalReportApp {
+    {static} +void main(String[] args)
+  }
+}
+
+PingMeasurer --> Measurement
+DnsMeasurer --> Measurement
+HttpMeasurer --> Measurement
+
+H2MeasurementRepository --> Measurement
+H2MeasurementRepository --> H2MeasurementRepository.Statistics
+H2MeasurementRepository --> H2MeasurementRepository.HourlyAverage
+
+WebServer --> H2MeasurementRepository
+
+PdfReportGenerator --> H2MeasurementRepository
+PdfReportGenerator --> Measurement
+
+SignalReportApp --> PingMeasurer
+SignalReportApp --> DnsMeasurer
+SignalReportApp --> HttpMeasurer
+SignalReportApp --> H2MeasurementRepository
+SignalReportApp --> WebServer
+
+note top of H2MeasurementRepository
+  <<Singleton>>
+  Embedded H2-Datenbank
+  Datenbank-Datei: ./data/signalreport.mv.db
+end note
+
+note right of WebServer
+  Javalin Web-Framework
+  Port: 4567
+  REST-API + HTML-UI
+end note
+@enduml

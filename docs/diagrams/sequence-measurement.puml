@@ -1,0 +1,47 @@
+@startuml SignalReport - Sequenz Messungsablauf
+!theme plain
+skinparam sequenceFontSize 13
+skinparam sequenceArrowThickness 1
+skinparam roundcorner 10
+
+actor Benutzer
+participant SignalReportApp
+participant PingMeasurer
+participant DnsMeasurer
+participant HttpMeasurer
+participant H2MeasurementRepository
+database H2_Database as DB
+
+Benutzer -> SignalReportApp : Starte Anwendung
+SignalReportApp -> SignalReportApp : Initialisiere Messer
+SignalReportApp -> H2MeasurementRepository : new H2MeasurementRepository()
+H2MeasurementRepository -> DB : Verbinde / Erstelle Tabelle
+
+SignalReportApp -> SignalReportApp : Starte Webserver (Port 4567)
+SignalReportApp -> SignalReportApp : Starte Mess-Schleife (alle 10s)
+
+loop Alle 10 Sekunden
+  SignalReportApp -> PingMeasurer : measure()
+  PingMeasurer -> PingMeasurer : InetAddress.isReachable()
+  PingMeasurer --> SignalReportApp : Measurement (latency, success)
+  SignalReportApp -> H2MeasurementRepository : save(measurement)
+  H2MeasurementRepository -> DB : INSERT INTO measurements
+
+  SignalReportApp -> DnsMeasurer : measure()
+  DnsMeasurer -> DnsMeasurer : InetAddress.getByName()
+  DnsMeasurer --> SignalReportApp : Measurement
+  SignalReportApp -> H2MeasurementRepository : save(measurement)
+  H2MeasurementRepository -> DB : INSERT INTO measurements
+
+  SignalReportApp -> HttpMeasurer : measure()
+  HttpMeasurer -> HttpMeasurer : HttpClient.send()
+  HttpMeasurer --> SignalReportApp : Measurement
+  SignalReportApp -> H2MeasurementRepository : save(measurement)
+  H2MeasurementRepository -> DB : INSERT INTO measurements
+end
+
+note over SignalReportApp, DB
+  Parallel dazu: Webserver läuft und
+  beantwortet API-Anfragen von der UI
+end note
+@enduml

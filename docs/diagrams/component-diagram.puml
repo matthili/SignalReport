@@ -1,0 +1,71 @@
+@startuml SignalReport - Komponenten-Diagramm
+!theme plain
+skinparam componentFontSize 13
+skinparam componentStyle rectangle
+
+package "SignalReport Anwendung" {
+  [SignalReportApp] as App
+  [WebServer\n(Javalin)] as Web
+  [PdfReportGenerator] as PDF
+}
+
+package "Mess-Engine" {
+  [PingMeasurer] as Ping
+  [DnsMeasurer] as DNS
+  [HttpMeasurer] as HTTP
+}
+
+package "Persistenz" {
+  [H2MeasurementRepository] as Repo
+  database "H2 Database\n./data/signalreport.mv.db" as DB
+}
+
+package "Visualisierung" {
+  [JFreeChart] as Chart
+  [OpenPDF] as OpenPDF
+}
+
+package "Externe Dienste" {
+  [Google DNS\n8.8.8.8] as GoogleDNS
+  [Cloudflare DNS\n1.1.1.1] as CloudflareDNS
+  [Example.com\nHTTPS] as Example
+}
+
+App --> Web : startet
+App --> Ping : verwendet
+App --> DNS : verwendet
+App --> HTTP : verwendet
+App --> Repo : speichert Messungen
+
+Web --> Repo : liest Messungen für API
+Web --> PDF : generiert Bericht bei Anfrage
+
+PDF --> Repo : holt Statistiken + Messungen
+PDF --> Chart : erstellt Chart-Bild
+PDF --> OpenPDF : erstellt PDF-Dokument
+
+Repo --> DB : speichert/liest Daten
+
+Ping --> GoogleDNS : pingt
+DNS --> GoogleDNS : resolved
+DNS --> CloudflareDNS : resolved
+HTTP --> Example : HTTP GET
+
+note top of App
+  Hauptklasse mit main()-Methode
+  Startet alle Komponenten
+end note
+
+note right of Web
+  Webserver auf Port 4567
+  • REST-API (/api/*)
+  • HTML-UI (/)
+  • PDF-Download (/api/report)
+end note
+
+note bottom of DB
+  Embedded H2-Datenbank
+  Kein separater Server nötig
+  Portable Datenbank-Datei
+end note
+@enduml

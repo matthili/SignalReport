@@ -1,0 +1,41 @@
+@startuml SignalReport - Use-Case-Diagramm
+!theme plain
+skinparam usecaseFontSize 13
+
+actor User as Benutzer
+actor System as System
+
+rectangle "SignalReport" {
+  usecase "Starte kontinuierliche Messung" as UC1
+  usecase "Zeige Live-Messungen in Web-UI" as UC2
+  usecase "Zeige Statistik-Panel" as UC3
+  usecase "Zeige Heatmap pro Stunde" as UC4
+  usecase "Generiere PDF-Bericht" as UC5
+  usecase "Lade CSV-Daten herunter" as UC6
+}
+
+Benutzer --> UC2
+Benutzer --> UC3
+Benutzer --> UC4
+Benutzer --> UC5
+Benutzer --> UC6
+
+System --> UC1
+
+UC2 .> UC3 : «include»
+UC2 .> UC4 : «include»
+UC5 .> UC3 : «include»
+
+note right of UC1
+  System führt alle 10 Sekunden
+  Ping, DNS und HTTP-Messungen durch
+  und speichert sie in der Datenbank
+end note
+
+note right of UC5
+  PDF-Bericht enthält:
+  • Statistiken (95th Percentile, Jitter, etc.)
+  • Latenz-Chart über Zeit
+  • Zeitraum wählbar (24h / 7 Tage)
+end note
+@enduml
