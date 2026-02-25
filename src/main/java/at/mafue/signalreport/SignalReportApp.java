@@ -1,6 +1,11 @@
 package at.mafue.signalreport;
 
 public class SignalReportApp {
+        //Headless-Mode (NAS, ...)
+        static {
+                System.setProperty("java.awt.headless", "true");
+        }
+
     public static void main(String[] args) throws Exception {
         System.out.println("📡 SignalReport – Starte Mess-Engine und Web-Interface");
         System.out.println("   Datenbank: ./data/signalreport.mv.db");

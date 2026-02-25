@@ -92,6 +92,15 @@ public void start(int port) {
         <canvas id="hourlyChart"></canvas>
     </div>
     
+<div style="display: flex; gap: 10px; margin: 25px 0;">
+    <button onclick="downloadReport(24)" style="padding: 10px 15px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📄 PDF-Bericht (letzte 24h)
+    </button>
+    <button onclick="downloadReport(168)" style="padding: 10px 15px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📄 PDF-Bericht (letzte 7 Tage)
+    </button>
+</div>
+    
     <table>
         <thead>
             <tr>
@@ -278,6 +287,10 @@ public void start(int port) {
         setInterval(loadMeasurements, 5000);
         setInterval(loadStatistics, 30000);
         setInterval(loadHourlyChart, 300000);
+        
+        function downloadReport(hours) {
+                                window.location.href = '/api/report?hours=' + hours;
+                            }
     </script>
 </body>
 </html>
@@ -346,6 +359,28 @@ app.get("/api/hourly-averages", ctx -> {
     }
 });
 
+// PDF-Bericht generieren
+app.get("/api/report", ctx -> {
+    try {
+        int hours = ctx.queryParam("hours") != null
+            ? Integer.parseInt(ctx.queryParam("hours"))
+            : 24;
+
+        PdfReportGenerator generator = new PdfReportGenerator(repository);
+        byte[] pdfBytes = generator.generateReport(hours);
+
+        ctx.contentType("application/pdf");
+        ctx.header("Content-Disposition", "attachment; filename=signalreport-" +
+            java.time.LocalDate.now() + ".pdf");
+        ctx.result(pdfBytes);
+    } catch (NumberFormatException e) {
+        ctx.status(400);
+        ctx.json(new ErrorResponse("Ungültiger Stunden-Parameter"));
+    } catch (Exception e) {
+        ctx.status(500);
+        ctx.json(new ErrorResponse("PDF-Generierungsfehler: " + e.getMessage()));
+    }
+});
 
 
         System.out.println("Web-Interface läuft unter: http://localhost:" + port);
