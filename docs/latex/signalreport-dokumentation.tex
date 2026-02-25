@@ -1,0 +1,60 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+
+% Seitenränder
+\geometry{a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Überschriften-Stil
+\titleformat{\section}{\normalfont\Large\bfseries\color{blue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{blue!80}}{\thesubsection}{1em}{}
+
+% Titel
+\title{SignalReport: Internet-Qualitäts-Monitoring}
+\author{Dein Name}
+\date{25. Februar 2026}
+
+% Dokument
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% Kapitel 1: Einleitung
+\input{kapitel/01-einleitung}
+
+% Kapitel 2: Anforderungen
+\input{kapitel/02-anforderungen}
+
+% Kapitel 3: Architektur
+\input{kapitel/03-architektur}
+
+% Kapitel 4: Implementierung
+\input{kapitel/04-implementierung}
+
+% Kapitel 5: Test
+\input{kapitel/05-test}
+
+% Kapitel 6: Fazit
+\input{kapitel/06-fazit}
+
+% Literaturverzeichnis
+\bibliographystyle{plain}
+\bibliography{literatur}
+
+% Anhänge
+\appendix
+\input{kapitel/anhang-a}
+
+\end{document}

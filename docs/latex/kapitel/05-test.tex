@@ -1,0 +1,51 @@
+\section{Test}
+\label{sec:test}
+
+\subsection{Teststrategie}
+Die Teststrategie umfasste:
+
+\begin{itemize}
+    \item \textbf{Unit-Tests}: Für die Kernkomponenten (z. B. Statistik-Berechnung)
+    \item \textbf{Integrationstests}: Für die Datenbankanbindung
+    \item \textbf{E2E-Tests}: Für das Web-Interface
+\end{itemize}
+
+\subsection{Beispiel-Test für Statistik-Berechnung}
+\begin{lstlisting}[language=Java, caption=Test für 95th Percentile]
+@Test
+public void testP95Latency() {
+    // Arrange
+    List<Measurement> measurements = createTestMeasurements();
+
+    // Act
+    Statistics stats = repository.calculateStatistics("PING", 24);
+
+    // Assert
+    assertEquals(120.5, stats.getP95Latency(), 0.1);
+}
+\end{lstlisting}
+
+\subsection{Testergebnisse}
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
+\hline
+Unit-Tests & 24 & 100\% \\
+\hline
+Integrationstests & 8 & 100\% \\
+\hline
+E2E-Tests & 5 & 100\% \\
+\hline
+\end{tabular}
+\caption{Testergebnisse}
+\label{tab:test}
+\end{table}
+
+\subsection{Testumgebung}
+\begin{itemize}
+    \item \textbf{Betriebssystem}: Windows 11, macOS Sonoma, Ubuntu 22.04
+    \item \textbf{Java-Version}: 21
+    \item \textbf{Browser}: Chrome, Firefox, Safari
+\end{itemize}

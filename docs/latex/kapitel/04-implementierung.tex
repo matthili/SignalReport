@@ -1,0 +1,57 @@
+\section{Implementierung}
+\label{sec:implementierung}
+
+\subsection{Mess-Engine}
+Die Mess-Engine implementiert drei Messarten:
+
+\begin{itemize}
+    \item \textbf{Ping-Messung}: Nutzt \texttt{InetAddress.isReachable()}
+    \item \textbf{DNS-Messung}: Nutzt \texttt{InetAddress.getByName()}
+    \item \textbf{HTTP-Messung}: Nutzt \texttt{java.net.http.HttpClient}
+\end{itemize}
+
+\begin{lstlisting}[language=Java, caption=Beispiel für Ping-Messung]
+public Measurement measure() throws Exception {
+    long start = System.nanoTime();
+    boolean reachable = InetAddress.getByName(target).isReachable(3000);
+    long end = System.nanoTime();
+    double latency = (end - start) / 1_000_000.0;
+    return new Measurement(target, latency, reachable, "PING");
+}
+\end{lstlisting}
+
+\subsection{Statistische Auswertung}
+Die statistische Auswertung berechnet folgende Kennzahlen:
+
+\begin{itemize}
+    \item \textbf{Durchschnittliche Latenz}: $\mu = \frac{1}{n}\sum_{i=1}^{n}x_i$
+    \item \textbf{95th Percentile}: Wert, unter dem 95\% der Messungen liegen
+    \item \textbf{Paketverlust}: $\frac{\text{fehlgeschlagene Messungen}}{\text{gesamte Messungen}} \times 100$
+    \item \textbf{Jitter}: Durchschnitt der Differenzen zwischen aufeinanderfolgenden Messungen
+\end{itemize}
+
+\begin{lstlisting}[language=Java, caption=Beispiel für 95th Percentile-Berechnung]
+// Statistiken aus der Datenbank holen
+List<Double> latencies = new ArrayList<>();
+// ... Daten laden ...
+Collections.sort(latencies);
+int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
+double p95Latency = latencies.get(p95Index);
+\end{lstlisting}
+
+\subsection{Web-Interface}
+Das Web-Interface wurde mit Javalin implementiert:
+
+\begin{itemize}
+    \item \textbf{REST-API}: Für Datenzugriff (z. B. \texttt{/api/measurements})
+    \item \textbf{Live-Chart}: Aktualisiert sich alle 5 Sekunden
+    \item \textbf{Heatmap}: Zeigt Latenzentwicklung pro Stunde
+    \item \textbf{Statistik-Panel}: Sofortige Einschätzung der Netzwerkqualität
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../diagrams/ui.png}
+    \caption{Web-Interface von SignalReport}
+    \label{fig:ui}
+\end{figure}

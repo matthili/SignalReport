@@ -1,0 +1,40 @@
+\section{Architektur}
+\label{sec:architektur}
+
+\subsection{Gesamtarchitektur}
+Die Gesamtarchitektur von SignalReport ist in Abbildung \ref{fig:architektur} dargestellt.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../diagrams/component-diagram.png}
+    \caption{Komponenten-Übersicht von SignalReport}
+    \label{fig:architektur}
+\end{figure}
+
+\subsection{Klassen-Design}
+Die Kernkomponenten der Anwendung sind in Abbildung \ref{fig:klassen} dargestellt.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../diagrams/class-diagram.png}
+    \caption{Klassen-Diagramm von SignalReport}
+    \label{fig:klassen}
+\end{figure}
+
+\subsection{Key-Design-Entscheidungen}
+\begin{itemize}
+    \item \textbf{Kein separates Backend}: Alle Komponenten in einer Anwendung (einfachere Installation)
+    \item \textbf{H2-Datenbank}: Embedded-DB für plattformunabhängige Installation
+    \item \textbf{Javalin statt Spring Boot}: Minimaler Overhead für Web-Interface
+    \item \textbf{Java 21}: Nutzung moderner Features wie Virtual Threads
+\end{itemize}
+
+\subsection{Datenfluss}
+Der Datenfluss bei der Messung ist in Abbildung \ref{fig:datenfluss} dargestellt.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../diagrams/sequence-measurement.png}
+    \caption{Datenfluss bei der Messung}
+    \label{fig:datenfluss}
+\end{figure}

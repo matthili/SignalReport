@@ -1,0 +1,32 @@
+\section{Einleitung}
+\label{sec:einleitung}
+
+\subsection{Projektziel}
+SignalReport ist eine Open-Source-Anwendung zur kontinuierlichen Überwachung der Internet-Qualität. Im Gegensatz zu kommerziellen Tools ist es:
+
+\begin{itemize}
+    \item \textbf{Kostenlos} und Open Source
+    \item \textbf{Einfach zu installieren} (kein Server nötig)
+    \item \textbf{Plattformunabhängig} (Windows, macOS, Linux, Synology NAS)
+    \item \textbf{Datensicherheit} (alle Daten lokal gespeichert)
+\end{itemize}
+
+\subsection{Problemstellung}
+Internetprobleme werden oft erst wahrgenommen, wenn sie bereits existieren. SignalReport ermöglicht:
+
+\begin{itemize}
+    \item Frühzeitige Erkennung von Qualitätsproblemen
+    \item Historische Auswertung (z. B. "Warum ist das Netz immer um 19 Uhr langsam?")
+    \item Nachweis für Internetanbieter bei Problemen
+\end{itemize}
+
+\subsection{Projektumfang}
+Dieses Abschlussprojekt umfasst:
+\begin{itemize}
+    \item Entwicklung einer Java-Anwendung mit Javalin (Web-UI)
+    \item Implementierung von Mess-Engines für Ping, DNS und HTTP
+    \item Persistenz mit H2-Datenbank
+    \item Statistische Auswertung (95th Percentile, Jitter, Paketverlust)
+    \item Visualisierung mit Charts und Heatmap
+    \item PDF-Export für Berichte
+\end{itemize}
