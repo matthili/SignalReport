@@ -9,51 +9,110 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class H2MeasurementRepository {
-    private final String jdbcUrl = "jdbc:h2:./data/signalreport;DB_CLOSE_ON_EXIT=FALSE";
+    private final String jdbcUrl;
     private Connection connection;
 
-    public H2MeasurementRepository() throws SQLException {
+    public H2MeasurementRepository(String dbPath) throws SQLException {
+        this.jdbcUrl = "jdbc:h2:" + dbPath + ";DB_CLOSE_ON_EXIT=FALSE";
+
         try {
             Class.forName("org.h2.Driver");
             Files.createDirectories(Paths.get("./data"));
         } catch (ClassNotFoundException | IOException e) {
             throw new SQLException("Fehler bei der Datenbank-Initialisierung", e);
         }
+
         this.connection = DriverManager.getConnection(jdbcUrl, "sa", "");
-        createTable();
+        createTables();
     }
 
-    private void createTable() throws SQLException {
-        String sql = """
+    private void createTables() throws SQLException {
+        // Haupttabelle für Messungen
+        String measurementsTable = """
             CREATE TABLE IF NOT EXISTS measurements (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 timestamp TIMESTAMP NOT NULL,
                 target VARCHAR(255) NOT NULL,
                 latency_ms DOUBLE NOT NULL,
                 success BOOLEAN NOT NULL,
-                type VARCHAR(20) NOT NULL
+                type VARCHAR(20) NOT NULL,
+                local_ipv4 VARCHAR(45),
+                local_ipv6 VARCHAR(45),
+                external_ipv4 VARCHAR(45),
+                external_ipv6 VARCHAR(45),
+                host_hash VARCHAR(32) NOT NULL
             )
             """;
+
+        // Tabelle für Host-Informationen
+        String hostsTable = """
+            CREATE TABLE IF NOT EXISTS hosts (
+                host_hash VARCHAR(32) PRIMARY KEY,
+                hostname VARCHAR(255) NOT NULL,
+                operating_system VARCHAR(255) NOT NULL,
+                first_seen TIMESTAMP NOT NULL,
+                last_seen TIMESTAMP NOT NULL
+            )
+            """;
+
         try (Statement stmt = connection.createStatement()) {
-            stmt.execute(sql);
+            stmt.execute(measurementsTable);
+            stmt.execute(hostsTable);
+        }
+    }
+
+    // Host-Information speichern/aktualisieren
+    public void registerHost(String hostHash, String hostname, String os) throws SQLException {
+        String sql = """
+            MERGE INTO hosts (host_hash, hostname, operating_system, first_seen, last_seen)
+            KEY (host_hash)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, hostHash);
+            pstmt.setString(2, hostname);
+            pstmt.setString(3, os);
+            pstmt.executeUpdate();
         }
     }
 
     public void save(Measurement m) throws SQLException {
-        String sql = "INSERT INTO measurements (timestamp, target, latency_ms, success, type) VALUES (?, ?, ?, ?, ?)";
+        String sql = """
+            INSERT INTO measurements 
+            (timestamp, target, latency_ms, success, type, local_ipv4, local_ipv6, 
+             external_ipv4, external_ipv6, host_hash) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setTimestamp(1, Timestamp.from(m.getTimestamp()));
             pstmt.setString(2, m.getTarget());
             pstmt.setDouble(3, m.getLatencyMs());
             pstmt.setBoolean(4, m.isSuccess());
             pstmt.setString(5, m.getType());
+            pstmt.setString(6, m.getLocalIPv4());
+            pstmt.setString(7, m.getLocalIPv6());
+            pstmt.setString(8, m.getExternalIPv4());
+            pstmt.setString(9, m.getExternalIPv6());
+            pstmt.setString(10, m.getHostHash());
             pstmt.executeUpdate();
+
+            // Host registrieren
+            registerHost(m.getHostHash(), HostIdentifier.getHostname(), HostIdentifier.getOperatingSystem());
         }
     }
 
     public List<Measurement> findLastN(int n) throws SQLException {
         List<Measurement> results = new ArrayList<>();
-        String sql = "SELECT timestamp, target, latency_ms, success, type FROM measurements ORDER BY timestamp DESC LIMIT ?";
+        String sql = """
+            SELECT timestamp, target, latency_ms, success, type, 
+                   local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash 
+            FROM measurements 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+            """;
+
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, n);
             ResultSet rs = pstmt.executeQuery();
@@ -63,7 +122,34 @@ public class H2MeasurementRepository {
                 double latency = rs.getDouble(3);
                 boolean success = rs.getBoolean(4);
                 String type = rs.getString(5);
-                results.add(new Measurement(target, latency, success, type, timestamp));
+                String localIPv4 = rs.getString(6);
+                String localIPv6 = rs.getString(7);
+                String externalIPv4 = rs.getString(8);
+                String externalIPv6 = rs.getString(9);
+                String hostHash = rs.getString(10);
+
+                results.add(new Measurement(target, latency, success, type,
+                    timestamp, localIPv4, localIPv6, externalIPv4, externalIPv6, hostHash));
+            }
+        }
+        return results;
+    }
+
+    // Host-Informationen abfragen
+    public List<HostInfo> getAllHosts() throws SQLException {
+        List<HostInfo> results = new ArrayList<>();
+        String sql = "SELECT host_hash, hostname, operating_system, first_seen, last_seen FROM hosts ORDER BY last_seen DESC";
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                results.add(new HostInfo(
+                    rs.getString("host_hash"),
+                    rs.getString("hostname"),
+                    rs.getString("operating_system"),
+                    rs.getTimestamp("first_seen").toInstant(),
+                    rs.getTimestamp("last_seen").toInstant()
+                ));
             }
         }
         return results;
@@ -168,7 +254,6 @@ public class H2MeasurementRepository {
             this.count = count;
         }
 
-        // Getter (wichtig für Jackson JSON-Serialisierung!)
         public int getHourOfDay() { return hourOfDay; }
         public double getAvgLatency() { return avgLatency; }
         public int getCount() { return count; }
@@ -202,5 +287,29 @@ public class H2MeasurementRepository {
             }
         }
         return results;
+    }
+
+    // Hilfsklasse für Host-Informationen
+    public static class HostInfo {
+        private final String hostHash;
+        private final String hostname;
+        private final String operatingSystem;
+        private final Instant firstSeen;
+        private final Instant lastSeen;
+
+        public HostInfo(String hostHash, String hostname, String operatingSystem,
+                       Instant firstSeen, Instant lastSeen) {
+            this.hostHash = hostHash;
+            this.hostname = hostname;
+            this.operatingSystem = operatingSystem;
+            this.firstSeen = firstSeen;
+            this.lastSeen = lastSeen;
+        }
+
+        public String getHostHash() { return hostHash; }
+        public String getHostname() { return hostname; }
+        public String getOperatingSystem() { return operatingSystem; }
+        public Instant getFirstSeen() { return firstSeen; }
+        public Instant getLastSeen() { return lastSeen; }
     }
 }
