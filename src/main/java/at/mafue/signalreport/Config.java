@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Config {
-    private static Config instance;
+    private static volatile Config instance; // volatile für Thread-Safety
 
     private MeasurementConfig measurement;
     private DatabaseConfig database;
@@ -40,6 +40,7 @@ public class Config {
     public DatabaseConfig getDatabase() { return database; }
     public WebserverConfig getWebserver() { return webserver; }
     public List<DnsServer> getDnsServers() { return dnsServers; }
+    public static Config getInstance() { return instance; }
 
     public static class MeasurementConfig {
         @JsonProperty("intervalSeconds")
@@ -58,6 +59,9 @@ public class Config {
         public String getPing() { return ping; }
         public String getDns() { return dns; }
         public String getHttp() { return http; }
+        public void setPing(String ping) { this.ping = ping; }
+        public void setDns(String dns) { this.dns = dns; }
+        public void setHttp(String http) { this.http = http; }
     }
 
     public static class DatabaseConfig {
@@ -99,7 +103,7 @@ public static class DnsServer {
         this.provider = provider != null && !provider.isEmpty() ? provider : "Unknown";
     }
 
-    // Getter + Setter (für Jackson!)
+    // Getter + Setter für Jackson!
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
@@ -113,6 +117,14 @@ public static class DnsServer {
     public void setProvider(String provider) {
         this.provider = provider != null && !provider.isEmpty() ? provider : "Unknown";
     }
+}
+
+    // Setter für Targets (für API-Update)
+    public void updateTargets(String ping, String dns, String http, int intervalSeconds) {
+    this.measurement.targets.ping = ping;
+    this.measurement.targets.dns = dns;
+    this.measurement.targets.http = http;
+    this.measurement.intervalSeconds = intervalSeconds;
 }
 
     // Standard-Konfiguration erstellen

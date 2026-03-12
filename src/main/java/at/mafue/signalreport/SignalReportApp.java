@@ -37,10 +37,11 @@ public class SignalReportApp {
             }
         }
 
-        // Messer initialisieren (aus Konfiguration)
-        PingMeasurer pingMeasurer = new PingMeasurer(config.getMeasurement().getTargets().getPing());
-        DnsMeasurer dnsMeasurer = new DnsMeasurer(config.getMeasurement().getTargets().getDns());
-        HttpMeasurer httpMeasurer = new HttpMeasurer(config.getMeasurement().getTargets().getHttp());
+        // Messer initialisieren
+        PingMeasurer pingMeasurer = new PingMeasurer();
+        DnsMeasurer dnsMeasurer = new DnsMeasurer();
+        HttpMeasurer httpMeasurer = new HttpMeasurer();
+
 
         // Datenbank initialisieren
         H2MeasurementRepository repo = new H2MeasurementRepository(config.getDatabase().getPath());
@@ -60,23 +61,32 @@ public class SignalReportApp {
         int intervalSeconds = config.getMeasurement().getIntervalSeconds();
         System.out.println("⏱️  Messintervall: " + intervalSeconds + " Sekunden\n");
 
+
+
         int round = 1;
         while (true) {
-            System.out.println("🔄 Messrunde #" + round);
+            // 🔑 Aktuelle Ziele AUS CONFIG bei JEDER Messung lesen!
+            Config currentConfig = Config.getInstance();
+            String pingTarget = currentConfig.getMeasurement().getTargets().getPing();
+            String dnsTarget = currentConfig.getMeasurement().getTargets().getDns();
+            String httpTarget = currentConfig.getMeasurement().getTargets().getHttp();
+            intervalSeconds = currentConfig.getMeasurement().getIntervalSeconds();
+
+            System.out.println("🔄 Messrunde #" + round + " | Ziele: " + pingTarget + ", " + dnsTarget + ", " + httpTarget);
 
             try {
-                repo.save(pingMeasurer.measure());
-                repo.save(dnsMeasurer.measure());
-                repo.save(httpMeasurer.measure());
+                repo.save(pingMeasurer.measure(pingTarget));
+                repo.save(dnsMeasurer.measure(dnsTarget));
+                repo.save(httpMeasurer.measure(httpTarget));
                 System.out.println("   ✅ 3 Messungen gespeichert");
             } catch (Exception e) {
                 System.err.println("   ❌ Fehler bei Messung: " + e.getMessage());
             }
 
             System.out.println("   ---");
-
             Thread.sleep(intervalSeconds * 1000L);
             round++;
         }
+
     }
 }

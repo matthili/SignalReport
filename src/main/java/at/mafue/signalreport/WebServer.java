@@ -32,6 +32,43 @@ public class WebServer {
             ctx.html(createHtmlPage());
         });
 
+        // 🔑 Aktuelle Konfiguration abrufen
+        app.get("/api/config/current", ctx -> {
+            try {
+                Config config = Config.getInstance();
+                ctx.json(Map.of(
+                    "ping", config.getMeasurement().getTargets().getPing(),
+                    "dns", config.getMeasurement().getTargets().getDns(),
+                    "http", config.getMeasurement().getTargets().getHttp(),
+                    "intervalSeconds", config.getMeasurement().getIntervalSeconds()
+                ));
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Config-Lade-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // 🔑 Konfiguration aktualisieren + speichern
+        app.post("/api/config/update", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                String ping = (String) body.get("ping");
+                String dns = (String) body.get("dns");
+                String http = (String) body.get("http");
+                int interval = Integer.parseInt(body.get("intervalSeconds").toString());
+
+                Config currentConfig = Config.getInstance();
+                currentConfig.updateTargets(ping, dns, http, interval);
+                Config.save("config.json"); // 🔑 Sofort persistieren!
+
+                ctx.status(200);
+                ctx.result("Konfiguration erfolgreich aktualisiert und gespeichert!");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Config-Speicher-Fehler: " + e.getMessage()));
+            }
+        });
+
         // REST-API für Messungen
         app.get("/api/measurements", ctx -> {
             try {
@@ -118,7 +155,7 @@ public class WebServer {
             }
         });
 
-        //Host-Informationen API
+        // Host-Informationen API
         app.get("/api/hosts", ctx -> {
             try {
                 List<H2MeasurementRepository.HostInfo> hosts = repository.getAllHosts();
@@ -151,58 +188,58 @@ public class WebServer {
             }
         });
 
-        // 🔑 NEU: Alle verfügbaren DNS-Server
-app.get("/api/dns/servers", ctx -> {
-    try {
-        Config config = Config.load("config.json");
-        ctx.json(config.getDnsServers());
-    } catch (IOException e) {
-        ctx.status(500);
-        ctx.json(new ErrorResponse("DNS-Server-Lade-Fehler: " + e.getMessage()));
-    }
-});
+        // NEU: Alle verfügbaren DNS-Server
+        app.get("/api/dns/servers", ctx -> {
+            try {
+                Config config = Config.load("config.json");
+                ctx.json(config.getDnsServers());
+            } catch (IOException e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("DNS-Server-Lade-Fehler: " + e.getMessage()));
+            }
+        });
 
-// 🔑 NEU: DNS-Benchmark ausführen
-app.post("/api/dns/benchmark", ctx -> {
-    try {
-        Config config = Config.load("config.json");
-        String hostname = ctx.queryParam("hostname") != null
-            ? ctx.queryParam("hostname")
-            : "google.com";
+        // NEU: DNS-Benchmark ausführen
+        app.post("/api/dns/benchmark", ctx -> {
+            try {
+                Config config = Config.load("config.json");
+                String hostname = ctx.queryParam("hostname") != null
+                    ? ctx.queryParam("hostname")
+                    : "google.com";
 
-        DnsBenchmark benchmark = new DnsBenchmark(config.getDnsServers(), hostname, 5000);
-        List<DnsBenchmark.DnsResult> results = benchmark.benchmark();
+                DnsBenchmark benchmark = new DnsBenchmark(config.getDnsServers(), hostname, 5000);
+                List<DnsBenchmark.DnsResult> results = benchmark.benchmark();
 
-        // Ergebnisse nach Latenz sortieren
-        results.sort((a, b) -> Double.compare(a.getLatencyMs(), b.getLatencyMs()));
+                // Ergebnisse nach Latenz sortieren
+                results.sort((a, b) -> Double.compare(a.getLatencyMs(), b.getLatencyMs()));
 
-        ctx.json(results);
-    } catch (Exception e) {
-        ctx.status(500);
-        ctx.json(new ErrorResponse("DNS-Benchmark-Fehler: " + e.getMessage()));
-    }
-});
+                ctx.json(results);
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("DNS-Benchmark-Fehler: " + e.getMessage()));
+            }
+        });
 
-// 🔑 NEU: DNS-Statistik pro Region
-app.get("/api/dns/statistics", ctx -> {
-    try {
-        Config config = Config.load("config.json");
-        ctx.json(Map.of(
-            "totalServers", config.getDnsServers().size(),
-            "regions", config.getDnsServers().stream()
-                .map(Config.DnsServer::getRegion)
-                .distinct()
-                .toList(),
-            "providers", config.getDnsServers().stream()
-                .map(Config.DnsServer::getProvider)
-                .distinct()
-                .toList()
-        ));
-    } catch (IOException e) {
-        ctx.status(500);
-        ctx.json(new ErrorResponse("DNS-Statistik-Fehler: " + e.getMessage()));
-    }
-});
+        // NEU: DNS-Statistik pro Region
+        app.get("/api/dns/statistics", ctx -> {
+            try {
+                Config config = Config.load("config.json");
+                ctx.json(Map.of(
+                    "totalServers", config.getDnsServers().size(),
+                    "regions", config.getDnsServers().stream()
+                        .map(Config.DnsServer::getRegion)
+                        .distinct()
+                        .toList(),
+                    "providers", config.getDnsServers().stream()
+                        .map(Config.DnsServer::getProvider)
+                        .distinct()
+                        .toList()
+                ));
+            } catch (IOException e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("DNS-Statistik-Fehler: " + e.getMessage()));
+            }
+        });
 
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
@@ -306,6 +343,7 @@ app.get("/api/dns/statistics", ctx -> {
         <button class="tab active" onclick="showTab('monitoring')">📊 Monitoring</button>
         <button class="tab" onclick="showTab('dns')">🌍 DNS-Benchmark</button>
         <button class="tab" onclick="showTab('hosts')">🖥️ Hosts</button>
+        <button class="tab" onclick="showTab('settings')">⚙️ Einstellungen</button>
     </div>
     
     <div id="monitoring" class="tab-content active">
@@ -394,6 +432,50 @@ app.get("/api/dns/statistics", ctx -> {
             <tbody id="hostsTableBody"></tbody>
         </table>
     </div>
+    
+    <div id="settings" class="tab-content">
+                    <h2>⚙️ Messkonfiguration</h2>
+                    <p>Ändere die Messziele und das Intervall. Einstellungen werden sofort gespeichert und beim nächsten Start wiederhergestellt.</p>
+            
+                    <div style="background:white; padding:20px; border-radius:8px; margin:20px 0;">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+                            <div>
+                                <label style="display:block; margin-bottom:5px; font-weight:bold;">📍 Ping-Ziel (IP)</label>
+                                <input type="text" id="config-ping" value="8.8.8.8" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <small style="color:#6c757d;">Beispiele: 8.8.8.8, 1.1.1.1, 192.168.1.1</small>
+                            </div>
+                            <div>
+                                <label style="display:block; margin-bottom:5px; font-weight:bold;">🌐 DNS-Ziel (Hostname)</label>
+                                <input type="text" id="config-dns" value="google.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <small style="color:#6c757d;">Beispiele: google.com, example.com, wikipedia.org</small>
+                            </div>
+                            <div>
+                                <label style="display:block; margin-bottom:5px; font-weight:bold;">🔗 HTTP-Ziel (URL)</label>
+                                <input type="text" id="config-http" value="https://example.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <small style="color:#6c757d;">Beispiele: https://heise.de, https://github.com</small>
+                            </div>
+                            <div>
+                                <label style="display:block; margin-bottom:5px; font-weight:bold;">⏱️ Intervall (Sekunden)</label>
+                                <input type="number" id="config-interval" value="10" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <small style="color:#6c757d;">Min: 5s, Max: 1h</small>
+                            </div>
+                        </div>
+            
+                        <button onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                            💾 Konfiguration speichern
+                        </button>
+                        <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
+                    </div>
+            
+                    <div style="background:#e7f3ff; padding:15px; border-radius:8px; margin-top:20px;">
+                        <strong>💡 Hinweis:</strong>\s
+                        <ul style="margin:10px 0 0 20px;">
+                            <li>Änderungen werden <strong>sofort übernommen</strong> – die nächste Messrunde verwendet die neuen Ziele</li>
+                            <li>Konfiguration wird in <code>config.json</code> gespeichert und beim nächsten Start wiederhergestellt</li>
+                            <li>Für DNS-Benchmark verwende den separaten Tab "🌍 DNS-Benchmark"</li>
+                        </ul>
+                    </div>
+                </div>
     
     <div class="footer">
         <p>SignalReport v1.0 • Daten aktualisieren sich automatisch</p>
@@ -651,6 +733,67 @@ app.get("/api/dns/statistics", ctx -> {
         setInterval(loadStatistics, 30000);
         setInterval(loadHourlyChart, 300000);
         setInterval(loadNetworkInfo, 60000); // Netzwerk-Info alle 60 Sekunden
+        
+        // Einstellungen laden
+                    function loadConfig() {
+                        fetch('/api/config/current')
+                            .then(response => response.json())
+                            .then(config => {
+                                document.getElementById('config-ping').value = config.ping;
+                                document.getElementById('config-dns').value = config.dns;
+                                document.getElementById('config-http').value = config.http;
+                                document.getElementById('config-interval').value = config.intervalSeconds;
+                            })
+                            .catch(error => console.error('Config-Lade-Fehler:', error));
+                    }
+            
+                    // Konfiguration speichern
+                    function saveConfig() {
+                        const statusDiv = document.getElementById('config-status');
+                        statusDiv.style.display = 'block';
+                        statusDiv.style.background = '#fff3cd';
+                        statusDiv.textContent = '💾 Speichere Konfiguration...';
+            
+                        const config = {
+                            ping: document.getElementById('config-ping').value.trim(),
+                            dns: document.getElementById('config-dns').value.trim(),
+                            http: document.getElementById('config-http').value.trim(),
+                            intervalSeconds: parseInt(document.getElementById('config-interval').value)
+                        };
+            
+                        fetch('/api/config/update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(config)
+                        })
+                        .then(response => response.text())
+                        .then(message => {
+                            statusDiv.style.background = '#d4edda';
+                            statusDiv.textContent = '✅ ' + message;
+                            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+                        })
+                        .catch(error => {
+                            statusDiv.style.background = '#f8d7da';
+                            statusDiv.textContent = '❌ Fehler: ' + error.message;
+                        });
+                    }
+            
+                    // Tab "Einstellungen" aktivieren → Config laden
+                   // Tab-Wechsel
+                       function showTab(tabId) {
+                           document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                           document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                           document.getElementById(tabId).classList.add('active');
+                           event.target.classList.add('active');
+    
+                           // Bei Tab-Wechsel spezifische Aktionen ausführen
+                           if (tabId === 'hosts') {
+                               loadHosts();
+                           } else if (tabId === 'settings') {
+                               loadConfig();
+                           }
+                       }
+        
     </script>
 </body>
 </html>
