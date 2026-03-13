@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -334,9 +335,91 @@ public class WebServer {
             }
         });
 
+        // 🔑 CSV-Export für Messungen
+        app.get("/api/export/csv", ctx -> {
+            try {
+                // Parameter: hours (Standard: 24), type (Standard: alle)
+                int hours = ctx.queryParam("hours") != null
+                    ? Integer.parseInt(ctx.queryParam("hours"))
+                    : 24;
+
+                String typeFilter = ctx.queryParam("type"); // null = alle Typen
+
+                // Messungen holen
+                List<Measurement> measurements = repository.findLastN(10000); // Max. 10.000 Zeilen
+
+                // CSV-Header
+                StringBuilder csv = new StringBuilder();
+                csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
+
+                // CSV-Zeilen (nur Messungen der letzten X Stunden)
+                Instant cutoff = Instant.now().minusSeconds(hours * 3600L);
+                int count = 0;
+
+                for (Measurement m : measurements) {
+                    if (m.getTimestamp().isBefore(cutoff)) break; // Frühere Messungen überspringen
+
+                    if (typeFilter != null && !typeFilter.equals(m.getType())) continue; // Typ-Filter
+
+                    // CSV-Zeile erstellen (RFC 4180-kompatibel mit Semikolon-Trenner)
+                    csv.append(m.getTimestamp().toString().replace("T", " ").replace("Z", ""))
+                       .append(";")
+                       .append(escapeCsv(m.getType()))
+                       .append(";")
+                       .append(escapeCsv(m.getTarget()))
+                       .append(";")
+                       .append(String.format("%.3f", m.getLatencyMs()))
+                       .append(";")
+                       .append(m.isSuccess() ? "1" : "0")
+                       .append(";")
+                       .append(escapeCsv(m.getLocalIPv4()))
+                       .append(";")
+                       .append(escapeCsv(m.getLocalIPv6()))
+                       .append(";")
+                       .append(escapeCsv(m.getExternalIPv4()))
+                       .append(";")
+                       .append(escapeCsv(m.getExternalIPv6()))
+                       .append(";")
+                       .append(escapeCsv(m.getHostHash()))
+                       .append("\n");
+
+                    count++;
+                    if (count >= 10000) break; // Sicherheitslimit
+                }
+
+                // HTTP-Header für Download
+                ctx.contentType("text/csv");
+                ctx.header("Content-Disposition",
+                    "attachment; filename=signalreport-" +
+                    java.time.LocalDate.now() + "-" +
+                    java.time.LocalTime.now().toString().replace(":", "") +
+                    ".csv");
+
+                ctx.result(csv.toString());
+            } catch (NumberFormatException e) {
+                ctx.status(400);
+                ctx.json(new ErrorResponse("Ungültiger Stunden-Parameter"));
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("CSV-Export-Fehler: " + e.getMessage()));
+            }
+        });
+
+
+
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
-
+    // Hilfsfunktion für CSV-Escaping (Semikolon, Zeilenumbruch, Anführungszeichen)
+            private String escapeCsv(String value) {
+                if (value == null || value.isEmpty() || value.equals("unknown")) {
+                    return "";
+                }
+                // Semikolon, Zeilenumbruch oder Anführungszeichen → in Anführungszeichen setzen + verdoppeln
+                if (value.contains(";") || value.contains("\n") || value.contains("\"")) {
+                    return "\"" + value.replace("\"", "\"\"") + "\"";
+                }
+                return value;
+            }
     // Hilfsklasse für JSON-Fehler – MUSS öffentlich sein mit öffentlichem Feld!
     public static class ErrorResponse {
         public final String error;
@@ -471,6 +554,9 @@ public class WebServer {
         <div class="button-group">
             <a href="#" class="btn" onclick="downloadReport(24)">📄 PDF-Bericht (24h)</a>
             <a href="#" class="btn btn-secondary" onclick="downloadReport(168)">📄 PDF-Bericht (7 Tage)</a>
+            <a href="#" class="btn btn-secondary" onclick="downloadCsv(24)">📊 CSV-Export (24h)</a>
+            <a href="#" class="btn btn-secondary" onclick="downloadCsv(168)">📊 CSV-Export (7 Tage)</a>
+            <a href="#" class="btn btn-secondary" onclick="showTab('hosts')">🖥️ Host-Informationen</a>
         </div>
         
         <table>
@@ -1124,6 +1210,11 @@ public class WebServer {
                 loadIpChanges();
             }
         }, 30000);
+        
+        // CSV-Download
+        function downloadCsv(hours) {
+        window.location.href = '/api/export/csv?hours=' + hours;
+        }
     </script>
 </body>
 </html>
