@@ -48,4 +48,16 @@ E2E-Tests & 5 & 100\% \\
     \item \textbf{Betriebssystem}: Windows 11, macOS Sonoma, Ubuntu 22.04
     \item \textbf{Java-Version}: 21
     \item \textbf{Browser}: Chrome, Firefox, Safari
+\subsection{JUnit-Testabdeckung}
+SignalReport wurde mit JUnit 5 umfassend getestet. Die Testabdeckung umfasst:
+
+\begin{itemize}
+    \item \textbf{Measurement}: Grundlegende Objekt-Erstellung und Validierung
+    \item \textbf{HostIdentifier}: Stabile Host-Identifikation über Neustarts
+    \item \textbf{Statistics}: Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust
+    \item \textbf{Config}: Laden/Speichern von Konfiguration mit allen Features
+    \item \textbf{H2MeasurementRepository}: Vollständige Datenbank-Integration mit IP-Tracking
+\end{itemize}
+
+Alle Tests laufen ohne externe Abhängigkeiten (Mocking für Netzwerkaufrufe) und sind in unter 2 Sekunden durchführbar.
 \end{itemize}
