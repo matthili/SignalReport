@@ -122,9 +122,9 @@ class ConfigTest {
     @Test
     void testUserInfo() {
         assertNotNull(config.getUserInfo());
-        assertEquals("Telekom", config.getUserInfo().getProvider());
-        assertEquals("123456789", config.getUserInfo().getCustomerId());
-        assertEquals("Max Mustermann", config.getUserInfo().getUserName());
+        assertEquals("Vodafone", config.getUserInfo().getProvider());
+        assertEquals("987654321", config.getUserInfo().getCustomerId());
+        assertEquals("Erika Musterfrau", config.getUserInfo().getUserName());
     }
 
     @Test
