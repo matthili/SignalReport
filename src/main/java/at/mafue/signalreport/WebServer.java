@@ -4,7 +4,6 @@ import io.javalin.Javalin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -30,43 +29,6 @@ public class WebServer {
         // Statische HTML-Seite (Root)
         app.get("/", ctx -> {
             ctx.html(createHtmlPage());
-        });
-
-        // 🔑 Aktuelle Konfiguration abrufen
-        app.get("/api/config/current", ctx -> {
-            try {
-                Config config = Config.getInstance();
-                ctx.json(Map.of(
-                    "ping", config.getMeasurement().getTargets().getPing(),
-                    "dns", config.getMeasurement().getTargets().getDns(),
-                    "http", config.getMeasurement().getTargets().getHttp(),
-                    "intervalSeconds", config.getMeasurement().getIntervalSeconds()
-                ));
-            } catch (Exception e) {
-                ctx.status(500);
-                ctx.json(new ErrorResponse("Config-Lade-Fehler: " + e.getMessage()));
-            }
-        });
-
-        // 🔑 Konfiguration aktualisieren + speichern
-        app.post("/api/config/update", ctx -> {
-            try {
-                var body = ctx.bodyAsClass(java.util.Map.class);
-                String ping = (String) body.get("ping");
-                String dns = (String) body.get("dns");
-                String http = (String) body.get("http");
-                int interval = Integer.parseInt(body.get("intervalSeconds").toString());
-
-                Config currentConfig = Config.getInstance();
-                currentConfig.updateTargets(ping, dns, http, interval);
-                Config.save("config.json"); // 🔑 Sofort persistieren!
-
-                ctx.status(200);
-                ctx.result("Konfiguration erfolgreich aktualisiert und gespeichert!");
-            } catch (Exception e) {
-                ctx.status(500);
-                ctx.json(new ErrorResponse("Config-Speicher-Fehler: " + e.getMessage()));
-            }
         });
 
         // REST-API für Messungen
@@ -188,18 +150,18 @@ public class WebServer {
             }
         });
 
-        // NEU: Alle verfügbaren DNS-Server
+        // Alle verfügbaren DNS-Server
         app.get("/api/dns/servers", ctx -> {
             try {
                 Config config = Config.load("config.json");
                 ctx.json(config.getDnsServers());
-            } catch (IOException e) {
+            } catch (Exception e) {
                 ctx.status(500);
                 ctx.json(new ErrorResponse("DNS-Server-Lade-Fehler: " + e.getMessage()));
             }
         });
 
-        // NEU: DNS-Benchmark ausführen
+        // DNS-Benchmark ausführen
         app.post("/api/dns/benchmark", ctx -> {
             try {
                 Config config = Config.load("config.json");
@@ -220,7 +182,7 @@ public class WebServer {
             }
         });
 
-        // NEU: DNS-Statistik pro Region
+        // DNS-Statistik pro Region
         app.get("/api/dns/statistics", ctx -> {
             try {
                 Config config = Config.load("config.json");
@@ -235,19 +197,150 @@ public class WebServer {
                         .distinct()
                         .toList()
                 ));
-            } catch (IOException e) {
+            } catch (Exception e) {
                 ctx.status(500);
                 ctx.json(new ErrorResponse("DNS-Statistik-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Aktuelle Konfiguration abrufen
+        app.get("/api/config/current", ctx -> {
+            try {
+                Config config = Config.getInstance();
+                ctx.json(Map.of(
+                    "ping", config.getMeasurement().getTargets().getPing(),
+                    "dns", config.getMeasurement().getTargets().getDns(),
+                    "http", config.getMeasurement().getTargets().getHttp(),
+                    "intervalSeconds", config.getMeasurement().getIntervalSeconds(),
+                    "maintenance", Map.of(
+                        "enabled", config.getMaintenanceWindow().isEnabled(),
+                        "startHour", config.getMaintenanceWindow().getStartHour(),
+                        "startMinute", config.getMaintenanceWindow().getStartMinute(),
+                        "endHour", config.getMaintenanceWindow().getEndHour(),
+                        "endMinute", config.getMaintenanceWindow().getEndMinute()
+                    ),
+                    "userInfo", Map.of(
+                        "provider", config.getUserInfo().getProvider(),
+                        "customerId", config.getUserInfo().getCustomerId(),
+                        "userName", config.getUserInfo().getUserName()
+                    )
+                ));
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Config-Lade-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Konfiguration aktualisieren + speichern
+        app.post("/api/config/update", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+
+                // Targets - mit Null-Checks
+                String ping = "8.8.8.8";
+                String dns = "google.com";
+                String http = "https://example.com";
+                int interval = 10;
+
+                if (body.get("ping") != null) ping = body.get("ping").toString().trim();
+                if (body.get("dns") != null) dns = body.get("dns").toString().trim();
+                if (body.get("http") != null) http = body.get("http").toString().trim();
+                if (body.get("intervalSeconds") != null) {
+                    try {
+                        interval = Integer.parseInt(body.get("intervalSeconds").toString());
+                    } catch (NumberFormatException e) {
+                        interval = 10;
+                    }
+                }
+
+                // Maintenance - mit Null-Checks
+                boolean maintenanceEnabled = false;
+                int startHour = 4, startMinute = 0, endHour = 4, endMinute = 10;
+
+                if (body.get("maintenance") != null) {
+                    var maintenance = (java.util.Map<String, Object>) body.get("maintenance");
+                    if (maintenance.get("enabled") != null) {
+                        maintenanceEnabled = Boolean.parseBoolean(maintenance.get("enabled").toString());
+                    }
+                    if (maintenance.get("startHour") != null) {
+                        try { startHour = Integer.parseInt(maintenance.get("startHour").toString()); } catch (Exception e) {}
+                    }
+                    if (maintenance.get("startMinute") != null) {
+                        try { startMinute = Integer.parseInt(maintenance.get("startMinute").toString()); } catch (Exception e) {}
+                    }
+                    if (maintenance.get("endHour") != null) {
+                        try { endHour = Integer.parseInt(maintenance.get("endHour").toString()); } catch (Exception e) {}
+                    }
+                    if (maintenance.get("endMinute") != null) {
+                        try { endMinute = Integer.parseInt(maintenance.get("endMinute").toString()); } catch (Exception e) {}
+                    }
+                }
+
+                // UserInfo - mit Null-Checks
+                String provider = "";
+                String customerId = "";
+                String userName = "";
+
+                if (body.get("userInfo") != null) {
+                    var userInfo = (java.util.Map<String, Object>) body.get("userInfo");
+                    if (userInfo.get("provider") != null) provider = userInfo.get("provider").toString().trim();
+                    if (userInfo.get("customerId") != null) customerId = userInfo.get("customerId").toString().trim();
+                    if (userInfo.get("userName") != null) userName = userInfo.get("userName").toString().trim();
+                }
+
+                // Update Config
+                Config currentConfig = Config.getInstance();
+                currentConfig.updateTargets(ping, dns, http, interval);
+                currentConfig.updateMaintenanceWindow(maintenanceEnabled, startHour, startMinute, endHour, endMinute);
+                currentConfig.updateUserInfo(provider, customerId, userName);
+
+                // Persistieren
+                Config.save("config.json");
+
+                ctx.status(200);
+                ctx.result("Konfiguration erfolgreich aktualisiert und gespeichert!");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Config-Speicher-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // IP-Änderungen abrufen
+        app.get("/api/ip-changes", ctx -> {
+            try {
+                int limit = ctx.queryParam("limit") != null
+                    ? Integer.parseInt(ctx.queryParam("limit"))
+                    : 50;
+
+                List<H2MeasurementRepository.IpChange> changes = repository.getIpChanges(limit);
+                ctx.json(changes);
+            } catch (NumberFormatException e) {
+                ctx.status(400);
+                ctx.json(new ErrorResponse("Ungültiger Limit-Parameter"));
+            } catch (SQLException e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("IP-Änderungen-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // IP-Wechsel-Statistik pro Host
+        app.get("/api/ip-statistics", ctx -> {
+            try {
+                List<H2MeasurementRepository.IpChangeStats> stats = repository.getIpChangeStatistics();
+                ctx.json(stats);
+            } catch (SQLException e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("IP-Statistik-Fehler: " + e.getMessage()));
             }
         });
 
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
 
-    // Hilfsklasse für JSON-Fehler
-    private static class ErrorResponse {
-        private final String error;
-        ErrorResponse(String error) { this.error = error; }
+    // Hilfsklasse für JSON-Fehler – MUSS öffentlich sein mit öffentlichem Feld!
+    public static class ErrorResponse {
+        public final String error;
+        public ErrorResponse(String error) { this.error = error; }
     }
 
     public void stop() {
@@ -256,9 +349,9 @@ public class WebServer {
         }
     }
 
-    // HTML-Seite erstellen
+    // HTML-Seite erstellen (komplett mit allen Tabs)
     private String createHtmlPage() {
-    return """
+        return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -343,6 +436,7 @@ public class WebServer {
         <button class="tab active" onclick="showTab('monitoring')">📊 Monitoring</button>
         <button class="tab" onclick="showTab('dns')">🌍 DNS-Benchmark</button>
         <button class="tab" onclick="showTab('hosts')">🖥️ Hosts</button>
+        <button class="tab" onclick="showTab('ip-tracking')">🌐 IP-Tracking</button>
         <button class="tab" onclick="showTab('settings')">⚙️ Einstellungen</button>
     </div>
     
@@ -433,55 +527,198 @@ public class WebServer {
         </table>
     </div>
     
+    <div id="ip-tracking" class="tab-content">
+        <h2>🌐 IP-Änderungs-Tracking</h2>
+        <p>Überwachung der externen IP-Adresse – erkennt automatisch, wann sich die IP ändert (z.B. nach Router-Neustart).</p>
+        
+        <div style="background:#e7f5ff; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+            <strong>💡 Hinweis:</strong> 
+            <ul style="margin:10px 0 0 20px;">
+                <li>Die externe IPv4-Adresse wird bei jeder Messung überprüft</li>
+                <li>Bei IP-Änderung wird automatisch ein Eintrag erstellt</li>
+                <li>Perfekt für DSL-Anschlüsse mit dynamischer IP</li>
+            </ul>
+        </div>
+        
+        <h3>📊 IP-Wechsel-Statistik</h3>
+        <table id="ip-stats-table">
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>IP-Wechsel</th>
+                    <th>Erster Wechsel</th>
+                    <th>Letzter Wechsel</th>
+                </tr>
+            </thead>
+            <tbody id="ip-stats-body"></tbody>
+        </table>
+        
+        <h3>📋 Letzte IP-Änderungen</h3>
+        <table id="ip-changes-table">
+            <thead>
+                <tr>
+                    <th>Zeit</th>
+                    <th>Host</th>
+                    <th>Alt</th>
+                    <th>Neu</th>
+                    <th>Typ</th>
+                </tr>
+            </thead>
+            <tbody id="ip-changes-body">
+                <tr><td colspan="5" style="text-align:center">Lade IP-Änderungen...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    
     <div id="settings" class="tab-content">
-                    <h2>⚙️ Messkonfiguration</h2>
-                    <p>Ändere die Messziele und das Intervall. Einstellungen werden sofort gespeichert und beim nächsten Start wiederhergestellt.</p>
+        <h2>⚙️ Messkonfiguration</h2>
+        <p>Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert und beim nächsten Start wiederhergestellt.</p>
+        
+        <div style="background:white; padding:20px; border-radius:8px; margin:20px 0;">
+            <h3>📍 Messziele & Intervall</h3>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Ping-Ziel (IP)</label>
+                    <input type="text" id="config-ping" value="8.8.8.8" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <small style="color:#6c757d;">Beispiele: 8.8.8.8, 1.1.1.1, 192.168.1.1</small>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">DNS-Ziel (Hostname)</label>
+                    <input type="text" id="config-dns" value="google.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <small style="color:#6c757d;">Beispiele: google.com, example.com</small>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">HTTP-Ziel (URL)</label>
+                    <input type="text" id="config-http" value="https://example.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <small style="color:#6c757d;">Beispiele: https://heise.de, https://github.com</small>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">⏱️ Intervall (Sekunden)</label>
+                    <input type="number" id="config-interval" value="10" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    <small style="color:#6c757d;">Min: 5s, Max: 1h</small>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background:#fff8e6; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #ffc107;">
+            <h3>⏸️ Maintenance-Fenster (Messungsunterbrechung)</h3>
+            <p>Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden (z.B. für Router-Updates).</p>
             
-                    <div style="background:white; padding:20px; border-radius:8px; margin:20px 0;">
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
-                            <div>
-                                <label style="display:block; margin-bottom:5px; font-weight:bold;">📍 Ping-Ziel (IP)</label>
-                                <input type="text" id="config-ping" value="8.8.8.8" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                                <small style="color:#6c757d;">Beispiele: 8.8.8.8, 1.1.1.1, 192.168.1.1</small>
-                            </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; font-weight:bold;">🌐 DNS-Ziel (Hostname)</label>
-                                <input type="text" id="config-dns" value="google.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                                <small style="color:#6c757d;">Beispiele: google.com, example.com, wikipedia.org</small>
-                            </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; font-weight:bold;">🔗 HTTP-Ziel (URL)</label>
-                                <input type="text" id="config-http" value="https://example.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                                <small style="color:#6c757d;">Beispiele: https://heise.de, https://github.com</small>
-                            </div>
-                            <div>
-                                <label style="display:block; margin-bottom:5px; font-weight:bold;">⏱️ Intervall (Sekunden)</label>
-                                <input type="number" id="config-interval" value="10" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                                <small style="color:#6c757d;">Min: 5s, Max: 1h</small>
-                            </div>
-                        </div>
+            <div style="display:flex; align-items:center; gap:15px; margin-top:15px;">
+                <input type="checkbox" id="maintenance-enabled" style="width:18px; height:18px;">
+                <label for="maintenance-enabled" style="font-weight:bold;">Maintenance-Fenster aktivieren</label>
+            </div>
             
-                        <button onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
-                            💾 Konfiguration speichern
-                        </button>
-                        <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
+            <div id="maintenance-fields" style="display:none; margin-top:15px; padding:15px; background:#fff3cd; border-radius:8px;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:15px; align-items:end;">
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Von Stunde</label>
+                        <select id="maintenance-start-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                            <!-- Stunden 0-23 werden per JS befüllt -->
+                        </select>
                     </div>
-            
-                    <div style="background:#e7f3ff; padding:15px; border-radius:8px; margin-top:20px;">
-                        <strong>💡 Hinweis:</strong>\s
-                        <ul style="margin:10px 0 0 20px;">
-                            <li>Änderungen werden <strong>sofort übernommen</strong> – die nächste Messrunde verwendet die neuen Ziele</li>
-                            <li>Konfiguration wird in <code>config.json</code> gespeichert und beim nächsten Start wiederhergestellt</li>
-                            <li>Für DNS-Benchmark verwende den separaten Tab "🌍 DNS-Benchmark"</li>
-                        </ul>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Von Minute</label>
+                        <select id="maintenance-start-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="0">00</option>
+                            <option value="5">05</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="35">35</option>
+                            <option value="40">40</option>
+                            <option value="45">45</option>
+                            <option value="50">50</option>
+                            <option value="55">55</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Bis Stunde</label>
+                        <select id="maintenance-end-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                            <!-- Stunden 0-23 werden per JS befüllt -->
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Bis Minute</label>
+                        <select id="maintenance-end-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="0">00</option>
+                            <option value="5">05</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="35">35</option>
+                            <option value="40">40</option>
+                            <option value="45">45</option>
+                            <option value="50">50</option>
+                            <option value="55">55</option>
+                        </select>
                     </div>
                 </div>
+                <div style="margin-top:10px; font-size:0.9em; color:#856404;">
+                    💡 Hinweis: Fenster kann über Mitternacht gehen (z.B. 23:00–01:00)
+                </div>
+            </div>
+        </div>
+        
+        <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+            <h3>👤 Benutzer-Informationen</h3>
+            <p>Diese Informationen werden später im PDF-Bericht angezeigt.</p>
+            
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Provider</label>
+                    <input type="text" id="config-provider" value="" placeholder="z.B. Telekom, Vodafone" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Kundennummer</label>
+                    <input type="text" id="config-customer-id" value="" placeholder="z.B. 123456789" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Name</label>
+                    <input type="text" id="config-user-name" value="" placeholder="z.B. Max Mustermann" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                </div>
+            </div>
+        </div>
+        
+        <button onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+            💾 Konfiguration speichern
+        </button>
+        <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
+        
+        <div style="background:#e7f3ff; padding:15px; border-radius:8px; margin-top:30px;">
+            <strong>💡 Hinweise:</strong>
+            <ul style="margin:10px 0 0 20px;">
+                <li>Änderungen werden <strong>sofort übernommen</strong> – die nächste Messrunde verwendet die neuen Einstellungen</li>
+                <li>Konfiguration wird in <code>config.json</code> gespeichert und beim nächsten Start wiederhergestellt</li>
+                <li>Während des Maintenance-Fensters werden <strong>keine Messungen</strong> durchgeführt (Terminal zeigt ⏸️ an)</li>
+            </ul>
+        </div>
+    </div>
     
     <div class="footer">
         <p>SignalReport v1.0 • Daten aktualisieren sich automatisch</p>
     </div>
     
     <script>
+        // Stunden-Dropdowns befüllen (0-23)
+        function populateHourDropdowns() {
+            const hours = Array.from({length: 24}, (_, i) => i);
+            ['maintenance-start-hour', 'maintenance-end-hour'].forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '';
+                hours.forEach(hour => {
+                    const option = document.createElement('option');
+                    option.value = hour;
+                    option.textContent = hour.toString().padStart(2, '0');
+                    select.appendChild(option);
+                });
+            });
+        }
+
         // Tab-Wechsel
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -491,6 +728,12 @@ public class WebServer {
             
             if (tabId === 'hosts') {
                 loadHosts();
+            } else if (tabId === 'settings') {
+                populateHourDropdowns();
+                loadConfig();
+            } else if (tabId === 'ip-tracking') {
+                loadIpStatistics();
+                loadIpChanges();
             }
         }
         
@@ -717,6 +960,145 @@ public class WebServer {
                 });
         }
 
+        // IP-Statistik laden
+        function loadIpStatistics() {
+            fetch('/api/ip-statistics')
+                .then(response => response.json())
+                .then(stats => {
+                    const tbody = document.getElementById('ip-stats-body');
+                    tbody.innerHTML = '';
+                    
+                    if (stats.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Keine IP-Änderungen erfasst</td></tr>';
+                        return;
+                    }
+                    
+                    stats.forEach(stat => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td style="font-family:monospace;font-size:0.9em;">${stat.hostHash.substring(0,8)}</td>
+                            <td><strong>${stat.changeCount}</strong></td>
+                            <td>${new Date(stat.firstChange * 1000).toLocaleDateString('de-DE')}</td>
+                            <td>${new Date(stat.lastChange * 1000).toLocaleDateString('de-DE')}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('IP-Statistik-Fehler:', error));
+        }
+
+        // IP-Änderungen laden
+        function loadIpChanges() {
+            fetch('/api/ip-changes?limit=50')
+                .then(response => response.json())
+                .then(changes => {
+                    const tbody = document.getElementById('ip-changes-body');
+                    tbody.innerHTML = '';
+                    
+                    if (changes.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Keine IP-Änderungen erfasst</td></tr>';
+                        return;
+                    }
+                    
+                    changes.forEach(change => {
+                        const row = document.createElement('tr');
+                        const changeType = change.changeType === 'INITIAL' ? '🟢 Initial' : '🔄 Wechsel';
+                        const changeColor = change.changeType === 'INITIAL' ? '#198754' : '#0d6efd';
+                        
+                        row.innerHTML = `
+                            <td>${new Date(change.timestamp * 1000).toLocaleString('de-DE')}</td>
+                            <td style="font-family:monospace;font-size:0.8em;">${change.hostHash.substring(0,8)}</td>
+                            <td style="font-family:monospace;">${change.oldIp || '–'}</td>
+                            <td style="font-family:monospace;font-weight:bold;color:${changeColor};">${change.newIp}</td>
+                            <td style="color:${changeColor};">${changeType}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('IP-Änderungen-Fehler:', error);
+                    document.getElementById('ip-changes-body').innerHTML = 
+                        '<tr><td colspan="5" style="text-align:center;color:red">Fehler beim Laden der IP-Änderungen</td></tr>';
+                });
+        }
+
+        // Einstellungen laden
+        function loadConfig() {
+            fetch('/api/config/current')
+                .then(response => response.json())
+                .then(config => {
+                    // Messziele
+                    document.getElementById('config-ping').value = config.ping;
+                    document.getElementById('config-dns').value = config.dns;
+                    document.getElementById('config-http').value = config.http;
+                    document.getElementById('config-interval').value = config.intervalSeconds;
+                    
+                    // Maintenance
+                    const maint = config.maintenance;
+                    document.getElementById('maintenance-enabled').checked = maint.enabled;
+                    document.getElementById('maintenance-start-hour').value = maint.startHour;
+                    document.getElementById('maintenance-start-minute').value = maint.startMinute;
+                    document.getElementById('maintenance-end-hour').value = maint.endHour;
+                    document.getElementById('maintenance-end-minute').value = maint.endMinute;
+                    document.getElementById('maintenance-fields').style.display = maint.enabled ? 'block' : 'none';
+                    
+                    // UserInfo
+                    const ui = config.userInfo;
+                    document.getElementById('config-provider').value = ui.provider || '';
+                    document.getElementById('config-customer-id').value = ui.customerId || '';
+                    document.getElementById('config-user-name').value = ui.userName || '';
+                })
+                .catch(error => console.error('Config-Lade-Fehler:', error));
+        }
+
+        // Maintenance-Checkbox Toggle
+        document.getElementById('maintenance-enabled').addEventListener('change', function() {
+            document.getElementById('maintenance-fields').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Konfiguration speichern
+        function saveConfig() {
+            const statusDiv = document.getElementById('config-status');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.textContent = '💾 Speichere Konfiguration...';
+            
+            const config = {
+                ping: document.getElementById('config-ping').value.trim(),
+                dns: document.getElementById('config-dns').value.trim(),
+                http: document.getElementById('config-http').value.trim(),
+                intervalSeconds: parseInt(document.getElementById('config-interval').value),
+                maintenance: {
+                    enabled: document.getElementById('maintenance-enabled').checked,
+                    startHour: parseInt(document.getElementById('maintenance-start-hour').value),
+                    startMinute: parseInt(document.getElementById('maintenance-start-minute').value),
+                    endHour: parseInt(document.getElementById('maintenance-end-hour').value),
+                    endMinute: parseInt(document.getElementById('maintenance-end-minute').value)
+                },
+                userInfo: {
+                    provider: document.getElementById('config-provider').value.trim(),
+                    customerId: document.getElementById('config-customer-id').value.trim(),
+                    userName: document.getElementById('config-user-name').value.trim()
+                }
+            };
+            
+            fetch('/api/config/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.text())
+            .then(message => {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.textContent = '✅ ' + message;
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+            })
+            .catch(error => {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.textContent = '❌ Fehler: ' + error.message;
+            });
+        }
+
         // PDF-Download
         function downloadReport(hours) {
             window.location.href = '/api/report?hours=' + hours;
@@ -734,70 +1116,17 @@ public class WebServer {
         setInterval(loadHourlyChart, 300000);
         setInterval(loadNetworkInfo, 60000); // Netzwerk-Info alle 60 Sekunden
         
-        // Einstellungen laden
-                    function loadConfig() {
-                        fetch('/api/config/current')
-                            .then(response => response.json())
-                            .then(config => {
-                                document.getElementById('config-ping').value = config.ping;
-                                document.getElementById('config-dns').value = config.dns;
-                                document.getElementById('config-http').value = config.http;
-                                document.getElementById('config-interval').value = config.intervalSeconds;
-                            })
-                            .catch(error => console.error('Config-Lade-Fehler:', error));
-                    }
-            
-                    // Konfiguration speichern
-                    function saveConfig() {
-                        const statusDiv = document.getElementById('config-status');
-                        statusDiv.style.display = 'block';
-                        statusDiv.style.background = '#fff3cd';
-                        statusDiv.textContent = '💾 Speichere Konfiguration...';
-            
-                        const config = {
-                            ping: document.getElementById('config-ping').value.trim(),
-                            dns: document.getElementById('config-dns').value.trim(),
-                            http: document.getElementById('config-http').value.trim(),
-                            intervalSeconds: parseInt(document.getElementById('config-interval').value)
-                        };
-            
-                        fetch('/api/config/update', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(config)
-                        })
-                        .then(response => response.text())
-                        .then(message => {
-                            statusDiv.style.background = '#d4edda';
-                            statusDiv.textContent = '✅ ' + message;
-                            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
-                        })
-                        .catch(error => {
-                            statusDiv.style.background = '#f8d7da';
-                            statusDiv.textContent = '❌ Fehler: ' + error.message;
-                        });
-                    }
-            
-                    // Tab "Einstellungen" aktivieren → Config laden
-                   // Tab-Wechsel
-                       function showTab(tabId) {
-                           document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-                           document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-                           document.getElementById(tabId).classList.add('active');
-                           event.target.classList.add('active');
-    
-                           // Bei Tab-Wechsel spezifische Aktionen ausführen
-                           if (tabId === 'hosts') {
-                               loadHosts();
-                           } else if (tabId === 'settings') {
-                               loadConfig();
-                           }
-                       }
-        
+        // IP-Tracking alle 30 Sekunden aktualisieren (wenn Tab aktiv)
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab && activeTab.textContent.includes('IP-Tracking')) {
+                loadIpStatistics();
+                loadIpChanges();
+            }
+        }, 30000);
     </script>
 </body>
 </html>
 """;
-}
-
+    }
 }

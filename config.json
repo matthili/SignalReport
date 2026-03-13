@@ -2,8 +2,8 @@
   "measurement" : {
     "targets" : {
       "ping" : "8.8.8.8",
-      "dns" : "heise.de",
-      "http" : "https://www.orf.at"
+      "dns" : "google.com",
+      "http" : "https://example.com"
     },
     "intervalSeconds" : 10
   },
@@ -73,35 +73,18 @@
     "address" : "84.200.70.40",
     "region" : "Europa",
     "provider" : "DNS.WATCH"
-  }, {
-    "name" : "Comodo Secure",
-    "address" : "8.26.56.26",
-    "region" : "Nordamerika",
-    "provider" : "Comodo"
-  }, {
-    "name" : "Comodo Secure Secondary",
-    "address" : "8.20.247.20",
-    "region" : "Nordamerika",
-    "provider" : "Comodo"
-  }, {
-    "name" : "CleanBrowsing Adult",
-    "address" : "185.228.168.168",
-    "region" : "Europa",
-    "provider" : "CleanBrowsing"
-  }, {
-    "name" : "CleanBrowsing Family",
-    "address" : "185.228.168.10",
-    "region" : "Europa",
-    "provider" : "CleanBrowsing"
-  }, {
-    "name" : "Verisign Primary",
-    "address" : "64.6.64.6",
-    "region" : "Nordamerika",
-    "provider" : "Verisign"
-  }, {
-    "name" : "Verisign Secondary",
-    "address" : "64.6.65.6",
-    "region" : "Nordamerika",
-    "provider" : "Verisign"
-  } ]
+  } ],
+  "maintenanceWindow" : {
+    "enabled" : false,
+    "startHour" : 4,
+    "startMinute" : 0,
+    "endHour" : 4,
+    "endMinute" : 10,
+    "maintenanceTime" : false
+  },
+  "userInfo" : {
+    "provider" : "Magenta",
+    "customerId" : "08154711",
+    "userName" : "Matthias F."
+  }
 }

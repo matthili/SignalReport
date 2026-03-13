@@ -1,16 +1,11 @@
 package at.mafue.signalreport;
 
-// OpenPDF Imports (explizit)
-import com.lowagie.text.Chunk;
-import com.lowagie.text.Document;
+import com.lowagie.text.*;
 import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.Image;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
-
-// JFreeChart Imports
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
@@ -20,12 +15,10 @@ import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
-// AWT Imports (explizit)
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -39,7 +32,7 @@ public class PdfReportGenerator {
     }
 
     public byte[] generateReport(int hours) throws Exception {
-        // Dokument erstellen
+        // Dokument erstellen (A4-Größe)
         Document document = new Document(PageSize.A4);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter.getInstance(document, baos);
@@ -56,13 +49,46 @@ public class PdfReportGenerator {
         document.add(new Paragraph("SignalReport – Internet-Qualitätsbericht", titleFont));
         document.add(Chunk.NEWLINE);
 
+        // Benutzer-Informationen (wenn vorhanden)
+        Config config = Config.getInstance();
+        Config.UserInfo userInfo = config.getUserInfo();
+        boolean hasUserInfo = userInfo != null &&
+            (!userInfo.getProvider().isEmpty() ||
+             !userInfo.getCustomerId().isEmpty() ||
+             !userInfo.getUserName().isEmpty());
+
+        if (hasUserInfo) {
+            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD);
+            document.add(new Paragraph("Kunde:", sectionFont));
+
+            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
+            if (!userInfo.getUserName().isEmpty()) {
+                document.add(new Paragraph("Name:          " + userInfo.getUserName(), regularFont));
+            }
+            if (!userInfo.getProvider().isEmpty()) {
+                document.add(new Paragraph("Provider:      " + userInfo.getProvider(), regularFont));
+            }
+            if (!userInfo.getCustomerId().isEmpty()) {
+                document.add(new Paragraph("Kundennummer:  " + userInfo.getCustomerId(), regularFont));
+            }
+            document.add(Chunk.NEWLINE);
+        }
+
         // Zeitraum
         Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
         document.add(new Paragraph("Zeitraum: " + formatter.format(since) + " – " + formatter.format(now), regularFont));
         document.add(Chunk.NEWLINE);
 
-        // Statistiken
+        // Host-Informationen
+        Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+        document.add(new Paragraph("Host: " + HostIdentifier.getHostname() + " | Hash: " + HostIdentifier.getHostHash().substring(0, 8), smallFont));
+        document.add(new Paragraph("LAN IP: " + NetworkInfo.getLocalIPv4() + " | Externe IP: " + NetworkInfo.getExternalIPv4(), smallFont));
+        document.add(Chunk.NEWLINE);
+
+        // Statistiken holen
         H2MeasurementRepository.Statistics stats = repository.calculateStatistics("PING", hours);
+
+        // Statistik-Box
         Font boldFont = FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD);
         document.add(new Paragraph("Zusammenfassung (PING)", boldFont));
         document.add(Chunk.NEWLINE);
@@ -83,9 +109,52 @@ public class PdfReportGenerator {
         // Chart als Bild speichern und ins PDF einfügen
         ByteArrayOutputStream imageBaos = new ByteArrayOutputStream();
         javax.imageio.ImageIO.write(chartImage, "png", imageBaos);
-        Image chartImagePdf = Image.getInstance(imageBaos.toByteArray());
+        com.lowagie.text.Image chartImagePdf = com.lowagie.text.Image.getInstance(imageBaos.toByteArray());
         chartImagePdf.scaleToFit(500, 300);
         document.add(chartImagePdf);
+        document.add(Chunk.NEWLINE);
+        document.add(Chunk.NEWLINE);
+
+        // IP-Änderungs-Historie (wenn vorhanden)
+        List<H2MeasurementRepository.IpChange> ipChanges = repository.getIpChanges(10);
+        if (!ipChanges.isEmpty()) {
+            document.add(new Paragraph("IP-Änderungs-Historie (letzte 10 Änderungen)", boldFont));
+            document.add(Chunk.NEWLINE);
+
+            // Tabelle für IP-Änderungen
+            PdfPTable table = new PdfPTable(2);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{3, 2});
+
+            Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD);
+            PdfPCell header1 = new PdfPCell(new Phrase("Datum/Zeit", tableHeaderFont));
+            header1.setBorder(Rectangle.BOTTOM);
+            header1.setBorderWidthBottom(1.5f);
+            table.addCell(header1);
+
+            PdfPCell header2 = new PdfPCell(new Phrase("Neue IP-Adresse", tableHeaderFont));
+            header2.setBorder(Rectangle.BOTTOM);
+            header2.setBorderWidthBottom(1.5f);
+            table.addCell(header2);
+
+            Font tableContentFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            for (H2MeasurementRepository.IpChange change : ipChanges) {
+                String time = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+                    .withZone(ZoneId.systemDefault())
+                    .format(change.getTimestamp());
+                String newIp = change.getNewIp() != null ? change.getNewIp() : "unbekannt";
+
+                PdfPCell cell1 = new PdfPCell(new Phrase(time, tableContentFont));
+                cell1.setBorder(Rectangle.NO_BORDER);
+                table.addCell(cell1);
+
+                PdfPCell cell2 = new PdfPCell(new Phrase(newIp, tableContentFont));
+                cell2.setBorder(Rectangle.NO_BORDER);
+                table.addCell(cell2);
+            }
+
+            document.add(table);
+        }
 
         document.close();
         return baos.toByteArray();

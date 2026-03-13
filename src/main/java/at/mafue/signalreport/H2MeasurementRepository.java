@@ -55,9 +55,22 @@ public class H2MeasurementRepository {
             )
             """;
 
+        // 🔑 NEU: Tabelle für IP-Änderungen (Tracking)
+        String ipChangesTable = """
+            CREATE TABLE IF NOT EXISTS ip_changes (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                timestamp TIMESTAMP NOT NULL,
+                old_ip VARCHAR(45),
+                new_ip VARCHAR(45) NOT NULL,
+                change_type VARCHAR(20) NOT NULL,
+                host_hash VARCHAR(32) NOT NULL
+            )
+            """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(measurementsTable);
             stmt.execute(hostsTable);
+            stmt.execute(ipChangesTable);  // 🔑 Neue Tabelle erstellen
         }
     }
 
@@ -75,6 +88,157 @@ public class H2MeasurementRepository {
             pstmt.setString(3, os);
             pstmt.executeUpdate();
         }
+    }
+
+        //  IP-Änderung erkennen und speichern
+    public void trackIpChange(String currentIp, String hostHash) throws SQLException {
+        if (currentIp == null || currentIp.equals("unknown")) {
+            return; // Kein Tracking bei unbekannter IP
+        }
+
+        // Letzte bekannte IP holen
+        String lastIp = getLastKnownIp(hostHash);
+
+        // IP hat sich geändert?
+        if (lastIp == null) {
+            // Erste IP für diesen Host – Initialisierung
+            recordIpChange(null, currentIp, "INITIAL", hostHash);
+        } else if (!lastIp.equals(currentIp)) {
+            // IP-Wechsel erkannt!
+            recordIpChange(lastIp, currentIp, "CHANGE", hostHash);
+        }
+    }
+
+    // Letzte bekannte IP für einen Host holen
+    private String getLastKnownIp(String hostHash) throws SQLException {
+        String sql = """
+            SELECT new_ip FROM ip_changes 
+            WHERE host_hash = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1
+            """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, hostHash);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("new_ip");
+            }
+            return null;
+        }
+    }
+
+    // IP-Änderung in Datenbank speichern
+    private void recordIpChange(String oldIp, String newIp, String changeType, String hostHash) throws SQLException {
+        String sql = """
+            INSERT INTO ip_changes (timestamp, old_ip, new_ip, change_type, host_hash)
+            VALUES (CURRENT_TIMESTAMP, ?, ?, ?, ?)
+            """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, oldIp);
+            pstmt.setString(2, newIp);
+            pstmt.setString(3, changeType);
+            pstmt.setString(4, hostHash);
+            pstmt.executeUpdate();
+        }
+    }
+
+    // Alle IP-Änderungen abfragen
+    public List<IpChange> getIpChanges(int limit) throws SQLException {
+        List<IpChange> results = new ArrayList<>();
+        String sql = """
+            SELECT timestamp, old_ip, new_ip, change_type, host_hash
+            FROM ip_changes
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, limit);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                results.add(new IpChange(
+                    rs.getTimestamp("timestamp").toInstant(),
+                    rs.getString("old_ip"),
+                    rs.getString("new_ip"),
+                    rs.getString("change_type"),
+                    rs.getString("host_hash")
+                ));
+            }
+        }
+        return results;
+    }
+
+    // Statistik: IP-Wechsel pro Host
+    public List<IpChangeStats> getIpChangeStatistics() throws SQLException {
+        List<IpChangeStats> results = new ArrayList<>();
+        String sql = """
+            SELECT 
+                host_hash,
+                COUNT(*) as change_count,
+                MIN(timestamp) as first_change,
+                MAX(timestamp) as last_change
+            FROM ip_changes
+            GROUP BY host_hash
+            ORDER BY last_change DESC
+            """;
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                results.add(new IpChangeStats(
+                    rs.getString("host_hash"),
+                    rs.getInt("change_count"),
+                    rs.getTimestamp("first_change").toInstant(),
+                    rs.getTimestamp("last_change").toInstant()
+                ));
+            }
+        }
+        return results;
+    }
+
+    // Hilfsklasse für IP-Änderungen
+    public static class IpChange {
+        private final Instant timestamp;
+        private final String oldIp;
+        private final String newIp;
+        private final String changeType;
+        private final String hostHash;
+
+        public IpChange(Instant timestamp, String oldIp, String newIp, String changeType, String hostHash) {
+            this.timestamp = timestamp;
+            this.oldIp = oldIp;
+            this.newIp = newIp;
+            this.changeType = changeType;
+            this.hostHash = hostHash;
+        }
+
+        public Instant getTimestamp() { return timestamp; }
+        public String getOldIp() { return oldIp; }
+        public String getNewIp() { return newIp; }
+        public String getChangeType() { return changeType; }
+        public String getHostHash() { return hostHash; }
+    }
+
+    // Hilfsklasse für IP-Statistik
+    public static class IpChangeStats {
+        private final String hostHash;
+        private final int changeCount;
+        private final Instant firstChange;
+        private final Instant lastChange;
+
+        public IpChangeStats(String hostHash, int changeCount, Instant firstChange, Instant lastChange) {
+            this.hostHash = hostHash;
+            this.changeCount = changeCount;
+            this.firstChange = firstChange;
+            this.lastChange = lastChange;
+        }
+
+        public String getHostHash() { return hostHash; }
+        public int getChangeCount() { return changeCount; }
+        public Instant getFirstChange() { return firstChange; }
+        public Instant getLastChange() { return lastChange; }
     }
 
     public void save(Measurement m) throws SQLException {
