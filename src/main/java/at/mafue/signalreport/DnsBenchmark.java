@@ -44,7 +44,7 @@ public class DnsBenchmark {
         long start = System.nanoTime();
 
         try {
-            // 🔑 Echte DNS-Query mit spezifischem Server (umgeht PiHole-Cache!)
+            //  Echte DNS-Query mit spezifischem Server (umgeht PiHole-Cache!)
             SimpleResolver resolver = new SimpleResolver(server.getAddress());
             resolver.setTimeout(timeoutMs / 1000, timeoutMs % 1000);
 

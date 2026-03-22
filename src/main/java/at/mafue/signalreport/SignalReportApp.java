@@ -67,7 +67,7 @@ public class SignalReportApp {
                 maintenance = new Config.MaintenanceWindow();
             }
 
-            // 🔑 Maintenance-Prüfung
+            //  Maintenance-Prüfung
             if (maintenance.isMaintenanceTime()) {
                 System.out.println("⏸️  Maintenance-Fenster aktiv (" +
                     String.format("%02d:%02d", maintenance.getStartHour(), maintenance.getStartMinute()) + "–" +
@@ -83,11 +83,11 @@ public class SignalReportApp {
                 System.out.println("🔄 Messrunde #" + round + " | Ziele: " + pingTarget + ", " + dnsTarget + ", " + httpTarget);
 
                 try {
-                    // 🔑 IP-Tracking: Aktuelle externe IP ermitteln
+                    // IP-Tracking: Aktuelle externe IP ermitteln
                     String currentExternalIp = NetworkInfo.getExternalIPv4();
                     String hostHash = HostIdentifier.getHostHash();
 
-                    // 🔑 IP-Änderung erkennen und speichern
+                    // IP-Änderung erkennen und speichern
                     repo.trackIpChange(currentExternalIp, hostHash);
 
                     // Messungen durchführen

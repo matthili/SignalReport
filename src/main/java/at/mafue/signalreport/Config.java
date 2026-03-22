@@ -28,7 +28,7 @@ public static Config load(String path) throws IOException {
 
         File configFile = new File(path);
         if (configFile.exists()) {
-            // 🔑 Jackson konfigurieren: Unbekannte Felder ignorieren
+            // Jackson konfigurieren: Unbekannte Felder ignorieren
             ObjectMapper mapper = new ObjectMapper();
             mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             instance = mapper.readValue(configFile, Config.class);

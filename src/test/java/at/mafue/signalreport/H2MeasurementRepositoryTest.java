@@ -165,15 +165,23 @@ class H2MeasurementRepositoryTest {
     @Test
     void testIpChangeTracking() throws SQLException {
         // Act
-        repo.trackIpChange("1.2.3.4", "testhash123");
-        repo.trackIpChange("5.6.7.8", "testhash123"); // IP-Wechsel
+        repo.trackIpChange("1.2.3.4", "testhash123"); // Erste IP → INITIAL
+        repo.trackIpChange("5.6.7.8", "testhash123"); // IP-Wechsel → CHANGE
         List<H2MeasurementRepository.IpChange> changes = repo.getIpChanges(10);
 
         // Assert
         assertEquals(2, changes.size(), "Es sollten 2 IP-Änderungen erfasst sein");
-        assertEquals("INITIAL", changes.getFirst().getChangeType(), "Erste Änderung sollte INITIAL sein");
-        assertEquals("CHANGE", changes.getFirst().getChangeType(), "Zweite Änderung sollte CHANGE sein");
-        assertEquals("1.2.3.4", changes.getFirst().getNewIp());
-        assertEquals("5.6.7.8", changes.getFirst().getNewIp());
+
+        // WICHTIG: getIpChanges() liefert neueste zuerst (DESC)
+        // changes.get(0) = neueste Änderung (CHANGE)
+        // changes.get(1) = älteste Änderung (INITIAL)
+
+        // Neueste Änderung (Index 0)
+        assertEquals("CHANGE", changes.get(0).getChangeType(), "Neueste Änderung sollte CHANGE sein");
+        assertEquals("5.6.7.8", changes.get(0).getNewIp(), "Neueste IP sollte 5.6.7.8 sein");
+
+        // Älteste Änderung (Index 1)
+        assertEquals("INITIAL", changes.get(1).getChangeType(), "Älteste Änderung sollte INITIAL sein");
+        assertEquals("1.2.3.4", changes.get(1).getNewIp(), "Älteste IP sollte 1.2.3.4 sein");
     }
 }
