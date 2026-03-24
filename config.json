@@ -86,5 +86,14 @@
     "provider" : "Magenta",
     "customerId" : "08154711",
     "userName" : "Matthias F."
+  },
+  "auth" : {
+    "enabled" : false,
+    "adminPasswordHash" : "",
+    "userPasswordHash" : ""
+  },
+  "setup" : {
+    "setupCompleted" : true,
+    "adminPasswordHash" : "fbb0814d561c0bd4ee53440778df5f8ef79bff4157c6b66a78cbb5429ac9702b"
   }
 }

@@ -5,23 +5,42 @@
 Die Teststrategie umfasste:
 
 \begin{itemize}
-    \item \textbf{Unit-Tests}: Für die Kernkomponenten (z. B. Statistik-Berechnung)
-    \item \textbf{Integrationstests}: Für die Datenbankanbindung
-    \item \textbf{E2E-Tests}: Für das Web-Interface
+    \item \textbf{Unit-Tests}: Für die Kernkomponenten (z. B. Statistik-Berechnung, Config-Handling)
+    \item \textbf{Integrationstests}: Für die Datenbankanbindung und API-Endpunkte
+    \item \textbf{E2E-Tests}: Für das Web-Interface und PDF-Export
+    \item \textbf{Manuelle Tests}: Für UI-Interaktionen und Benutzerfreundlichkeit
 \end{itemize}
+
+\subsection{JUnit-Testabdeckung}
+SignalReport wurde mit JUnit 5 umfassend getestet. Die Testabdeckung umfasst:
+
+\begin{itemize}
+    \item \textbf{Measurement}: Grundlegende Objekt-Erstellung und Validierung
+    \item \textbf{HostIdentifier}: Stabile Host-Identifikation über Neustarts
+    \item \textbf{Statistics}: Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust
+    \item \textbf{Config}: Laden/Speichern von Konfiguration mit allen Features
+    \item \textbf{H2MeasurementRepository}: Vollständige Datenbank-Integration mit IP-Tracking
+\end{itemize}
+
+Alle Tests laufen ohne externe Abhängigkeiten (Mocking für Netzwerkaufrufe) und sind in unter 2 Sekunden durchführbar.
 
 \subsection{Beispiel-Test für Statistik-Berechnung}
 \begin{lstlisting}[language=Java, caption=Test für 95th Percentile]
 @Test
-public void testP95Latency() {
-    // Arrange
-    List<Measurement> measurements = createTestMeasurements();
+void testP95CalculationWithSortedLatencies() {
+    // Arrange: 20 Messungen (95th Percentile = 19. Wert)
+    List<Double> latencies = new ArrayList<>();
+    for (int i = 1; i <= 20; i++) {
+        latencies.add((double) i * 10); // 10, 20, 30, ..., 200
+    }
 
-    // Act
-    Statistics stats = repository.calculateStatistics("PING", 24);
+    // Act: 95th Percentile = Index 18 (0-basiert) = 190.0
+    int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
+    double p95Value = latencies.get(p95Index);
 
     // Assert
-    assertEquals(120.5, stats.getP95Latency(), 0.1);
+    assertEquals(18, p95Index, "Index für 95th Percentile muss 18 sein");
+    assertEquals(190.0, p95Value, 0.01, "95th Percentile-Wert muss 190.0 sein");
 }
 \end{lstlisting}
 
@@ -47,25 +66,15 @@ E2E-Tests & 5 & 100\% \\
 \begin{itemize}
     \item \textbf{Betriebssystem}: Windows 11, macOS Sonoma, Ubuntu 22.04
     \item \textbf{Java-Version}: 21
-    \item \textbf{Browser}: Chrome, Firefox, Safari
-\subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die Testabdeckung umfasst:
-
-\begin{itemize}
-    \item \textbf{Measurement}: Grundlegende Objekt-Erstellung und Validierung
-    \item \textbf{HostIdentifier}: Stabile Host-Identifikation über Neustarts
-    \item \textbf{Statistics}: Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust
-    \item \textbf{Config}: Laden/Speichern von Konfiguration mit allen Features
-    \item \textbf{H2MeasurementRepository}: Vollständige Datenbank-Integration mit IP-Tracking
+    \item \textbf{Browser}: Chrome, Firefox, Safari, Edge
+    \item \textbf{Hardware}: Desktop-PC, Laptop, Synology NAS DS220+
 \end{itemize}
 
-    \subsection{Test-Philosophie und -Qualität}
+\subsection{Test-Philosophie und -Qualität}
 SignalReport verwendet eine gezielte Test-Strategie:
 \begin{itemize}
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
     \item \textbf{100\% Bestehensquote}: Alle 15+ Tests laufen reproduzierbar grün – nachweisbare Qualität für die Prüfung
-\end{itemize}
-Alle Tests laufen ohne externe Abhängigkeiten (Mocking für Netzwerkaufrufe) und sind in unter 2 Sekunden durchführbar.
 \end{itemize}

@@ -7,17 +7,28 @@ package "SignalReport Anwendung" {
   [SignalReportApp] as App
   [WebServer\n(Javalin)] as Web
   [PdfReportGenerator] as PDF
+  [PushNotificationService] as Push
 }
 
 package "Mess-Engine" {
   [PingMeasurer] as Ping
   [DnsMeasurer] as DNS
   [HttpMeasurer] as HTTP
+  [DnsBenchmark] as Benchmark
 }
 
 package "Persistenz" {
   [H2MeasurementRepository] as Repo
   database "H2 Database\n./data/signalreport.mv.db" as DB
+}
+
+package "Konfiguration" {
+  [Config\n(JSON-basiert)] as Config
+}
+
+package "Netzwerk" {
+  [HostIdentifier] as HostID
+  [NetworkInfo] as NetInfo
 }
 
 package "Visualisierung" {
@@ -29,6 +40,7 @@ package "Externe Dienste" {
   [Google DNS\n8.8.8.8] as GoogleDNS
   [Cloudflare DNS\n1.1.1.1] as CloudflareDNS
   [Example.com\nHTTPS] as Example
+  [ipify.org\n(externe IP)] as Ipify
 }
 
 App --> Web : startet
@@ -36,36 +48,64 @@ App --> Ping : verwendet
 App --> DNS : verwendet
 App --> HTTP : verwendet
 App --> Repo : speichert Messungen
+App --> HostID : Host-Identifikation
+App --> NetInfo : IP-Adressen ermitteln
+App --> Config : liest Konfiguration
 
 Web --> Repo : liest Messungen für API
 Web --> PDF : generiert Bericht bei Anfrage
+Web --> Push : verwaltet Push-Clients
+Web --> Config : liest/aktualisiert Einstellungen
 
 PDF --> Repo : holt Statistiken + Messungen
-PDF --> Chart : erstellt Chart-Bild
+PDF --> Chart : erstellt Chart-Bilder
 PDF --> OpenPDF : erstellt PDF-Dokument
 
-Repo --> DB : speichert/liest Daten
+Push --> Repo : überwacht Messungen
 
 Ping --> GoogleDNS : pingt
 DNS --> GoogleDNS : resolved
 DNS --> CloudflareDNS : resolved
 HTTP --> Example : HTTP GET
+NetInfo --> Ipify : externe IP ermitteln
+
+Repo --> DB : speichert/liest Daten
 
 note top of App
   Hauptklasse mit main()-Methode
   Startet alle Komponenten
+  Führt kontinuierliche Messung durch
+  IP-Tracking bei jeder Messung
 end note
 
 note right of Web
   Webserver auf Port 4567
   • REST-API (/api/*)
   • HTML-UI (/)
-  • PDF-Download (/api/report)
+  • Setup-Wizard (/setup)
+  • Authentifizierung (Basic Auth)
+  • Push-Benachrichtigungen
 end note
 
 note bottom of DB
   Embedded H2-Datenbank
   Kein separater Server nötig
   Portable Datenbank-Datei
+  Tabellen:
+  • measurements
+  • hosts
+  • ip_changes
+end note
+
+note left of Config
+  Konfigurationsdatei: config.json
+  Enthält:
+  • Messintervall
+  • Ziele (Ping/DNS/HTTP)
+  • Maintenance-Fenster
+  • DNS-Server-Liste
+  • Benutzer-Info
+  • Setup-Status
+  • Authentifizierung
 end note
 @enduml

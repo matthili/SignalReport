@@ -27,9 +27,72 @@ public class WebServer {
             config.jsonMapper(new io.javalin.json.JavalinJackson(objectMapper));
         }).start(port);
 
+        // Setup-Middleware: Prüfen, ob Setup abgeschlossen ist
+        app.before(ctx -> {
+            Config config = Config.getInstance();
+
+            // Setup-Seite und Login sind immer erlaubt
+            String path = ctx.path();
+            if (path.equals("/setup") || path.equals("/api/setup/complete")) {
+                return;
+            }
+
+            // Wenn Setup nicht abgeschlossen → zur Setup-Seite umleiten
+            if (!config.getSetup().isSetupCompleted()) {
+                ctx.redirect("/setup");
+                return;
+            }
+        });
+
+        // Auth-Middleware
+        app.before(ctx -> {
+            Config config = Config.getInstance();
+            Config.AuthConfig auth = config.getAuth();
+
+            if (!auth.isEnabled()) {
+                return; // Keine Authentifizierung erforderlich
+            }
+
+            String authHeader = ctx.header("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Basic ")) {
+                ctx.status(401).header("WWW-Authenticate", "Basic realm=\"SignalReport\"");
+                throw new RuntimeException("Unauthorized");
+            }
+
+            // Decode Basic Auth
+            String credentials = new String(java.util.Base64.getDecoder()
+                .decode(authHeader.substring(6)));
+            String[] parts = credentials.split(":", 2);
+
+            if (parts.length != 2) {
+                ctx.status(401);
+                throw new RuntimeException("Unauthorized");
+            }
+
+            String username = parts[0];
+            String password = parts[1];
+
+            // Admin oder User?
+            boolean isAdmin = username.equals("admin") && auth.verifyAdminPassword(password);
+            boolean isUser = username.equals("user") && auth.verifyUserPassword(password);
+
+            if (!isAdmin && !isUser) {
+                ctx.status(401);
+                throw new RuntimeException("Unauthorized");
+            }
+
+            // Admin-Rechte speichern für spätere API-Checks
+            ctx.attribute("isAdmin", isAdmin);
+        });
+
         // Statische HTML-Seite (Root)
         app.get("/", ctx -> {
             ctx.html(createHtmlPage());
+        });
+
+        // Setup-Seite
+        app.get("/setup", ctx -> {
+            ctx.html(createSetupPage());
         });
 
         // REST-API für Messungen
@@ -118,6 +181,77 @@ public class WebServer {
             }
         });
 
+        // CSV-Export
+        app.get("/api/export/csv", ctx -> {
+            try {
+                String allParam = ctx.queryParam("all");
+                int hours = 24;
+                boolean exportAll = "true".equalsIgnoreCase(allParam);
+
+                if (!exportAll && ctx.queryParam("hours") != null) {
+                    hours = Integer.parseInt(ctx.queryParam("hours"));
+                }
+
+                String typeFilter = ctx.queryParam("type");
+
+                List<Measurement> measurements;
+                if (exportAll) {
+                    measurements = repository.findLastN(1000000);
+                } else {
+                    measurements = repository.findLastN(10000);
+                }
+
+                StringBuilder csv = new StringBuilder();
+                csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
+
+                Instant cutoff = exportAll ? Instant.ofEpochMilli(0) : Instant.now().minusSeconds(hours * 3600L);
+                int count = 0;
+
+                for (Measurement m : measurements) {
+                    if (m.getTimestamp().isBefore(cutoff)) break;
+
+                    if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
+
+                    csv.append(m.getTimestamp().toString().replace("T", " ").replace("Z", ""))
+                       .append(";")
+                       .append(escapeCsv(m.getType()))
+                       .append(";")
+                       .append(escapeCsv(m.getTarget()))
+                       .append(";")
+                       .append(String.format("%.3f", m.getLatencyMs()))
+                       .append(";")
+                       .append(m.isSuccess() ? "1" : "0")
+                       .append(";")
+                       .append(escapeCsv(m.getLocalIPv4()))
+                       .append(";")
+                       .append(escapeCsv(m.getLocalIPv6()))
+                       .append(";")
+                       .append(escapeCsv(m.getExternalIPv4()))
+                       .append(";")
+                       .append(escapeCsv(m.getExternalIPv6()))
+                       .append(";")
+                       .append(escapeCsv(m.getHostHash()))
+                       .append("\n");
+
+                    count++;
+                }
+
+                String filenamePrefix = exportAll ? "signalreport-complete" : "signalreport-" + java.time.LocalDate.now();
+                ctx.contentType("text/csv");
+                ctx.header("Content-Disposition",
+                    "attachment; filename=" + filenamePrefix + "-" +
+                    java.time.LocalTime.now().toString().replace(":", "") + ".csv");
+
+                ctx.result(csv.toString());
+            } catch (NumberFormatException e) {
+                ctx.status(400);
+                ctx.json(new ErrorResponse("Ungültiger Parameter"));
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("CSV-Export-Fehler: " + e.getMessage()));
+            }
+        });
+
         // Host-Informationen API
         app.get("/api/hosts", ctx -> {
             try {
@@ -173,7 +307,6 @@ public class WebServer {
                 DnsBenchmark benchmark = new DnsBenchmark(config.getDnsServers(), hostname, 5000);
                 List<DnsBenchmark.DnsResult> results = benchmark.benchmark();
 
-                // Ergebnisse nach Latenz sortieren
                 results.sort((a, b) -> Double.compare(a.getLatencyMs(), b.getLatencyMs()));
 
                 ctx.json(results);
@@ -237,7 +370,6 @@ public class WebServer {
             try {
                 var body = ctx.bodyAsClass(java.util.Map.class);
 
-                // Targets - mit Null-Checks
                 String ping = "8.8.8.8";
                 String dns = "google.com";
                 String http = "https://example.com";
@@ -254,7 +386,6 @@ public class WebServer {
                     }
                 }
 
-                // Maintenance - mit Null-Checks
                 boolean maintenanceEnabled = false;
                 int startHour = 4, startMinute = 0, endHour = 4, endMinute = 10;
 
@@ -277,7 +408,6 @@ public class WebServer {
                     }
                 }
 
-                // UserInfo - mit Null-Checks
                 String provider = "";
                 String customerId = "";
                 String userName = "";
@@ -289,13 +419,11 @@ public class WebServer {
                     if (userInfo.get("userName") != null) userName = userInfo.get("userName").toString().trim();
                 }
 
-                // Update Config
                 Config currentConfig = Config.getInstance();
                 currentConfig.updateTargets(ping, dns, http, interval);
                 currentConfig.updateMaintenanceWindow(maintenanceEnabled, startHour, startMinute, endHour, endMinute);
                 currentConfig.updateUserInfo(provider, customerId, userName);
 
-                // Persistieren
                 Config.save("config.json");
 
                 ctx.status(200);
@@ -335,110 +463,153 @@ public class WebServer {
             }
         });
 
-        //  CSV-Export für Messungen (mit "all" Option für kompletten Export)
-            app.get("/api/export/csv", ctx -> {
-                try {
-                    // Parameter: hours (Standard: 24), type (Standard: alle), all (boolean)
-                    String allParam = ctx.queryParam("all");
-                    int hours = 24;
-                    boolean exportAll = "true".equalsIgnoreCase(allParam);
+        // Setup-Status prüfen
+        app.get("/api/setup/status", ctx -> {
+            Config config = Config.getInstance();
+            ctx.json(Map.of(
+                "setupCompleted", config.getSetup().isSetupCompleted()
+            ));
+        });
 
-                    if (!exportAll && ctx.queryParam("hours") != null) {
-                        hours = Integer.parseInt(ctx.queryParam("hours"));
-                    }
+        // Setup abschließen (Admin-Passwort setzen)
+        app.post("/api/setup/complete", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                String adminPassword = body.get("adminPassword").toString();
+                boolean enableAuth = Boolean.parseBoolean(body.get("enableAuth").toString());
+                String userPassword = body.get("userPassword") != null ? body.get("userPassword").toString() : "";
 
-                    String typeFilter = ctx.queryParam("type"); // null = alle Typen
-
-                    // Messungen holen (alle oder limitiert)
-                    List<Measurement> measurements;
-                    if (exportAll) {
-                        // Kompletter Export: Alle Messungen aus DB holen
-                        measurements = repository.findLastN(1000000); // Sehr hoher Limit für "alle"
-                    } else {
-                        // Limitierter Export: Nur letzte X Stunden
-                        measurements = repository.findLastN(10000);
-                    }
-
-                    // CSV-Header
-                    StringBuilder csv = new StringBuilder();
-                    csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
-
-                    // CSV-Zeilen
-                    Instant cutoff = exportAll ? Instant.ofEpochMilli(0) : Instant.now().minusSeconds(hours * 3600L);
-                    int count = 0;
-
-                    for (Measurement m : measurements) {
-                        if (m.getTimestamp().isBefore(cutoff)) break;
-
-                        if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
-
-                        csv.append(m.getTimestamp().toString().replace("T", " ").replace("Z", ""))
-                           .append(";")
-                           .append(escapeCsv(m.getType()))
-                           .append(";")
-                           .append(escapeCsv(m.getTarget()))
-                           .append(";")
-                           .append(String.format("%.3f", m.getLatencyMs()))
-                           .append(";")
-                           .append(m.isSuccess() ? "1" : "0")
-                           .append(";")
-                           .append(escapeCsv(m.getLocalIPv4()))
-                           .append(";")
-                           .append(escapeCsv(m.getLocalIPv6()))
-                           .append(";")
-                           .append(escapeCsv(m.getExternalIPv4()))
-                           .append(";")
-                           .append(escapeCsv(m.getExternalIPv6()))
-                           .append(";")
-                           .append(escapeCsv(m.getHostHash()))
-                           .append("\n");
-
-                        count++;
-                    }
-
-                    // HTTP-Header für Download
-                    String filenamePrefix = exportAll ? "signalreport-complete" : "signalreport-" + java.time.LocalDate.now();
-                    ctx.contentType("text/csv");
-                    ctx.header("Content-Disposition",
-                        "attachment; filename=" + filenamePrefix + "-" +
-                        java.time.LocalTime.now().toString().replace(":", "") + ".csv");
-
-                    ctx.result(csv.toString());
-                } catch (NumberFormatException e) {
-                    ctx.status(400);
-                    ctx.json(new ErrorResponse("Ungültiger Parameter"));
-                } catch (Exception e) {
-                    ctx.status(500);
-                    ctx.json(new ErrorResponse("CSV-Export-Fehler: " + e.getMessage()));
+                if (adminPassword.length() < 6) {
+                    ctx.status(400).result("Admin-Passwort muss mindestens 6 Zeichen lang sein!");
+                    return;
                 }
-            });
+
+                if (enableAuth && userPassword.length() < 6) {
+                    ctx.status(400).result("User-Passwort muss mindestens 6 Zeichen lang sein!");
+                    return;
+                }
+
+                Config config = Config.getInstance();
+                Config.SetupConfig setup = config.getSetup();
+                Config.AuthConfig auth = config.getAuth();
+
+                setup.setAdminPasswordHash(Config.SetupConfig.hashPassword(adminPassword));
+                setup.setSetupCompleted(true);
+
+                if (enableAuth) {
+                    auth.setUserPasswordHash(Config.AuthConfig.hashPassword(userPassword));
+                    auth.setEnabled(true);
+                }
+
+                Config.save("config.json");
+                ctx.status(200).result("Setup abgeschlossen!");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Setup-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Authentifizierungs-Einstellungen
+        app.get("/api/auth/status", ctx -> {
+            Config config = Config.getInstance();
+            Config.AuthConfig auth = config.getAuth();
+            ctx.json(Map.of(
+                "enabled", auth.isEnabled(),
+                "hasUserPassword", !auth.getUserPasswordHash().isEmpty()
+            ));
+        });
+
+        app.post("/api/auth/enable", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                String adminPassword = body.get("adminPassword").toString();
+                String userPassword = body.get("userPassword").toString();
+
+                Config config = Config.getInstance();
+                Config.AuthConfig auth = config.getAuth();
+
+                if (!auth.verifyAdminPassword(adminPassword)) {
+                    ctx.status(403).result("Falsches Admin-Passwort");
+                    return;
+                }
+
+                auth.setUserPasswordHash(Config.AuthConfig.hashPassword(userPassword));
+                auth.setEnabled(true);
+
+                Config.save("config.json");
+                ctx.status(200).result("Authentifizierung aktiviert");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Auth-Aktivierungs-Fehler: " + e.getMessage()));
+            }
+        });
+
+        app.post("/api/auth/disable", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                String adminPassword = body.get("adminPassword").toString();
+
+                Config config = Config.getInstance();
+                Config.AuthConfig auth = config.getAuth();
+
+                if (!auth.verifyAdminPassword(adminPassword)) {
+                    ctx.status(403).result("Falsches Admin-Passwort");
+                    return;
+                }
+
+                auth.setEnabled(false);
+                Config.save("config.json");
+                ctx.status(200).result("Authentifizierung deaktiviert");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Auth-Deaktivierungs-Fehler: " + e.getMessage()));
+            }
+        });
+
+        app.post("/api/auth/change-admin", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                String oldPassword = body.get("oldPassword").toString();
+                String newPassword = body.get("newPassword").toString();
+
+                Config config = Config.getInstance();
+                Config.AuthConfig auth = config.getAuth();
+
+                if (!auth.verifyAdminPassword(oldPassword)) {
+                    ctx.status(403).result("Falsches aktuelles Admin-Passwort");
+                    return;
+                }
+
+                auth.setAdminPasswordHash(Config.AuthConfig.hashPassword(newPassword));
+                Config.save("config.json");
+                ctx.status(200).result("Admin-Passwort geändert");
+            } catch (Exception e) {
+                ctx.status(500);
+                ctx.json(new ErrorResponse("Admin-Passwort-Änderungs-Fehler: " + e.getMessage()));
+            }
+        });
 
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
-    // Hilfsfunktion für CSV-Escaping (Semikolon, Zeilenumbruch, Anführungszeichen)
-            private String escapeCsv(String value) {
-                if (value == null || value.isEmpty() || value.equals("unknown")) {
-                    return "";
-                }
-                // Semikolon, Zeilenumbruch oder Anführungszeichen → in Anführungszeichen setzen + verdoppeln
-                if (value.contains(";") || value.contains("\n") || value.contains("\"")) {
-                    return "\"" + value.replace("\"", "\"\"") + "\"";
-                }
-                return value;
-            }
-    // Hilfsklasse für JSON-Fehler – MUSS öffentlich sein mit öffentlichem Feld!
+
+    // Hilfsklasse für JSON-Fehler
     public static class ErrorResponse {
         public final String error;
         public ErrorResponse(String error) { this.error = error; }
     }
 
-    public void stop() {
-        if (app != null) {
-            app.stop();
+    // CSV-Escaping-Hilfsfunktion
+    private String escapeCsv(String value) {
+        if (value == null || value.isEmpty() || value.equals("unknown")) {
+            return "";
         }
+        if (value.contains(";") || value.contains("\n") || value.contains("\"")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
-    // HTML-Seite erstellen (komplett mit allen Tabs)
+    // HTML-Seite erstellen
     private String createHtmlPage() {
         return """
 <!DOCTYPE html>
@@ -527,6 +698,8 @@ public class WebServer {
         <button class="tab" onclick="showTab('hosts')">🖥️ Hosts</button>
         <button class="tab" onclick="showTab('ip-tracking')">🌐 IP-Tracking</button>
         <button class="tab" onclick="showTab('settings')">⚙️ Einstellungen</button>
+        <button class="tab" onclick="showTab('security')">🔐 Sicherheit</button>
+        <button class="tab" onclick="showTab('notifications')">🔔 Benachrichtigungen</button>
     </div>
     
     <div id="monitoring" class="tab-content active">
@@ -564,7 +737,6 @@ public class WebServer {
             <a href="#" class="btn btn-secondary" onclick="downloadCsv(24)">📊 CSV-Export (24h)</a>
             <a href="#" class="btn btn-secondary" onclick="downloadCsv(168)">📊 CSV-Export (7 Tage)</a>
             <a href="#" class="btn btn-secondary" onclick="downloadCsvAll()">📊 CSV-Export (Alle Daten)</a>
-            <a href="#" class="btn btn-secondary" onclick="showHosts()">🖥️ Host-Informationen</a>
         </div>
         
         <table>
@@ -623,7 +795,7 @@ public class WebServer {
     
     <div id="ip-tracking" class="tab-content">
         <h2>🌐 IP-Änderungs-Tracking</h2>
-        <p>Überwachung der externen IP-Adresse – erkennt automatisch, wann sich die IP ändert (z.B. nach Router-Neustart).</p>
+        <p>Überwachung der externen IP-Adresse – erkennt automatisch, wann sich die IP ändert.</p>
         
         <div style="background:#e7f5ff; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
             <strong>💡 Hinweis:</strong> 
@@ -666,7 +838,7 @@ public class WebServer {
     
     <div id="settings" class="tab-content">
         <h2>⚙️ Messkonfiguration</h2>
-        <p>Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert und beim nächsten Start wiederhergestellt.</p>
+        <p>Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert.</p>
         
         <div style="background:white; padding:20px; border-radius:8px; margin:20px 0;">
             <h3>📍 Messziele & Intervall</h3>
@@ -674,29 +846,25 @@ public class WebServer {
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:bold;">Ping-Ziel (IP)</label>
                     <input type="text" id="config-ping" value="8.8.8.8" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    <small style="color:#6c757d;">Beispiele: 8.8.8.8, 1.1.1.1, 192.168.1.1</small>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:bold;">DNS-Ziel (Hostname)</label>
                     <input type="text" id="config-dns" value="google.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    <small style="color:#6c757d;">Beispiele: google.com, example.com</small>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:bold;">HTTP-Ziel (URL)</label>
                     <input type="text" id="config-http" value="https://example.com" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    <small style="color:#6c757d;">Beispiele: https://heise.de, https://github.com</small>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:bold;">⏱️ Intervall (Sekunden)</label>
                     <input type="number" id="config-interval" value="10" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                    <small style="color:#6c757d;">Min: 5s, Max: 1h</small>
                 </div>
             </div>
         </div>
         
         <div style="background:#fff8e6; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #ffc107;">
             <h3>⏸️ Maintenance-Fenster (Messungsunterbrechung)</h3>
-            <p>Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden (z.B. für Router-Updates).</p>
+            <p>Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden.</p>
             
             <div style="display:flex; align-items:center; gap:15px; margin-top:15px;">
                 <input type="checkbox" id="maintenance-enabled" style="width:18px; height:18px;">
@@ -707,48 +875,28 @@ public class WebServer {
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:15px; align-items:end;">
                     <div>
                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Von Stunde</label>
-                        <select id="maintenance-start-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
-                            <!-- Stunden 0-23 werden per JS befüllt -->
-                        </select>
+                        <select id="maintenance-start-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></select>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Von Minute</label>
                         <select id="maintenance-start-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
-                            <option value="0">00</option>
-                            <option value="5">05</option>
-                            <option value="10">10</option>
-                            <option value="15">15</option>
-                            <option value="20">20</option>
-                            <option value="25">25</option>
-                            <option value="30">30</option>
-                            <option value="35">35</option>
-                            <option value="40">40</option>
-                            <option value="45">45</option>
-                            <option value="50">50</option>
-                            <option value="55">55</option>
+                            <option value="0">00</option><option value="5">05</option><option value="10">10</option>
+                            <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+                            <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+                            <option value="45">45</option><option value="50">50</option><option value="55">55</option>
                         </select>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Bis Stunde</label>
-                        <select id="maintenance-end-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
-                            <!-- Stunden 0-23 werden per JS befüllt -->
-                        </select>
+                        <select id="maintenance-end-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></select>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Bis Minute</label>
                         <select id="maintenance-end-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
-                            <option value="0">00</option>
-                            <option value="5">05</option>
-                            <option value="10">10</option>
-                            <option value="15">15</option>
-                            <option value="20">20</option>
-                            <option value="25">25</option>
-                            <option value="30">30</option>
-                            <option value="35">35</option>
-                            <option value="40">40</option>
-                            <option value="45">45</option>
-                            <option value="50">50</option>
-                            <option value="55">55</option>
+                            <option value="0">00</option><option value="5">05</option><option value="10">10</option>
+                            <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+                            <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+                            <option value="45">45</option><option value="50">50</option><option value="55">55</option>
                         </select>
                     </div>
                 </div>
@@ -760,7 +908,7 @@ public class WebServer {
         
         <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
             <h3>👤 Benutzer-Informationen</h3>
-            <p>Diese Informationen werden später im PDF-Bericht angezeigt.</p>
+            <p>Diese Informationen werden im PDF-Bericht angezeigt.</p>
             
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                 <div>
@@ -782,16 +930,44 @@ public class WebServer {
             💾 Konfiguration speichern
         </button>
         <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
-        
-        <div style="background:#e7f3ff; padding:15px; border-radius:8px; margin-top:30px;">
-            <strong>💡 Hinweise:</strong>
-            <ul style="margin:10px 0 0 20px;">
-                <li>Änderungen werden <strong>sofort übernommen</strong> – die nächste Messrunde verwendet die neuen Einstellungen</li>
-                <li>Konfiguration wird in <code>config.json</code> gespeichert und beim nächsten Start wiederhergestellt</li>
-                <li>Während des Maintenance-Fensters werden <strong>keine Messungen</strong> durchgeführt (Terminal zeigt ⏸️ an)</li>
-            </ul>
-        </div>
     </div>
+    
+    <!-- 🔐 Sicherheit-Tab -->
+        <div id="security" class="tab-content">
+            <h2>🔐 Sicherheit & Authentifizierung</h2>
+            <div id="auth-status" style="margin:20px 0; padding:15px; background:#e9ecef; border-radius:8px;"></div>
+            <div id="auth-enable-section" style="display:none; background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
+                <h4>🔐 Authentifizierung aktivieren</h4>
+                <input type="password" id="auth-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
+                <input type="password" id="auth-user-password" placeholder="User-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
+                <button onclick="enableAuth()" style="padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; margin-top:10px;">Aktivieren</button>
+            </div>
+            <div id="auth-disable-section" style="display:none; background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
+                <h4>🔓 Authentifizierung deaktivieren</h4>
+                <input type="password" id="auth-disable-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
+                <button onclick="disableAuth()" style="padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; margin-top:10px;">Deaktivieren</button>
+            </div>
+        </div>
+    
+        <!-- 🔔 Benachrichtigungen-Tab -->
+        <div id="notifications" class="tab-content">
+            <h2>🔔 Push-Benachrichtigungen</h2>
+            <div style="display:flex; align-items:center; margin:20px 0;">
+                <input type="checkbox" id="push-enabled" style="width:18px; height:18px; margin-right:10px;">
+                <label for="push-enabled"><strong>Push-Benachrichtigungen aktivieren</strong></label>
+            </div>
+            <div id="push-settings" style="display:none; background:white; padding:20px; border-radius:8px;">
+                <label>Latenz-Schwellwert (ms):\s
+                    <input type="number" id="push-latency-threshold" value="100" min="50" max="1000" style="width:100px; padding:5px; margin-left:10px;">
+                </label>
+                <br><br>
+                <label>Aufeinanderfolgende schlechte Messungen:\s
+                    <input type="number" id="push-consecutive-bad" value="2" min="1" max="10" style="width:60px; padding:5px; margin-left:10px;">
+                </label>
+                <br><br>
+                <button onclick="savePushSettings()" style="padding:10px 20px; background:#0d6efd; color:white; border:none; border-radius:5px;">💾 Einstellungen speichern</button>
+            </div>
+        </div>
     
     <div class="footer">
         <p>SignalReport v1.0 • Daten aktualisieren sich automatisch</p>
@@ -894,7 +1070,7 @@ public class WebServer {
                     
                     window.latencyChart = new Chart(ctx, {
                         type: 'line',
-                         data: {
+                        data: {
                             labels: labels,
                             datasets: [{
                                 label: 'PING Latenz (ms)',
@@ -955,7 +1131,7 @@ public class WebServer {
                     
                     window.hourlyChart = new Chart(ctx, {
                         type: 'bar',
-                         data: {
+                        data: {
                             labels: hours.map(h => h + ':00'),
                             datasets: [{
                                 label: '⌀ Latenz pro Stunde (letzte 7 Tage)',
@@ -1121,13 +1297,11 @@ public class WebServer {
             fetch('/api/config/current')
                 .then(response => response.json())
                 .then(config => {
-                    // Messziele
                     document.getElementById('config-ping').value = config.ping;
                     document.getElementById('config-dns').value = config.dns;
                     document.getElementById('config-http').value = config.http;
                     document.getElementById('config-interval').value = config.intervalSeconds;
                     
-                    // Maintenance
                     const maint = config.maintenance;
                     document.getElementById('maintenance-enabled').checked = maint.enabled;
                     document.getElementById('maintenance-start-hour').value = maint.startHour;
@@ -1136,7 +1310,6 @@ public class WebServer {
                     document.getElementById('maintenance-end-minute').value = maint.endMinute;
                     document.getElementById('maintenance-fields').style.display = maint.enabled ? 'block' : 'none';
                     
-                    // UserInfo
                     const ui = config.userInfo;
                     document.getElementById('config-provider').value = ui.provider || '';
                     document.getElementById('config-customer-id').value = ui.customerId || '';
@@ -1198,6 +1371,18 @@ public class WebServer {
             window.location.href = '/api/report?hours=' + hours;
         }
 
+        // CSV-Download
+        function downloadCsv(hours) {
+            window.location.href = '/api/export/csv?hours=' + hours;
+        }
+
+        // CSV-Download (alle Daten)
+        function downloadCsvAll() {
+            if (confirm('⚠️ Achtung: Dieser Export kann sehr groß werden! Fortfahren?')) {
+                window.location.href = '/api/export/csv?all=true';
+            }
+        }
+
         // Initial laden
         loadNetworkInfo();
         loadStatistics();
@@ -1208,9 +1393,9 @@ public class WebServer {
         setInterval(loadMeasurements, 5000);
         setInterval(loadStatistics, 30000);
         setInterval(loadHourlyChart, 300000);
-        setInterval(loadNetworkInfo, 60000); // Netzwerk-Info alle 60 Sekunden
+        setInterval(loadNetworkInfo, 60000);
         
-        // IP-Tracking alle 30 Sekunden aktualisieren (wenn Tab aktiv)
+        // IP-Tracking alle 30 Sekunden aktualisieren
         setInterval(() => {
             const activeTab = document.querySelector('.tab.active');
             if (activeTab && activeTab.textContent.includes('IP-Tracking')) {
@@ -1219,20 +1404,232 @@ public class WebServer {
             }
         }, 30000);
         
-        // CSV-Download (limitiert)
-        function downloadCsv(hours) {
-            window.location.href = '/api/export/csv?hours=' + hours;
-        }
+        // Initial laden
+        loadNetworkInfo();
         
-        // CSV-Download (alle Daten)
-        function downloadCsvAll() {
-            if (confirm('⚠️ Achtung: Dieser Export kann sehr groß werden! Fortfahren?')) {
-                window.location.href = '/api/export/csv?all=true';
+        // Security-Tab Funktionen
+        function loadAuthStatus() {
+            fetch('/api/auth/status').then(r=>r.json()).then(s=>{
+                const div=document.getElementById('auth-status');
+                const enable=document.getElementById('auth-enable-section');
+                const disable=document.getElementById('auth-disable-section');
+                if(s.enabled){
+                    div.innerHTML='<strong>✅ Authentifizierung AKTIV</strong><br>Benutzer: user | Admin: admin';
+                    enable.style.display='none'; disable.style.display='block';
+                }else{
+                    div.innerHTML='<strong>⚠️ Authentifizierung DEAKTIVIERT</strong><br>Web-Interface ist öffentlich zugänglich';
+                    enable.style.display='block'; disable.style.display='none';
+                }
+            });
+        }
+        function enableAuth(){
+            const a=document.getElementById('auth-admin-password').value;
+            const u=document.getElementById('auth-user-password').value;
+            if(!a||!u){alert('Bitte beide Passwörter eingeben!');return;}
+            fetch('/api/auth/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPassword:a,userPassword:u})})
+            .then(r=>r.text()).then(m=>{alert(m);loadAuthStatus();});
+        }
+        function disableAuth(){
+            const p=document.getElementById('auth-disable-admin-password').value;
+            if(!p){alert('Admin-Passwort eingeben!');return;}
+            if(!confirm('⚠️ Web-Interface wird öffentlich! Fortfahren?'))return;
+            fetch('/api/auth/disable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPassword:p})})
+            .then(r=>r.text()).then(m=>{alert(m);loadAuthStatus();});
+        }
+
+        // Notifications-Tab Funktionen
+        function loadPushSettings(){
+            fetch('/api/push/settings').then(r=>r.json()).then(s=>{
+                document.getElementById('push-enabled').checked=s.enabled;
+                document.getElementById('push-latency-threshold').value=s.latencyThreshold;
+                document.getElementById('push-consecutive-bad').value=s.consecutiveBadMeasurements;
+                document.getElementById('push-settings').style.display=s.enabled?'block':'none';
+            });
+        }
+        function savePushSettings(){
+            const e=document.getElementById('push-enabled').checked;
+            const t=parseFloat(document.getElementById('push-latency-threshold').value);
+            const c=parseInt(document.getElementById('push-consecutive-bad').value);
+            fetch('/api/push/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:e,latencyThreshold:t,consecutiveBadMeasurements:c})})
+            .then(r=>r.text()).then(m=>alert(m));
+        }
+
+        // Tab-Handler erweitern
+        const originalShowTab = showTab;
+        showTab = function(tabId) {
+            originalShowTab(tabId);
+            if(tabId==='security') loadAuthStatus();
+            if(tabId==='notifications') loadPushSettings();
+        };
+        
+    </script>
+</body>
+</html>
+""";
+    }
+
+    // Setup-Seite erstellen
+    private String createSetupPage() {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SignalReport Setup</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; }
+        .setup-container { max-width: 600px; margin: 100px auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0d6efd; text-align: center; margin-bottom: 30px; }
+        .setup-steps { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .step { text-align: center; width: 30%; }
+        .step-number { display: inline-block; width: 30px; height: 30px; background: #e9ecef; border-radius: 50%; line-height: 30px; font-weight: bold; }
+        .step.active .step-number { background: #0d6efd; color: white; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #495057; }
+        input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; }
+        input[type="checkbox"] { width: 18px; height: 18px; }
+        .btn { width: 100%; padding: 12px; background: #0d6efd; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn:hover { background: #0b5ed7; }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; }
+        .error { color: #dc3545; margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px; display: none; }
+        .info-box { background: #e7f5ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #0d6efd; }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <h1>📡 SignalReport Setup</h1>
+        
+        <div class="info-box">
+            <strong>Willkommen!</strong>
+            <p>Dies ist die erstmalige Einrichtung von SignalReport. Bitte lege ein Admin-Passwort fest.</p>
+        </div>
+        
+        <div class="setup-steps">
+            <div class="step active">
+                <div class="step-number">1</div>
+                <div>Admin-Passwort</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div>Authentifizierung</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div>Fertig</div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="adminPassword">Admin-Passwort *</label>
+            <input type="password" id="adminPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
+        </div>
+        
+        <div class="form-group">
+            <label for="adminPasswordConfirm">Admin-Passwort bestätigen *</label>
+            <input type="password" id="adminPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
+        </div>
+        
+        <div class="checkbox-group">
+            <input type="checkbox" id="enableAuth">
+            <label for="enableAuth" style="display:inline; font-weight:normal;">Authentifizierung aktivieren (empfohlen für öffentliche IP)</label>
+        </div>
+        
+        <div id="userPasswordGroup" style="display:none; margin-top:15px;">
+            <div class="form-group">
+                <label for="userPassword">User-Passwort für Web-Zugriff *</label>
+                <input type="password" id="userPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="userPasswordConfirm">User-Passwort bestätigen *</label>
+                <input type="password" id="userPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
+            </div>
+        </div>
+        
+        <div class="error" id="errorMessage"></div>
+        
+        <button class="btn" id="completeSetup">Setup abschließen</button>
+    </div>
+    
+    <script>
+        // Authentifizierung-Checkbox Toggle
+        document.getElementById('enableAuth').addEventListener('change', function() {
+            document.getElementById('userPasswordGroup').style.display = this.checked ? 'block' : 'none';
+        });
+        
+        // Setup abschließen
+        document.getElementById('completeSetup').addEventListener('click', function() {
+            const adminPassword = document.getElementById('adminPassword').value;
+            const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
+            const enableAuth = document.getElementById('enableAuth').checked;
+            const userPassword = document.getElementById('userPassword').value;
+            const userPasswordConfirm = document.getElementById('userPasswordConfirm').value;
+            
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+            
+            // Validierung
+            if (adminPassword.length < 6) {
+                showError('Admin-Passwort muss mindestens 6 Zeichen lang sein!');
+                return;
             }
+            
+            if (adminPassword !== adminPasswordConfirm) {
+                showError('Admin-Passwörter stimmen nicht überein!');
+                return;
+            }
+            
+            if (enableAuth) {
+                if (userPassword.length < 6) {
+                    showError('User-Passwort muss mindestens 6 Zeichen lang sein!');
+                    return;
+                }
+                
+                if (userPassword !== userPasswordConfirm) {
+                    showError('User-Passwörter stimmen nicht überein!');
+                    return;
+                }
+            }
+            
+            // API-Aufruf
+            this.disabled = true;
+            this.textContent = 'Setup wird abgeschlossen...';
+            
+            fetch('/api/setup/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    adminPassword: adminPassword,
+                    enableAuth: enableAuth,
+                    userPassword: userPassword
+                })
+            })
+            .then(response => response.text())
+            .then(message => {
+                alert('✅ ' + message);
+                window.location.href = '/';
+            })
+            .catch(error => {
+                showError('Fehler: ' + error.message);
+                this.disabled = false;
+                this.textContent = 'Setup abschließen';
+            });
+        });
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
         }
     </script>
 </body>
 </html>
 """;
+    }
+
+    public void stop() {
+        if (app != null) {
+            app.stop();
+        }
     }
 }

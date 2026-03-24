@@ -18,10 +18,19 @@ public class Config {
     private DatabaseConfig database;
     private WebserverConfig webserver;
     private List<DnsServer> dnsServers;
-    private MaintenanceWindow maintenanceWindow;  // 🔑 NEU
-    private UserInfo userInfo;                    // 🔑 NEU
+    private MaintenanceWindow maintenanceWindow;
+    private UserInfo userInfo;
+    private AuthConfig auth = new AuthConfig();
+
+    public AuthConfig getAuth() { return auth; }
+    public void setAuth(AuthConfig auth) { this.auth = auth; }
+    private SetupConfig setup = new SetupConfig();
+
+    public SetupConfig getSetup() { return setup; }
+    public void setSetup(SetupConfig setup) { this.setup = setup; }
 
 public static Config load(String path) throws IOException {
+
     if (instance == null) {
         // Sicherstellen, dass data-Verzeichnis existiert
         Files.createDirectories(Paths.get("./data"));
@@ -210,7 +219,7 @@ public static Config load(String path) throws IOException {
         }
     }
 
-    // NEU: UserInfo-Klasse
+    // UserInfo-Klasse
     public static class UserInfo {
         private String provider = "";
         private String customerId = "";
@@ -265,4 +274,73 @@ public static Config load(String path) throws IOException {
         instance = config;
         return config;
     }
+
+    public static class AuthConfig {
+    private boolean enabled = false;
+    private String adminPasswordHash = "";
+    private String userPasswordHash = "";
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public String getAdminPasswordHash() { return adminPasswordHash; }
+    public void setAdminPasswordHash(String hash) { this.adminPasswordHash = hash; }
+
+    public String getUserPasswordHash() { return userPasswordHash; }
+    public void setUserPasswordHash(String hash) { this.userPasswordHash = hash; }
+
+    // Passwort-Hashing
+    public static String hashPassword(String password) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(password.getBytes());
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hashBytes) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public boolean verifyAdminPassword(String password) {
+        return adminPasswordHash.equals(hashPassword(password));
+    }
+
+    public boolean verifyUserPassword(String password) {
+        return userPasswordHash.equals(hashPassword(password));
+    }
+
+}
+
+    public static class SetupConfig {
+    private boolean setupCompleted = false;
+    private String adminPasswordHash = "";
+
+    public boolean isSetupCompleted() { return setupCompleted; }
+    public void setSetupCompleted(boolean completed) { this.setupCompleted = completed; }
+
+    public String getAdminPasswordHash() { return adminPasswordHash; }
+    public void setAdminPasswordHash(String hash) { this.adminPasswordHash = hash; }
+
+    public boolean verifyAdminPassword(String password) {
+        return adminPasswordHash.equals(hashPassword(password));
+    }
+
+    public static String hashPassword(String password) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(password.getBytes());
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hashBytes) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+}
+
 }

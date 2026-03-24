@@ -4,14 +4,23 @@ skinparam usecaseFontSize 13
 
 actor User as Benutzer
 actor System as System
+actor Admin as Administrator
 
 rectangle "SignalReport" {
-  usecase "Starte kontinuierliche Messung" as UC1
-  usecase "Zeige Live-Messungen in Web-UI" as UC2
-  usecase "Zeige Statistik-Panel" as UC3
-  usecase "Zeige Heatmap pro Stunde" as UC4
-  usecase "Generiere PDF-Bericht" as UC5
-  usecase "Lade CSV-Daten herunter" as UC6
+  usecase "Erstmaliges Setup durchführen" as UC1
+  usecase "Anmelden (Authentifizierung)" as UC2
+  usecase "Messungen konfigurieren" as UC3
+  usecase "Live-Messungen in Web-UI anzeigen" as UC4
+  usecase "Statistik-Panel anzeigen" as UC5
+  usecase "Heatmap pro Stunde anzeigen" as UC6
+  usecase "PDF-Bericht generieren" as UC7
+  usecase "CSV-Daten exportieren" as UC8
+  usecase "DNS-Benchmark durchführen" as UC9
+  usecase "Host-Informationen anzeigen" as UC10
+  usecase "IP-Änderungen tracken" as UC11
+  usecase "Push-Benachrichtigungen erhalten" as UC12
+  usecase "Authentifizierung verwalten" as UC13
+  usecase "Kontinuierliche Messung durchführen" as UC14
 }
 
 Benutzer --> UC2
@@ -19,23 +28,78 @@ Benutzer --> UC3
 Benutzer --> UC4
 Benutzer --> UC5
 Benutzer --> UC6
+Benutzer --> UC7
+Benutzer --> UC8
+Benutzer --> UC9
+Benutzer --> UC10
+Benutzer --> UC11
+Benutzer --> UC12
 
-System --> UC1
+Admin --> UC1
+Admin --> UC13
 
-UC2 .> UC3 : «include»
-UC2 .> UC4 : «include»
-UC5 .> UC3 : «include»
+System --> UC14
+
+UC4 .> UC5 : «include»
+UC4 .> UC6 : «include»
+UC7 .> UC5 : «include»
+UC7 .> UC11 : «include»
+UC12 .> UC14 : «extend»
 
 note right of UC1
-  System führt alle 10 Sekunden
-  Ping, DNS und HTTP-Messungen durch
-  und speichert sie in der Datenbank
+  **Erstmaliges Setup**
+  • Admin-Passwort festlegen
+  • Authentifizierung optional aktivieren
+  • User-Passwort setzen (falls aktiviert)
+  • Wird nur einmal beim ersten Start durchgeführt
 end note
 
-note right of UC5
-  PDF-Bericht enthält:
-  • Statistiken (95th Percentile, Jitter, etc.)
-  • Latenz-Chart über Zeit
-  • Zeitraum wählbar (24h / 7 Tage)
+note right of UC3
+  **Messungen konfigurieren**
+  • Ping-Ziel (IP) ändern
+  • DNS-Ziel (Hostname) ändern
+  • HTTP-Ziel (URL) ändern
+  • Messintervall einstellen (5s–1h)
+  • Maintenance-Fenster definieren
+  • Benutzer-Info eingeben (Provider, Kundennummer, Name)
+end note
+
+note right of UC7
+  **PDF-Bericht generieren**
+  • Zeiträume: 24h, 7 Tage, 12 Monate
+  • Enthält:
+    - Kundendaten
+    - Host-Informationen
+    - 3 Charts (PING/DNS/HTTP)
+    - Ziel-Änderungs-Hinweise
+    - Top 10 schlechteste Messungen
+    - Verbindungsausfälle
+end note
+
+note right of UC9
+  **DNS-Benchmark**
+  • Regionen: Europa, Nordamerika, etc.
+  • Provider: Google, Cloudflare, Quad9, etc.
+  • Ergebnisse sortiert nach Latenz
+  • Erfolg/❌ Status für jeden Server
+end note
+
+note right of UC12
+  **Push-Benachrichtigungen**
+  • Browser-Berechtigung erforderlich
+  • Benachrichtigung bei:
+    - Internet-Ausfall (keine Verbindung)
+    - Schlechte Latenz (> Schwellwert)
+    - Konfigurierbarer Schwellwert
+    - Konfigurierbare Anzahl aufeinanderfolgender schlechter Messungen
+end note
+
+note right of UC14
+  **Kontinuierliche Messung**
+  • Automatisch alle X Sekunden
+  • IP-Tracking bei jeder Messung
+  • Überspringt Maintenance-Fenster
+  • Speichert alle Daten in H2-Datenbank
+  • Läuft im Hintergrund (auch ohne UI)
 end note
 @enduml

@@ -19,10 +19,11 @@ public class SignalReportApp {
         if (configFile.exists()) {
             try {
                 config = Config.load("config.json");
-                System.out.println("✅ Konfiguration geladen (SignalReportApp): " + configFile.getAbsolutePath());
+                System.out.println("Konfiguration geladen: " + configFile.getAbsolutePath());
             } catch (IOException e) {
-                System.err.println("❌ Fehler beim Laden der Konfiguration: " + e.getMessage());
-                System.err.println("   Verwende Standard-Konfiguration...");
+                System.err.println("Fehler beim Laden der Konfiguration: " + e.getMessage());
+                System.err.println("   " +
+                        "Verwende Standard-Konfiguration...");
                 config = Config.createDefault();
             }
         } else {
@@ -67,7 +68,7 @@ public class SignalReportApp {
                 maintenance = new Config.MaintenanceWindow();
             }
 
-            //  Maintenance-Prüfung
+            // Maintenance-Prüfung
             if (maintenance.isMaintenanceTime()) {
                 System.out.println("⏸️  Maintenance-Fenster aktiv (" +
                     String.format("%02d:%02d", maintenance.getStartHour(), maintenance.getStartMinute()) + "–" +
@@ -83,11 +84,11 @@ public class SignalReportApp {
                 System.out.println("🔄 Messrunde #" + round + " | Ziele: " + pingTarget + ", " + dnsTarget + ", " + httpTarget);
 
                 try {
-                    // IP-Tracking: Aktuelle externe IP ermitteln
+                    // 🔑 IP-Tracking: Aktuelle externe IP ermitteln
                     String currentExternalIp = NetworkInfo.getExternalIPv4();
                     String hostHash = HostIdentifier.getHostHash();
 
-                    // IP-Änderung erkennen und speichern
+                    // 🔑 IP-Änderung erkennen und speichern
                     repo.trackIpChange(currentExternalIp, hostHash);
 
                     // Messungen durchführen

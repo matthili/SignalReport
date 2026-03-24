@@ -2,23 +2,33 @@
 \label{sec:architektur}
 
 \subsection{Gesamtarchitektur}
-Die Gesamtarchitektur von SignalReport ist in Abbildung \ref{fig:architektur} dargestellt.
+Die Gesamtarchitektur von SignalReport ist in Abbildung \ref{fig:deployment} dargestellt.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../diagrams/deployment-diagram.png}
+    \caption{Deployment-Diagramm von SignalReport}
+    \label{fig:deployment}
+\end{figure}
+
+\subsection{Komponenten-Design}
+Die Komponenten-Übersicht zeigt die wichtigsten Module und deren Interaktionen (Abbildung \ref{fig:component}).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/component-diagram.png}
     \caption{Komponenten-Übersicht von SignalReport}
-    \label{fig:architektur}
+    \label{fig:component}
 \end{figure}
 
 \subsection{Klassen-Design}
-Die Kernkomponenten der Anwendung sind in Abbildung \ref{fig:klassen} dargestellt.
+Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die Kernkomponenten der Anwendung.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/class-diagram.png}
     \caption{Klassen-Diagramm von SignalReport}
-    \label{fig:klassen}
+    \label{fig:class}
 \end{figure}
 
 \subsection{Key-Design-Entscheidungen}
@@ -27,14 +37,45 @@ Die Kernkomponenten der Anwendung sind in Abbildung \ref{fig:klassen} dargestell
     \item \textbf{H2-Datenbank}: Embedded-DB für plattformunabhängige Installation
     \item \textbf{Javalin statt Spring Boot}: Minimaler Overhead für Web-Interface
     \item \textbf{Java 21}: Nutzung moderner Features wie Virtual Threads
+    \item \textbf{OpenPDF statt PDFBox}: Einfachere PDF-Generierung mit besserer Schriftarten-Unterstützung
 \end{itemize}
 
-\subsection{Datenfluss}
-Der Datenfluss bei der Messung ist in Abbildung \ref{fig:datenfluss} dargestellt.
+\subsection{Datenfluss bei der Messung}
+Der Datenfluss bei der kontinuierlichen Messung ist in Abbildung \ref{fig:sequence-measurement} dargestellt.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/sequence-measurement.png}
     \caption{Datenfluss bei der Messung}
-    \label{fig:datenfluss}
+    \label{fig:sequence-measurement}
+\end{figure}
+
+\subsection{PDF-Export-Prozess}
+Der Prozess zur Generierung von PDF-Berichten ist in Abbildung \ref{fig:sequence-pdf} dargestellt.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../diagrams/sequence-pdf.png}
+    \caption{PDF-Export-Prozess}
+    \label{fig:sequence-pdf}
+\end{figure}
+
+\subsection{Use-Cases}
+Die funktionalen Anforderungen aus Benutzersicht sind im Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zusammengefasst.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{../diagrams/usecase-diagram.png}
+    \caption{Use-Case-Diagramm von SignalReport}
+    \label{fig:usecase}
+\end{figure}
+
+\subsection{Authentifizierungs-Zustände}
+Das State-Diagramm in Abbildung \ref{fig:state-auth} zeigt die verschiedenen Zustände der Authentifizierung.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{../diagrams/state-diagram-auth.png}
+    \caption{State-Diagramm Authentifizierung}
+    \label{fig:state-auth}
 \end{figure}

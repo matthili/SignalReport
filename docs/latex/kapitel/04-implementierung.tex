@@ -2,21 +2,43 @@
 \label{sec:implementierung}
 
 \subsection{Mess-Engine}
-Die Mess-Engine implementiert drei Messarten:
+Die Mess-Engine implementiert drei Messarten mit dynamischen Zielen:
 
 \begin{itemize}
-    \item \textbf{Ping-Messung}: Nutzt \texttt{InetAddress.isReachable()}
-    \item \textbf{DNS-Messung}: Nutzt \texttt{InetAddress.getByName()}
-    \item \textbf{HTTP-Messung}: Nutzt \texttt{java.net.http.HttpClient}
+    \item \textbf{Ping-Messung}: Nutzt \texttt{InetAddress.isReachable()} mit konfigurierbarem Ziel
+    \item \textbf{DNS-Messung}: Nutzt \texttt{InetAddress.getByName()} mit konfigurierbarem Hostname
+    \item \textbf{HTTP-Messung}: Nutzt \texttt{java.net.http.HttpClient} mit konfigurierbarer URL
 \end{itemize}
 
-\begin{lstlisting}[language=Java, caption=Beispiel für Ping-Messung]
-public Measurement measure() throws Exception {
+\begin{lstlisting}[language=Java, caption=Beispiel für Ping-Messung mit dynamischem Ziel]
+public Measurement measure(String target) throws Exception {
     long start = System.nanoTime();
     boolean reachable = InetAddress.getByName(target).isReachable(3000);
     long end = System.nanoTime();
     double latency = (end - start) / 1_000_000.0;
     return new Measurement(target, latency, reachable, "PING");
+}
+\end{lstlisting}
+
+\subsection{IP-Tracking und Host-Identifikation}
+Jede Messung speichert zusätzlich Netzwerk-Informationen:
+
+\begin{itemize}
+    \item Lokale IPv4- und IPv6-Adressen
+    \item Externe IPv4- und IPv6-Adressen (über ipify.org)
+    \item Eindeutiger Host-Hash (basierend auf Hostname, OS und MAC-Adresse)
+\end{itemize}
+
+Die IP-Tracking-Logik erkennt automatisch Änderungen der externen IP:
+
+\begin{lstlisting}[language=Java, caption=IP-Änderungserkennung]
+public void trackIpChange(String currentIp, String hostHash) throws SQLException {
+    String lastIp = getLastKnownIp(hostHash);
+    if (lastIp == null) {
+        recordIpChange(null, currentIp, "INITIAL", hostHash);
+    } else if (!lastIp.equals(currentIp)) {
+        recordIpChange(lastIp, currentIp, "CHANGE", hostHash);
+    }
 }
 \end{lstlisting}
 
@@ -40,18 +62,42 @@ double p95Latency = latencies.get(p95Index);
 \end{lstlisting}
 
 \subsection{Web-Interface}
-Das Web-Interface wurde mit Javalin implementiert:
+Das Web-Interface wurde mit Javalin implementiert und bietet:
 
 \begin{itemize}
     \item \textbf{REST-API}: Für Datenzugriff (z. B. \texttt{/api/measurements})
-    \item \textbf{Live-Chart}: Aktualisiert sich alle 5 Sekunden
+    \item \textbf{Live-Chart}: Aktualisiert sich alle 5 Sekunden mit Chart.js
     \item \textbf{Heatmap}: Zeigt Latenzentwicklung pro Stunde
     \item \textbf{Statistik-Panel}: Sofortige Einschätzung der Netzwerkqualität
+    \item \textbf{Konfigurations-UI}: Änderung von Messzielen und Einstellungen
+    \item \textbf{Setup-Wizard}: Erstmalige Einrichtung über Web-Oberfläche
 \end{itemize}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{../diagrams/ui.png}
+    \includegraphics[width=0.9\textwidth]{../diagrams/ui.png}
     \caption{Web-Interface von SignalReport}
     \label{fig:ui}
 \end{figure}
+
+\subsection{PDF-Export}
+Der PDF-Export mit OpenPDF generiert professionelle Berichte mit:
+
+\begin{itemize}
+    \item Kundendaten (Name, Provider, Kundennummer)
+    \item Host-Informationen (Hostname, Hash, IPs)
+    \item 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Änderungen
+    \item Ziel-Informationen unter jedem Chart
+    \item Top 10 schlechteste Messungen
+    \item Top 10 längste Verbindungsausfälle
+    \item Gesamtanzahl der Ausfälle
+\end{itemize}
+
+\begin{lstlisting}[language=Java, caption=PDF-Chart-Generierung]
+BufferedImage pingChart = createLatencyChart(
+    pingMeasurements,
+    "PING",
+    detectTargetChanges(pingMeasurements)
+);
+addChartToPdf(document, pingChart, "PING Latenz über Zeit");
+\end{lstlisting}

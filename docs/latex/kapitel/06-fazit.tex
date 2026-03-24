@@ -8,24 +8,59 @@ SignalReport ist eine vollständige Internet-Qualitäts-Monitoring-Anwendung, di
     \item Kontinuierliche Messung von Ping, DNS und HTTP-Latenz
     \item Web-basierte Visualisierung mit Live-Charts und Heatmap
     \item Statistische Auswertung (95th Percentile, Jitter, Paketverlust)
-    \item PDF-Export für Berichte
+    \item PDF-Export für Berichte (inkl. 12-Monats-Berichte für Provider)
+    \item CSV-Export für Excel-Analysen
+    \item IP-Tracking für dynamische IP-Adressen
+    \item Konfigurierbare Messziele und Maintenance-Fenster
+    \item Authentifizierung für sicheren Zugriff
+    \item Setup-Wizard für benutzerfreundliche Ersteinrichtung
 \end{itemize}
 
 \subsection{Gelerntes}
 Während der Entwicklung von SignalReport wurden folgende Kompetenzen erworben:
 
 \begin{itemize}
-    \item Java 21 mit modernen Features (Virtual Threads, Pattern Matching)
-    \item Web-Entwicklung mit Javalin und Chart.js
-    \item Datenbank-Programmierung mit H2
-    \item PDF-Generierung mit OpenPDF und JFreeChart
-    \item UML-Diagramme mit PlantUML
+    \item \textbf{Java 21}: Nutzung moderner Features (Virtual Threads, Pattern Matching)
+    \item \textbf{Web-Entwicklung}: Javalin-Framework, REST-API, Chart.js
+    \item \textbf{Datenbank-Programmierung}: H2-Datenbank, SQL, JDBC
+    \item \textbf{PDF-Generierung}: OpenPDF und JFreeChart für professionelle Berichte
+    \item \textbf{Testing}: JUnit 5, Mockito, Test-Driven Development
+    \item \textbf{Software-Architektur}: UML-Diagramme, Design-Patterns, Clean Code
+    \item \textbf{Projektmanagement}: Versionskontrolle mit Git, Dokumentation mit LaTeX
+\end{itemize}
+
+\subsection{Herausforderungen und Lösungen}
+\begin{itemize}
+    \item \textbf{Challenge}: IP-Tracking bei dynamischen IPs \\
+    \textbf{Lösung}: Separate Tabelle \texttt{ip\_changes} mit Zeitstempeln und Change-Type
+
+    \item \textbf{Challenge}: Maintenance-Fenster mit Über-Mitternacht-Unterstützung \\
+    \textbf{Lösung}: Logik zur Erkennung von Zeitfenstern, die über 00:00 Uhr gehen
+
+    \item \textbf{Challenge}: PDF-Generierung mit mehreren Charts und Tabellen \\
+    \textbf{Lösung}: OpenPDF statt PDFBox für bessere Schriftarten-Unterstützung
+
+    \item \textbf{Challenge}: Setup-Wizard ohne Kommandozeilen-Abhängigkeit \\
+    \textbf{Lösung}: Web-basierte Setup-Seite mit Middleware-Integration
 \end{itemize}
 
 \subsection{Mögliche Erweiterungen}
 \begin{itemize}
-    \item Authentifizierung für NAS-Deployment
-    \item CSV-Export für Excel-Analyse
-    \item Alarm bei hoher Latenz (Browser Notifications)
-    \item Konfigurationsdatei für benutzerdefinierte Messziele
+    \item \textbf{Browser-Push-Benachrichtigungen}: Sofortige Warnung bei Internet-Ausfällen
+    \item \textbf{Automatischer täglicher PDF-Export}: Cron-Job für regelmäßige Berichte
+    \item \textbf{Prometheus Exporter}: Integration in bestehende Monitoring-Tools (Grafana)
+    \item \textbf{Multi-Host-Vergleich}: Vergleich von Messungen über mehrere Instanzen
+    \item \textbf{Mobile-App}: Native iOS/Android-App für unterwegs
 \end{itemize}
+
+\subsection{Fazit}
+SignalReport demonstriert, dass eine professionelle Monitoring-Lösung nicht teuer oder komplex sein muss. Mit modernen Java-Technologien und einer durchdachten Architektur entstand eine Anwendung, die:
+
+\begin{itemize}
+    \item \textbf{Praktisch nutzbar} ist für echte Provider-Beschwerden
+    \item \textbf{Technisch sauber} implementiert ist mit Tests und Dokumentation
+    \item \textbf{Erweiterbar} bleibt für zukünftige Anforderungen
+    \item \textbf{Lehrreich} war für die persönliche Weiterentwicklung
+\end{itemize}
+
+Das Projekt zeigt, dass Open Source und professionelle Qualität kein Widerspruch sind – im Gegenteil: Sie ergänzen sich perfekt!

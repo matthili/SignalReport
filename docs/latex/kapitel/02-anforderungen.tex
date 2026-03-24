@@ -5,15 +5,25 @@
 SignalReport muss folgende funktionale Anforderungen erfüllen:
 
 \begin{itemize}
-    \item \textbf{Kontinuierliche Messung}: Alle 10 Sekunden Ping, DNS und HTTP messen
-    \item \textbf{Web-Interface}: Messungen im Browser anzeigen
-    \item \textbf{PDF-Export}: Berichte als PDF generieren
-    \item \textbf{Statistische Auswertung}: 95th Percentile, Jitter, Paketverlust
+    \item \textbf{Kontinuierliche Messung}: Alle X Sekunden Ping, DNS und HTTP messen (konfigurierbar)
+    \item \textbf{Web-Interface}: Messungen im Browser anzeigen mit Live-Updates
+    \item \textbf{PDF-Export}: Berichte als PDF generieren (24h, 7 Tage, 12 Monate)
+    \item \textbf{CSV-Export}: Alle Messdaten als CSV exportieren
+    \item \textbf{Statistische Auswertung}: 95th Percentile, Jitter, Paketverlust berechnen
+    \item \textbf{DNS-Benchmark}: Mehrere DNS-Server weltweit vergleichen
+    \item \textbf{IP-Tracking}: Externe IP-Änderungen erkennen und dokumentieren
+    \item \textbf{Maintenance-Fenster}: Messungen in definiertem Zeitfenster pausieren
+    \item \textbf{Konfiguration}: Messziele, Intervall und Benutzer-Info per UI ändern
+    \item \textbf{Authentifizierung}: Optionale Passwort-Sicherung des Web-Interface
+    \item \textbf{Setup-Wizard}: Erstmalige Einrichtung über Web-Oberfläche
 \end{itemize}
 
 \subsection{Nicht-funktionale Anforderungen}
 \begin{itemize}
-    \item \textbf{Plattformunabhängigkeit}: Lauffähig auf Windows, macOS, Linux
-    \item \textbf{Einfache Installation}: Kein Server nötig
-    \item \textbf{Datensicherheit}: Alle Daten lokal gespeichert
+    \item \textbf{Plattformunabhängigkeit}: Lauffähig auf Windows, macOS, Linux, NAS
+    \item \textbf{Einfache Installation}: Kein separater Server nötig, portable JAR-Datei
+    \item \textbf{Datensicherheit}: Alle Daten lokal gespeichert, keine Cloud-Abhängigkeit
+    \item \textbf{Performance}: Messungen alle 5-60 Sekunden ohne Systemlast
+    \item \textbf{Benutzerfreundlichkeit}: Intuitive Web-Oberfläche ohne technisches Vorwissen
+    \item \textbf{Wartbarkeit}: Sauberer, dokumentierter Code mit JUnit-Tests
 \end{itemize}

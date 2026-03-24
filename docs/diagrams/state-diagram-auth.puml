@@ -1,0 +1,88 @@
+@startuml SignalReport - State-Diagramm Authentifizierung
+!theme plain
+skinparam stateFontSize 13
+skinparam state {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+
+[*] --> SetupRequired : Anwendung starten
+
+state SetupRequired {
+  [*] --> SetupPage : Setup nicht abgeschlossen
+  SetupPage --> SetupCompleted : Setup abschließen\n(Admin-Passwort setzen)
+  SetupPage --> SetupPage : Validierungsfehler
+}
+
+SetupRequired --> NoAuth : Setup abgeschlossen\n(Auth deaktiviert)
+
+state NoAuth {
+  [*] --> PublicAccess : Web-UI öffentlich zugänglich
+  PublicAccess --> EnableAuth : Authentifizierung aktivieren\n(Admin-Passwort erforderlich)
+  PublicAccess --> ChangeAdminPassword : Admin-Passwort ändern\n(Altes Passwort erforderlich)
+}
+
+NoAuth --> AuthEnabled : Authentifizierung aktiviert
+
+state AuthEnabled {
+  [*] --> LoginRequired : Zugriff auf Web-UI
+
+  state LoginRequired {
+    [*] --> Authenticate : HTTP Basic Auth angefordert
+    Authenticate --> UserSession : Erfolgreich (User-Passwort)
+    Authenticate --> AdminSession : Erfolgreich (Admin-Passwort)
+    Authenticate --> LoginRequired : Fehlgeschlagen\n(401 Unauthorized)
+  }
+
+  state UserSession {
+    [*] --> UserAccess : Eingeschränkter Zugriff\n(Nur Lesen)
+    UserAccess --> Logout : Abmelden (Browser-Cache leeren)
+    UserAccess --> LoginRequired : Session abgelaufen
+  }
+
+  state AdminSession {
+    [*] --> AdminAccess : Vollzugriff\n(Lesen + Schreiben)
+    AdminAccess --> ChangeAdminPassword : Admin-Passwort ändern
+    AdminAccess --> DisableAuth : Authentifizierung deaktivieren
+    AdminAccess --> Logout : Abmelden
+    AdminAccess --> LoginRequired : Session abgelaufen
+  }
+
+  AdminSession --> NoAuth : Authentifizierung deaktiviert
+}
+
+note right of SetupRequired
+  **SetupRequired**
+  • Wird nur beim ersten Start durchlaufen
+  • Admin-Passwort muss gesetzt werden
+  • Authentifizierung optional aktivieren
+  • Setup kann nicht rückgängig gemacht werden
+end note
+
+note right of NoAuth
+  **NoAuth (Öffentlicher Zugriff)**
+  • Web-UI ohne Passwort zugänglich
+  • Alle Funktionen verfügbar
+  • Empfohlen für sichere Netzwerke (LAN)
+  • NICHT für öffentliche IP empfohlen
+end note
+
+note right of AuthEnabled
+  **AuthEnabled (Geschützter Zugriff)**
+  • HTTP Basic Authentication
+  • Zwei Benutzerrollen:
+    - User: Nur Lesen (Monitoring, Berichte)
+    - Admin: Vollzugriff (Einstellungen, Setup)
+  • Browser speichert Credentials im Cache
+  • Logout durch Löschen des Browser-Cache
+end note
+
+note bottom of ChangeAdminPassword
+  **Admin-Passwort ändern**
+  • Erfordert altes Passwort zur Bestätigung
+  • Neues Passwort muss mindestens 6 Zeichen lang sein
+  • Änderung sofort wirksam
+  • Alle aktiven Sessions werden ungültig
+end note
+@enduml

@@ -1,0 +1,101 @@
+@startuml SignalReport - Deployment-Diagramm
+!theme plain
+skinparam deploymentFontSize 13
+skinparam linetype ortho
+
+node "Client-Gerät" as Client {
+  artifact "Web-Browser" as Browser {
+    interface "HTML5 + JavaScript + Chart.js"
+  }
+}
+
+node "Server-System" as Server {
+  node "Java Virtual Machine" as JVM {
+    artifact "SignalReport.jar" as App {
+      interface "Main Application"
+    }
+
+    artifact "Javalin Webserver" as Web {
+      interface "HTTP/HTTPS Server (Port 4567)"
+    }
+
+    artifact "H2 Database" as DB {
+      interface "Embedded Database"
+    }
+  }
+
+  artifact "config.json" as ConfigFile {
+    interface "JSON Configuration"
+  }
+
+  artifact "data/" as DataDir {
+    interface "Database Files"
+  }
+}
+
+node "Externe Dienste" as External {
+  node "DNS-Server" as DNSServers {
+    artifact "Google DNS (8.8.8.8)" as Google
+    artifact "Cloudflare DNS (1.1.1.1)" as Cloudflare
+    artifact "Quad9 DNS (9.9.9.9)" as Quad9
+  }
+
+  node "Web-Server" as WebServers {
+    artifact "example.com" as Example
+    artifact "heise.de" as Heise
+  }
+
+  node "API-Dienste" as APIs {
+    artifact "ipify.org" as Ipify
+  }
+}
+
+Browser --> Web : HTTP/HTTPS Requests
+Web --> App : REST-API Calls
+App --> DB : JDBC Database Access
+App --> ConfigFile : Read/Write Configuration
+App --> DNSServers : DNS Queries
+App --> WebServers : HTTP Requests
+App --> APIs : External IP Lookup
+
+note top of Client
+  **Client-Gerät**
+  • Desktop-PC, Laptop, Tablet, Smartphone
+  • Moderne Web-Browser (Chrome, Firefox, Safari, Edge)
+  • Keine Installation nötig – läuft im Browser
+  • Responsive Design für mobile Geräte
+end note
+
+note right of Server
+  **Server-System**
+  • Windows, macOS, Linux, Synology NAS
+  • Java 21+ erforderlich
+  • Einzelne JAR-Datei (keine Installation)
+  • Portable Datenbank (H2)
+  • Konfiguration in config.json
+  • Daten in ./data/ Verzeichnis
+end note
+
+note bottom of External
+  **Externe Dienste**
+  • DNS-Server weltweit (Google, Cloudflare, etc.)
+  • Web-Server für HTTP-Messungen
+  • ipify.org für externe IP-Ermittlung
+  • Keine API-Keys oder Registrierung nötig
+  • Alle Dienste kostenlos nutzbar
+end note
+
+note left of App
+  **Deployment-Szenarien**
+  1. **Lokal**: Auf eigenem PC/Laptop
+  2. **NAS**: Synology DSM als Hintergrund-Dienst
+  3. **Server**: Linux-Server mit systemd-Service
+  4. **Cloud**: Docker-Container in Cloud-Umgebung
+
+  **Vorteile**:
+  • Keine externen Abhängigkeiten
+  • Vollständig offline nutzbar (außer DNS/IP-Abfragen)
+  • Einfache Migration zwischen Systemen
+  • Backup durch Kopieren von config.json + data/
+end note
+@enduml

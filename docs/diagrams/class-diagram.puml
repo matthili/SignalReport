@@ -6,19 +6,20 @@ skinparam linetype ortho
 
 package "measurement" {
   class PingMeasurer {
-    -String target
-    +Measurement measure()
+    +Measurement measure(String target)
   }
 
   class DnsMeasurer {
-    -String hostname
-    +Measurement measure()
+    +Measurement measure(String hostname)
   }
 
   class HttpMeasurer {
-    -String url
-    -HttpClient client
-    +Measurement measure()
+    +Measurement measure(String url)
+  }
+
+  class DnsBenchmark {
+    +List<DnsResult> benchmark()
+    -DnsResult measureDnsServer(DnsServer server)
   }
 }
 
@@ -29,11 +30,18 @@ package "model" {
     -double latencyMs
     -boolean success
     -String type
+    -String localIPv4
+    -String localIPv6
+    -String externalIPv4
+    -String externalIPv6
+    -String hostHash
     +Instant getTimestamp()
     +String getTarget()
     +double getLatencyMs()
     +boolean isSuccess()
     +String getType()
+    +String getLocalIPv4()
+    +String getHostHash()
   }
 }
 
@@ -45,6 +53,11 @@ package "persistence" {
     +List<Measurement> findLastN(int n)
     +Statistics calculateStatistics(String type, int hours)
     +List<HourlyAverage> calculateHourlyAverages(String type, int days)
+    +void trackIpChange(String currentIp, String hostHash)
+    +List<IpChange> getIpChanges(int limit)
+    +List<IpChangeStats> getIpChangeStatistics()
+    +void registerHost(String hostHash, String hostname, String os)
+    +List<HostInfo> getAllHosts()
   }
 
   class "H2MeasurementRepository.Statistics" as RepoStats {
@@ -55,9 +68,6 @@ package "persistence" {
     -double jitter
     +double getAvgLatency()
     +double getP95Latency()
-    +double getMaxLatency()
-    +double getPacketLossPercent()
-    +double getJitter()
   }
 
   class "H2MeasurementRepository.HourlyAverage" as RepoHourlyAvg {
@@ -66,14 +76,116 @@ package "persistence" {
     -int count
     +int getHourOfDay()
     +double getAvgLatency()
-    +int getCount()
+  }
+
+  class "H2MeasurementRepository.HostInfo" as RepoHostInfo {
+    -String hostHash
+    -String hostname
+    -String operatingSystem
+    -Instant firstSeen
+    -Instant lastSeen
+    +String getHostHash()
+    +String getHostname()
+  }
+
+  class "H2MeasurementRepository.IpChange" as RepoIpChange {
+    -Instant timestamp
+    -String oldIp
+    -String newIp
+    -String changeType
+    -String hostHash
+    +Instant getTimestamp()
+    +String getNewIp()
+  }
+
+  class "H2MeasurementRepository.IpChangeStats" as RepoIpChangeStats {
+    -String hostHash
+    -int changeCount
+    -Instant firstChange
+    -Instant lastChange
+    +String getHostHash()
+    +int getChangeCount()
+  }
+}
+
+package "config" {
+  class Config {
+    -MeasurementConfig measurement
+    -DatabaseConfig database
+    -WebserverConfig webserver
+    -List<DnsServer> dnsServers
+    -MaintenanceWindow maintenanceWindow
+    -UserInfo userInfo
+    -SetupConfig setup
+    -AuthConfig auth
+    +static Config load(String path)
+    +static void save(String path)
+    +static Config getInstance()
+  }
+
+  class "Config.MeasurementConfig" as ConfigMeas {
+    -int intervalSeconds
+    -Targets targets
+    +int getIntervalSeconds()
+    +Targets getTargets()
+  }
+
+  class "Config.Targets" as ConfigTargets {
+    -String ping
+    -String dns
+    -String http
+    +String getPing()
+    +void setPing(String ping)
+  }
+
+  class "Config.MaintenanceWindow" as ConfigMaint {
+    -boolean enabled
+    -int startHour
+    -int startMinute
+    -int endHour
+    -int endMinute
+    +boolean isEnabled()
+    +boolean isMaintenanceTime()
+  }
+
+  class "Config.UserInfo" as ConfigUser {
+    -String provider
+    -String customerId
+    -String userName
+    +String getProvider()
+  }
+
+  class "Config.SetupConfig" as ConfigSetup {
+    -boolean setupCompleted
+    -String adminPasswordHash
+    +boolean isSetupCompleted()
+    +void setSetupCompleted(boolean completed)
+  }
+
+  class "Config.AuthConfig" as ConfigAuth {
+    -boolean enabled
+    -String adminPasswordHash
+    -String userPasswordHash
+    +boolean isEnabled()
+    +boolean verifyAdminPassword(String password)
+  }
+
+  class "Config.DnsServer" as ConfigDnsServer {
+    -String name
+    -String address
+    -String region
+    -String provider
+    +String getName()
+    +String getAddress()
   }
 }
 
 package "web" {
   class WebServer {
     -H2MeasurementRepository repository
+    -Javalin app
     +void start(int port)
+    +void stop()
   }
 }
 
@@ -81,7 +193,35 @@ package "export" {
   class PdfReportGenerator {
     -H2MeasurementRepository repository
     +byte[] generateReport(int hours)
-    -BufferedImage createLatencyChart(List<Measurement> measurements)
+    -BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
+    -String getTargetsChronological(List<Measurement> measurements)
+    -List<ConnectionOutage> detectConnectionOutages(List<Measurement> measurements)
+  }
+
+  class PushNotificationService {
+    -List<String> subscribedClients
+    -boolean enabled
+    -double latencyThreshold
+    -int consecutiveBadMeasurements
+    +static PushNotificationService getInstance()
+    +void enable()
+    +void checkAndNotify(String type, double latency, boolean success, int consecutiveFailures)
+  }
+}
+
+package "network" {
+  class HostIdentifier {
+    -static String cachedHash
+    +static String getHostHash()
+    +static String getHostname()
+    +static String getOperatingSystem()
+  }
+
+  class NetworkInfo {
+    +static String getLocalIPv4()
+    +static String getExternalIPv4()
+    +static String getLocalIPv6()
+    +static String getExternalIPv6()
   }
 }
 
@@ -94,31 +234,71 @@ package "main" {
 PingMeasurer --> Measurement
 DnsMeasurer --> Measurement
 HttpMeasurer --> Measurement
+DnsBenchmark --> ConfigDnsServer
+DnsBenchmark --> DnsBenchmark.DnsResult
 
-H2MeasurementRepository --> Measurement
-H2MeasurementRepository --> H2MeasurementRepository.Statistics
-H2MeasurementRepository --> H2MeasurementRepository.HourlyAverage
+H2MeasurementRepository --> RepoStats
+H2MeasurementRepository --> RepoHourlyAvg
+H2MeasurementRepository --> RepoHostInfo
+H2MeasurementRepository --> RepoIpChange
+H2MeasurementRepository --> RepoIpChangeStats
+
+Config --> ConfigMeas
+ConfigMeas --> ConfigTargets
+Config --> ConfigMaint
+Config --> ConfigUser
+Config --> ConfigSetup
+Config --> ConfigAuth
+Config --> ConfigDnsServer
 
 WebServer --> H2MeasurementRepository
+WebServer --> Config
 
 PdfReportGenerator --> H2MeasurementRepository
 PdfReportGenerator --> Measurement
+PdfReportGenerator --> ConnectionOutage
+PdfReportGenerator --> TargetChange
+
+PushNotificationService --> Measurement
 
 SignalReportApp --> PingMeasurer
 SignalReportApp --> DnsMeasurer
 SignalReportApp --> HttpMeasurer
 SignalReportApp --> H2MeasurementRepository
 SignalReportApp --> WebServer
+SignalReportApp --> HostIdentifier
+SignalReportApp --> NetworkInfo
+SignalReportApp --> Config
 
 note top of H2MeasurementRepository
   <<Singleton>>
   Embedded H2-Datenbank
   Datenbank-Datei: ./data/signalreport.mv.db
+  Features:
+  • Messungen speichern/lesen
+  • Statistik-Berechnung
+  • IP-Tracking
+  • Host-Management
 end note
 
 note right of WebServer
   Javalin Web-Framework
   Port: 4567
   REST-API + HTML-UI
+  Features:
+  • Setup-Wizard
+  • Authentifizierung
+  • Push-Benachrichtigungen
+  • Live-Updates
+end note
+
+note bottom of Config
+  Zentrale Konfigurationsverwaltung
+  Features:
+  • JSON-Persistenz
+  • Maintenance-Fenster
+  • DNS-Server-Liste
+  • Setup-Status
+  • Authentifizierung
 end note
 @enduml
