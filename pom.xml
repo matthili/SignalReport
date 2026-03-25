@@ -34,6 +34,18 @@
         <artifactId>slf4j-simple</artifactId>
         <version>2.0.9</version>
     </dependency>
+    <!-- SLF4J API (Logging-Fassade) -->
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>2.0.13</version>
+    </dependency>
+    <!-- Logback (konkrete Logging-Implementierung) -->
+    <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.5.6</version>
+    </dependency>
 
     <!-- Jackson für JSON -->
     <dependency>
@@ -67,7 +79,7 @@
     <dependency>
         <groupId>dnsjava</groupId>
         <artifactId>dnsjava</artifactId>
-        <version>3.5.3</version>
+        <version>3.6.0</version>
     </dependency>
 
           <!-- JUnit 5 (Jupiter) für Tests -->

@@ -12,7 +12,8 @@ SignalReport muss folgende funktionale Anforderungen erfüllen:
     \item \textbf{Statistische Auswertung}: 95th Percentile, Jitter, Paketverlust berechnen
     \item \textbf{DNS-Benchmark}: Mehrere DNS-Server weltweit vergleichen
     \item \textbf{IP-Tracking}: Externe IP-Änderungen erkennen und dokumentieren
-    \item \textbf{Maintenance-Fenster}: Messungen in definiertem Zeitfenster pausieren
+    \item \textbf{IPv4/IPv6}: SignalReport unterstützt Dual-Stack-Messungen (IPv4 + IPv6). Bei Providern mit DS-Lite (Dual-Stack Lite) wie Magenta kann die externe IPv6-Adresse nicht ermittelt werden, da keine echte IPv6-Route zum Internet existiert. In diesem Fall wird 'unknown' angezeigt – ein technisch korrektes Verhalten gemäß RFC 8415. Die IPv4-Messung bleibt davon unberührt und funktioniert weiterhin zuverlässig.
+    \item \textbf{Maintenance-Fenster}: Messungen in definiertem Zeitfenster pausieren (um definierte Wartungsfenster/Neustarts zu kompensieren)
     \item \textbf{Konfiguration}: Messziele, Intervall und Benutzer-Info per UI ändern
     \item \textbf{Authentifizierung}: Optionale Passwort-Sicherung des Web-Interface
     \item \textbf{Setup-Wizard}: Erstmalige Einrichtung über Web-Oberfläche

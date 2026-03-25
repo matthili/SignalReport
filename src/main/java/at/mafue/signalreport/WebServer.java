@@ -589,6 +589,38 @@ public class WebServer {
             }
         });
 
+        // Push-Einstellungen abrufen
+        app.get("/api/push/settings", ctx -> {
+            Config config = Config.getInstance();
+            Config.PushConfig push = config.getPush();
+            ctx.json(Map.of(
+                "enabled", push.isEnabled(),
+                "latencyThreshold", push.getLatencyThreshold(),
+                "consecutiveBadMeasurements", push.getConsecutiveBadMeasurements()
+            ));
+        });
+
+        // Push-Einstellungen speichern
+        app.post("/api/push/settings", ctx -> {
+            try {
+                var body = ctx.bodyAsClass(java.util.Map.class);
+                boolean enabled = Boolean.parseBoolean(body.get("enabled").toString());
+                double threshold = Double.parseDouble(body.get("latencyThreshold").toString());
+                int consecutive = Integer.parseInt(body.get("consecutiveBadMeasurements").toString());
+
+                Config config = Config.getInstance();
+                Config.PushConfig push = config.getPush();
+                push.setEnabled(enabled);
+                push.setLatencyThreshold(threshold);
+                push.setConsecutiveBadMeasurements(consecutive);
+
+                Config.save("config.json");
+                ctx.status(200).result("Push-Einstellungen gespeichert");
+            } catch (Exception e) {
+                ctx.status(500).result("Fehler beim Speichern: " + e.getMessage());
+            }
+        });
+
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
 
@@ -623,8 +655,8 @@ public class WebServer {
         .header { text-align: center; margin-bottom: 30px; }
         .header h1 { color: #0d6efd; }
         .network-info { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .network-item { text-align: center; }
+        .network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .network-item { text-align: center; word-wrap: break-word; hyphens: auto; }
         .network-label { font-size: 0.9em; color: #6c757d; margin-bottom: 5px; }
         .network-value { font-weight: bold; font-family: monospace; font-size: 1.1em; color: #0d6efd; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -677,10 +709,12 @@ public class WebServer {
                 <div class="network-label">Lokale IPv4</div>
                 <div class="network-value" id="local-ipv4">--</div>
             </div>
+            
             <div class="network-item">
                 <div class="network-label">Externe IPv4</div>
                 <div class="network-value" id="external-ipv4">--</div>
             </div>
+
             <div class="network-item">
                 <div class="network-label">Hostname</div>
                 <div class="network-value" id="current-host">--</div>
@@ -688,6 +722,14 @@ public class WebServer {
             <div class="network-item">
                 <div class="network-label">Host-Hash</div>
                 <div class="network-value" style="font-size:0.9em;" id="current-hash">--</div>
+            </div>
+            <div class="network-item">
+                <div class="network-label">Lokale IPv6</div>
+                <div class="network-value" id="local-ipv6">--</div>
+            </div>
+            <div class="network-item">
+                <div class="network-label">Externe IPv6</div>
+                <div class="network-value" id="external-ipv6">--</div>
             </div>
         </div>
     </div>
@@ -697,9 +739,8 @@ public class WebServer {
         <button class="tab" onclick="showTab('dns')">🌍 DNS-Benchmark</button>
         <button class="tab" onclick="showTab('hosts')">🖥️ Hosts</button>
         <button class="tab" onclick="showTab('ip-tracking')">🌐 IP-Tracking</button>
-        <button class="tab" onclick="showTab('settings')">⚙️ Einstellungen</button>
         <button class="tab" onclick="showTab('security')">🔐 Sicherheit</button>
-        <button class="tab" onclick="showTab('notifications')">🔔 Benachrichtigungen</button>
+        <button class="tab" onclick="showTab('settings')">⚙️ Einstellungen</button>
     </div>
     
     <div id="monitoring" class="tab-content active">
@@ -771,9 +812,8 @@ public class WebServer {
             </select>
         </div>
         
-        <div id="dnsResults" class="dns-grid">
-            <p id="dnsLoading">Klicke auf "Benchmark ausführen"...</p>
-        </div>
+        <div id="dnsResults" class="dns-grid"></div>
+        <p id="dnsLoading" style="text-align:center; margin-top:20px;">Klicke auf "Benchmark ausführen"...</p>
     </div>
     
     <div id="hosts" class="tab-content">
@@ -834,6 +874,64 @@ public class WebServer {
                 <tr><td colspan="5" style="text-align:center">Lade IP-Änderungen...</td></tr>
             </tbody>
         </table>
+    </div>
+    
+    <div id="security" class="tab-content">
+        <h2>🔐 Sicherheit & Authentifizierung</h2>
+
+        <div style="background:#e7f5ff; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+            <strong>💡 Hinweis:</strong>\s
+            <ul style="margin:10px 0 0 20px;">
+                <li>Admin-Passwort wurde bei der ersten Einrichtung festgelegt</li>
+                <li>Authentifizierung schützt das Web-Interface bei öffentlicher IP</li>
+                <li>User-Passwort für normale Benutzer, Admin-Passwort für Einstellungen</li>
+            </ul>
+        </div>
+
+        <div style="background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
+            <h3>Authentifizierung</h3>
+
+            <div id="auth-status" style="margin-bottom:20px; padding:15px; border-radius:8px;"></div>
+
+            <div id="auth-enable-section" style="display:none;">
+                <h4>🔐 Authentifizierung aktivieren</h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort</label>
+                        <input type="password" id="auth-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">User-Passwort</label>
+                        <input type="password" id="auth-user-password" placeholder="User-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                </div>
+                <button onclick="enableAuth()" style="margin-top:20px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold;">🔐 Aktivieren</button>
+            </div>
+
+            <div id="auth-disable-section" style="display:none;">
+                <h4>🔓 Authentifizierung deaktivieren</h4>
+                <div style="margin-top:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort</label>
+                    <input type="password" id="auth-disable-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                </div>
+                <button onclick="disableAuth()" style="margin-top:20px; padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; font-weight:bold;">🔓 Deaktivieren</button>
+            </div>
+
+            <div style="margin-top:30px; padding-top:20px; border-top:2px solid #e9ecef;">
+                <h4>🔐 Admin-Passwort ändern</h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Aktuelles Passwort</label>
+                        <input type="password" id="change-old-admin-password" placeholder="Aktuelles Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Neues Passwort</label>
+                        <input type="password" id="change-new-admin-password" placeholder="Neues Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                    </div>
+                </div>
+                <button onclick="changeAdminPassword()" style="margin-top:20px; padding:10px 20px; background:#198754; color:white; border:none; border-radius:5px; font-weight:bold;">🔄 Ändern</button>
+            </div>
+        </div>
     </div>
     
     <div id="settings" class="tab-content">
@@ -907,6 +1005,41 @@ public class WebServer {
         </div>
         
         <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+            <h3>🔔 Browser-Benachrichtigungen</h3>
+            <p>Erhalte Push-Benachrichtigungen bei Internet-Problemen (Browser-Berechtigung erforderlich).</p>
+            
+            <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
+                <input type="checkbox" id="push-enabled" style="width:18px; height:18px;">
+                <label for="push-enabled" style="font-weight:bold;">Push-Benachrichtigungen aktivieren</label>
+            </div>
+            
+            <div id="push-settings" style="display:none; margin-top:20px; padding:15px; background:#f8f9fa; border-radius:8px;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Latenz-Schwellwert (ms)</label>
+                        <input type="number" id="push-latency-threshold" value="100" min="50" max="1000" 
+                               style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        <small style="color:#6c757d;">Benachrichtigung bei Latenz > Schwellwert</small>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Aufeinanderfolgende schlechte Messungen</label>
+                        <input type="number" id="push-consecutive-bad" value="2" min="1" max="10" 
+                               style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        <small style="color:#6c757d;">Anzahl bevor Benachrichtigung ausgelöst wird</small>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px; padding:10px; background:#d1ecf1; border-radius:5px; font-size:0.9em;">
+                    <strong>🔔 Benachrichtigungsarten:</strong>
+                    <ul style="margin:8px 0 0 20px; padding-left:10px;">
+                        <li>❌ Internet-Ausfall (keine Verbindung)</li>
+                        <li>⚠️ Schlechte Verbindung (Latenz > Schwellwert)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
             <h3>👤 Benutzer-Informationen</h3>
             <p>Diese Informationen werden im PDF-Bericht angezeigt.</p>
             
@@ -931,43 +1064,6 @@ public class WebServer {
         </button>
         <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
     </div>
-    
-    <!-- 🔐 Sicherheit-Tab -->
-        <div id="security" class="tab-content">
-            <h2>🔐 Sicherheit & Authentifizierung</h2>
-            <div id="auth-status" style="margin:20px 0; padding:15px; background:#e9ecef; border-radius:8px;"></div>
-            <div id="auth-enable-section" style="display:none; background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
-                <h4>🔐 Authentifizierung aktivieren</h4>
-                <input type="password" id="auth-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
-                <input type="password" id="auth-user-password" placeholder="User-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
-                <button onclick="enableAuth()" style="padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; margin-top:10px;">Aktivieren</button>
-            </div>
-            <div id="auth-disable-section" style="display:none; background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
-                <h4>🔓 Authentifizierung deaktivieren</h4>
-                <input type="password" id="auth-disable-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:4px;">
-                <button onclick="disableAuth()" style="padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; margin-top:10px;">Deaktivieren</button>
-            </div>
-        </div>
-    
-        <!-- 🔔 Benachrichtigungen-Tab -->
-        <div id="notifications" class="tab-content">
-            <h2>🔔 Push-Benachrichtigungen</h2>
-            <div style="display:flex; align-items:center; margin:20px 0;">
-                <input type="checkbox" id="push-enabled" style="width:18px; height:18px; margin-right:10px;">
-                <label for="push-enabled"><strong>Push-Benachrichtigungen aktivieren</strong></label>
-            </div>
-            <div id="push-settings" style="display:none; background:white; padding:20px; border-radius:8px;">
-                <label>Latenz-Schwellwert (ms):\s
-                    <input type="number" id="push-latency-threshold" value="100" min="50" max="1000" style="width:100px; padding:5px; margin-left:10px;">
-                </label>
-                <br><br>
-                <label>Aufeinanderfolgende schlechte Messungen:\s
-                    <input type="number" id="push-consecutive-bad" value="2" min="1" max="10" style="width:60px; padding:5px; margin-left:10px;">
-                </label>
-                <br><br>
-                <button onclick="savePushSettings()" style="padding:10px 20px; background:#0d6efd; color:white; border:none; border-radius:5px;">💾 Einstellungen speichern</button>
-            </div>
-        </div>
     
     <div class="footer">
         <p>SignalReport v1.0 • Daten aktualisieren sich automatisch</p>
@@ -1004,6 +1100,8 @@ public class WebServer {
             } else if (tabId === 'ip-tracking') {
                 loadIpStatistics();
                 loadIpChanges();
+            } else if (tabId === 'security') {
+               loadAuthStatus();
             }
         }
         
@@ -1013,7 +1111,9 @@ public class WebServer {
                 .then(response => response.json())
                 .then(info => {
                     document.getElementById('local-ipv4').textContent = info.localIPv4 || 'unknown';
+                    document.getElementById('local-ipv6').textContent = info.localIPv6 || 'unknown'; // 🔑 NEU
                     document.getElementById('external-ipv4').textContent = info.externalIPv4 || 'unknown';
+                    document.getElementById('external-ipv6').textContent = info.externalIPv6 || 'unknown'; // 🔑 NEU
                     document.getElementById('current-host').textContent = info.hostname || 'unknown';
                     document.getElementById('current-hash').textContent = info.hostHash ? info.hostHash.substring(0, 12) : 'unknown';
                 })
@@ -1025,10 +1125,10 @@ public class WebServer {
             fetch('/api/statistics?hours=24')
                 .then(response => response.json())
                 .then(stats => {
-                    document.getElementById('stat-avg').textContent = stats.ping.avgLatency.toFixed(1) + ' ms';
-                    document.getElementById('stat-p95').textContent = stats.ping.p95Latency.toFixed(1) + ' ms';
+                    document.getElementById('stat-avg').textContent = stats.ping.avgLatency.toFixed(2) + ' ms';
+                    document.getElementById('stat-p95').textContent = stats.ping.p95Latency.toFixed(2) + ' ms';
                     document.getElementById('stat-loss').textContent = stats.ping.packetLossPercent.toFixed(1) + ' %';
-                    document.getElementById('stat-jitter').textContent = stats.ping.jitter.toFixed(1) + ' ms';
+                    document.getElementById('stat-jitter').textContent = stats.ping.jitter.toFixed(2) + ' ms';
                 })
                 .catch(error => console.error('Statistik-Fehler:', error));
         }
@@ -1050,7 +1150,7 @@ public class WebServer {
                             <td>${new Date(m.timestamp * 1000).toLocaleTimeString('de-DE')}</td>
                             <td><strong>${m.type}</strong></td>
                             <td>${m.target}</td>
-                            <td class="${latencyClass}"><strong>${m.latencyMs.toFixed(1)}</strong> ms</td>
+                            <td class="${latencyClass}"><strong>${m.latencyMs.toFixed(2)}</strong> ms</td>
                             <td>${statusText}</td>
                             <td style="font-family:monospace;font-size:0.8em;">${m.hostHash.substring(0,8)}</td>
                             <td style="font-family:monospace;font-size:0.8em;">${m.localIPv4}</td>
@@ -1059,7 +1159,7 @@ public class WebServer {
                     });
                     
                     const pingData = data.filter(m => m.type === 'PING').slice(0, 10).reverse();
-                    const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}));
+                    const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'}));
                     const values = pingData.map(m => m.latencyMs);
                     
                     const ctx = document.getElementById('latencyChart').getContext('2d');
@@ -1070,7 +1170,7 @@ public class WebServer {
                     
                     window.latencyChart = new Chart(ctx, {
                         type: 'line',
-                        data: {
+                         data: {
                             labels: labels,
                             datasets: [{
                                 label: 'PING Latenz (ms)',
@@ -1080,11 +1180,13 @@ public class WebServer {
                                 borderWidth: 2,
                                 tension: 0.3,
                                 fill: true,
+                                cubicInterpolationMode: 'monotone',
                                 pointRadius: 4,
                                 pointHoverRadius: 6
                             }]
                         },
                         options: {
+                            animation: false,
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
@@ -1135,7 +1237,7 @@ public class WebServer {
                             labels: hours.map(h => h + ':00'),
                             datasets: [{
                                 label: '⌀ Latenz pro Stunde (letzte 7 Tage)',
-                                data: latencies.map(l => l !== null ? parseFloat(l.toFixed(1)) : 0),
+                                data: latencies.map(l => l !== null ? parseFloat(l.toFixed(2)) : 0),
                                 backgroundColor: latencies.map(l => {
                                     if (l === null) return '#e9ecef';
                                     if (l < 50) return '#198754';
@@ -1155,7 +1257,7 @@ public class WebServer {
                                         label: context => {
                                             const value = context.parsed.y;
                                             if (value === 0) return 'Keine Messungen';
-                                            return `${value.toFixed(1)} ms`;
+                                            return `${value.toFixed(2)} ms`;
                                         }
                                     }
                                 }
@@ -1197,38 +1299,101 @@ public class WebServer {
                 .catch(error => console.error('Host-Fehler:', error));
         }
         
+        // DNS-Benchmark State: false=ready, true=running (Cooldown wird per setTimeout gemanagt)
+        // let isDnsBenchmarkRunning = false;
+        // let dnsBenchmarkCooldownTimer = null;
+        
         // DNS-Benchmark ausführen
-        function runDnsBenchmark() {
-            const hostname = document.getElementById('dnsHostname').value;
-            document.getElementById('dnsLoading').textContent = 'Benchmark läuft...';
-            
-            fetch(`/api/dns/benchmark?hostname=${hostname}`, { method: 'POST' })
-                .then(response => response.json())
-                .then(results => {
-                    const container = document.getElementById('dnsResults');
-                    container.innerHTML = '';
-                    
-                    results.forEach(result => {
-                        const card = document.createElement('div');
-                        card.className = `dns-card region-${result.region.toLowerCase()}`;
-                        
-                        const statusClass = result.success ? 'success' : 'failure';
-                        const statusIcon = result.success ? '✅' : '❌';
-                        
-                        card.innerHTML = `
-                            <h4>${result.serverName}</h4>
-                            <div class="latency ${statusClass}">${result.latencyMs.toFixed(1)} ms ${statusIcon}</div>
-                            <div class="region">${result.region} • ${result.provider}</div>
-                            <div style="font-size:0.8em;color:#6c757d;">${result.serverAddress}</div>
-                        `;
-                        container.appendChild(card);
-                    });
-                })
-                .catch(error => {
-                    console.error('DNS-Benchmark-Fehler:', error);
-                    document.getElementById('dnsLoading').textContent = 'Fehler beim Benchmark!';
-                });
-        }
+            function runDnsBenchmark() {
+              const loadingElement = document.getElementById('dnsLoading');
+
+              // 🔑 STATE-DEBUG: Immer ausgeben, um Problem zu diagnostizieren
+              console.log('[DNS] State vor Start: isRunning=' + isDnsBenchmarkRunning + ', timer=' + (dnsBenchmarkCooldownTimer ? 'aktiv' : 'null'));
+
+              // Cooldown-Check
+              if (dnsBenchmarkCooldownTimer) {
+                  const remaining = Math.ceil((dnsBenchmarkCooldownTimer._target - Date.now()) / 1000);
+                  alert(`⚠️ Bitte warte noch ${remaining} Sekunden bis zum nächsten Benchmark.`);
+                  return;
+              }
+
+              // Running-Check
+              if (isDnsBenchmarkRunning) {
+                  console.warn('[DNS] FEHLER: Benchmark läuft bereits, aber State nicht zurückgesetzt!');
+                  // 🔑 NOTFALL-RESET: Wenn State inkonsistent ist, erzwinge Reset
+                  isDnsBenchmarkRunning = false;
+                  if (dnsBenchmarkCooldownTimer) {
+                      clearTimeout(dnsBenchmarkCooldownTimer);
+                      dnsBenchmarkCooldownTimer = null;
+                  }
+                  loadingElement.textContent = 'State zurückgesetzt. Benchmark kann neu gestartet werden.';
+                  return;
+              }
+
+              // State setzen
+              isDnsBenchmarkRunning = true;
+              const hostname = document.getElementById('dnsHostname').value;
+              loadingElement.textContent = 'Benchmark läuft... (max. 10s)';
+
+              // 🔑 TIMEOUT FÜR HÄNGENDE REQUESTS (10 Sekunden)
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+              fetch(`/api/dns/benchmark?hostname=${hostname}`, {\s
+                  method: 'POST',
+                  signal: controller.signal
+              })
+              .then(response => {
+                  clearTimeout(timeoutId);
+                  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                  return response.json();
+              })
+              .then(results => {
+                  const container = document.getElementById('dnsResults');
+                  container.innerHTML = '';
+
+                  results.forEach(result => {
+                      const card = document.createElement('div');
+                      card.className = `dns-card region-${result.region.toLowerCase()}`;
+
+                      const statusClass = result.success ? 'success' : 'failure';
+                      const statusIcon = result.success ? '✅' : '❌';
+
+                      card.innerHTML = `
+                          <h4>${result.serverName}</h4>
+                          <div class="latency ${statusClass}">${result.latencyMs.toFixed(2)} ms ${statusIcon}</div>
+                          <div class="region">${result.region} • ${result.provider}</div>
+                          <div style="font-size:0.8em;color:#6c757d;">${result.serverAddress}</div>
+                      `;
+                      container.appendChild(card);
+                  });
+
+                  console.log('[DNS] Benchmark erfolgreich abgeschlossen. Ergebnisse: ' + results.length);
+              })
+              .catch(error => {
+                  clearTimeout(timeoutId);
+                  console.error('[DNS] FEHLER:', error);
+
+                  if (error.name === 'AbortError') {
+                      loadingElement.textContent = '⚠️ Benchmark abgebrochen (Timeout nach 10s)';
+                  } else {
+                      loadingElement.textContent = '❌ Fehler: ' + (error.message || 'Unbekannter Fehler');
+                  }
+              })
+              .finally(() => {
+                  // 🔑 GARANTIERTER STATE-RESET (wird IMMER ausgeführt)
+                  console.log('[DNS] finally-Block: State wird zurückgesetzt');
+                  isDnsBenchmarkRunning = false;
+
+                  // Cooldown starten
+                  loadingElement.textContent = 'Nächster Benchmark möglich in 30 Sekunden...';
+                  dnsBenchmarkCooldownTimer = setTimeout(() => {
+                      loadingElement.textContent = 'Klicke auf "Benchmark ausführen"...';
+                      dnsBenchmarkCooldownTimer = null;
+                      console.log('[DNS] Cooldown abgelaufen. State: ready');
+                  }, 30000);
+              });
+          }
 
         // IP-Statistik laden
         function loadIpStatistics() {
@@ -1292,7 +1457,7 @@ public class WebServer {
                 });
         }
 
-        // Einstellungen laden
+        // Einstellungen laden (inkl. Push)
         function loadConfig() {
             fetch('/api/config/current')
                 .then(response => response.json())
@@ -1310,6 +1475,17 @@ public class WebServer {
                     document.getElementById('maintenance-end-minute').value = maint.endMinute;
                     document.getElementById('maintenance-fields').style.display = maint.enabled ? 'block' : 'none';
                     
+                    // 🔑 Push-Einstellungen laden
+                    fetch('/api/push/settings')
+                        .then(response => response.json())
+                        .then(push => {
+                            document.getElementById('push-enabled').checked = push.enabled;
+                            document.getElementById('push-latency-threshold').value = push.latencyThreshold;
+                            document.getElementById('push-consecutive-bad').value = push.consecutiveBadMeasurements;
+                            document.getElementById('push-settings').style.display = push.enabled ? 'block' : 'none';
+                        })
+                        .catch(error => console.error('Push-Lade-Fehler:', error));
+                    
                     const ui = config.userInfo;
                     document.getElementById('config-provider').value = ui.provider || '';
                     document.getElementById('config-customer-id').value = ui.customerId || '';
@@ -1323,13 +1499,28 @@ public class WebServer {
             document.getElementById('maintenance-fields').style.display = this.checked ? 'block' : 'none';
         });
 
-        // Konfiguration speichern
+        // 🔑 Push-Checkbox Toggle
+        document.getElementById('push-enabled').addEventListener('change', function() {
+            document.getElementById('push-settings').style.display = this.checked ? 'block' : 'none';
+            
+            // Browser-Berechtigung anfragen, wenn aktiviert
+            if (this.checked && 'Notification' in window && Notification.permission !== 'granted') {
+                Notification.requestPermission().then(permission => {
+                    if (permission !== 'granted') {
+                        alert('⚠️ Benachrichtigungen wurden nicht erlaubt. Bitte erlaube sie in den Browser-Einstellungen.');
+                    }
+                });
+            }
+        });
+
+        // Konfiguration speichern (inkl. Push)
         function saveConfig() {
             const statusDiv = document.getElementById('config-status');
             statusDiv.style.display = 'block';
             statusDiv.style.background = '#fff3cd';
             statusDiv.textContent = '💾 Speichere Konfiguration...';
             
+            // Haupt-Konfiguration
             const config = {
                 ping: document.getElementById('config-ping').value.trim(),
                 dns: document.getElementById('config-dns').value.trim(),
@@ -1349,6 +1540,14 @@ public class WebServer {
                 }
             };
             
+            //  Push-Konfiguration separat speichern
+            const pushConfig = {
+                enabled: document.getElementById('push-enabled').checked,
+                latencyThreshold: parseFloat(document.getElementById('push-latency-threshold').value),
+                consecutiveBadMeasurements: parseInt(document.getElementById('push-consecutive-bad').value)
+            };
+            
+            // Zuerst Haupt-Konfiguration speichern
             fetch('/api/config/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1356,8 +1555,17 @@ public class WebServer {
             })
             .then(response => response.text())
             .then(message => {
+                // Dann Push-Konfiguration speichern
+                return fetch('/api/push/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pushConfig)
+                });
+            })
+            .then(response => response.text())
+            .then(message => {
                 statusDiv.style.background = '#d4edda';
-                statusDiv.textContent = '✅ ' + message;
+                statusDiv.textContent = '✅ Konfiguration erfolgreich gespeichert!';
                 setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
             })
             .catch(error => {
@@ -1365,6 +1573,46 @@ public class WebServer {
                 statusDiv.textContent = '❌ Fehler: ' + error.message;
             });
         }
+        
+        // Security-Tab Funktionen
+        function loadAuthStatus() {
+            fetch('/api/auth/status')
+                .then(r => r.json())
+                .then(s => {
+                    const div = document.getElementById('auth-status');
+                    const enable = document.getElementById('auth-enable-section');
+                    const disable = document.getElementById('auth-disable-section');
+                    if (s.enabled) {
+                        div.innerHTML = '<strong>✅ Authentifizierung AKTIV</strong><br>Benutzer: user | Admin: admin';
+                        enable.style.display = 'none'; disable.style.display = 'block';
+                    } else {
+                        div.innerHTML = '<strong>⚠️ Authentifizierung DEAKTIVIERT</strong><br>Web-Interface ist öffentlich zugänglich';
+                        enable.style.display = 'block'; disable.style.display = 'none';
+                    }
+                });
+        }
+        function enableAuth() {
+            const a = document.getElementById('auth-admin-password').value;
+            const u = document.getElementById('auth-user-password').value;
+            if (!a || !u) { alert('Bitte beide Passwörter eingeben!'); return; }
+            fetch('/api/auth/enable', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({adminPassword:a, userPassword:u})})
+            .then(r => r.text()).then(m => { alert(m); loadAuthStatus(); });
+        }
+        function disableAuth() {
+            const p = document.getElementById('auth-disable-admin-password').value;
+            if (!p) { alert('Admin-Passwort eingeben!'); return; }
+            if (!confirm('⚠️ Web-Interface wird öffentlich! Fortfahren?')) return;
+            fetch('/api/auth/disable', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({adminPassword:p})})
+            .then(r => r.text()).then(m => { alert(m); loadAuthStatus(); });
+        }
+        function changeAdminPassword() {
+            const old = document.getElementById('change-old-admin-password').value;
+            const neu = document.getElementById('change-new-admin-password').value;
+            if (!old || !neu || neu.length < 6) { alert('Passwörter prüfen (mind. 6 Zeichen)!'); return; }
+            fetch('/api/auth/change-admin', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oldPassword:old, newPassword:neu})})
+            .then(r => r.text()).then(m => { alert(m); document.getElementById('change-old-admin-password').value=''; document.getElementById('change-new-admin-password').value=''; });
+        }
+        
 
         // PDF-Download
         function downloadReport(hours) {
@@ -1388,6 +1636,9 @@ public class WebServer {
         loadStatistics();
         loadMeasurements();
         loadHourlyChart();
+        // DNS-Benchmark State (MUSS HIER STEHEN, NICHT IN DER FUNKTION!)
+        let isDnsBenchmarkRunning = false;
+        let dnsBenchmarkCooldownTimer = null;
         
         // Alle 5 Sekunden aktualisieren
         setInterval(loadMeasurements, 5000);
@@ -1403,65 +1654,6 @@ public class WebServer {
                 loadIpChanges();
             }
         }, 30000);
-        
-        // Initial laden
-        loadNetworkInfo();
-        
-        // Security-Tab Funktionen
-        function loadAuthStatus() {
-            fetch('/api/auth/status').then(r=>r.json()).then(s=>{
-                const div=document.getElementById('auth-status');
-                const enable=document.getElementById('auth-enable-section');
-                const disable=document.getElementById('auth-disable-section');
-                if(s.enabled){
-                    div.innerHTML='<strong>✅ Authentifizierung AKTIV</strong><br>Benutzer: user | Admin: admin';
-                    enable.style.display='none'; disable.style.display='block';
-                }else{
-                    div.innerHTML='<strong>⚠️ Authentifizierung DEAKTIVIERT</strong><br>Web-Interface ist öffentlich zugänglich';
-                    enable.style.display='block'; disable.style.display='none';
-                }
-            });
-        }
-        function enableAuth(){
-            const a=document.getElementById('auth-admin-password').value;
-            const u=document.getElementById('auth-user-password').value;
-            if(!a||!u){alert('Bitte beide Passwörter eingeben!');return;}
-            fetch('/api/auth/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPassword:a,userPassword:u})})
-            .then(r=>r.text()).then(m=>{alert(m);loadAuthStatus();});
-        }
-        function disableAuth(){
-            const p=document.getElementById('auth-disable-admin-password').value;
-            if(!p){alert('Admin-Passwort eingeben!');return;}
-            if(!confirm('⚠️ Web-Interface wird öffentlich! Fortfahren?'))return;
-            fetch('/api/auth/disable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminPassword:p})})
-            .then(r=>r.text()).then(m=>{alert(m);loadAuthStatus();});
-        }
-
-        // Notifications-Tab Funktionen
-        function loadPushSettings(){
-            fetch('/api/push/settings').then(r=>r.json()).then(s=>{
-                document.getElementById('push-enabled').checked=s.enabled;
-                document.getElementById('push-latency-threshold').value=s.latencyThreshold;
-                document.getElementById('push-consecutive-bad').value=s.consecutiveBadMeasurements;
-                document.getElementById('push-settings').style.display=s.enabled?'block':'none';
-            });
-        }
-        function savePushSettings(){
-            const e=document.getElementById('push-enabled').checked;
-            const t=parseFloat(document.getElementById('push-latency-threshold').value);
-            const c=parseInt(document.getElementById('push-consecutive-bad').value);
-            fetch('/api/push/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:e,latencyThreshold:t,consecutiveBadMeasurements:c})})
-            .then(r=>r.text()).then(m=>alert(m));
-        }
-
-        // Tab-Handler erweitern
-        const originalShowTab = showTab;
-        showTab = function(tabId) {
-            originalShowTab(tabId);
-            if(tabId==='security') loadAuthStatus();
-            if(tabId==='notifications') loadPushSettings();
-        };
-        
     </script>
 </body>
 </html>

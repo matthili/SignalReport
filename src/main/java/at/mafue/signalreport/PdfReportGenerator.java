@@ -82,7 +82,8 @@ public class PdfReportGenerator {
         // Host-Informationen
         Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
         document.add(new Paragraph("Host: " + HostIdentifier.getHostname() + " | Hash: " + HostIdentifier.getHostHash().substring(0, 8), smallFont));
-        document.add(new Paragraph("LAN IP: " + NetworkInfo.getLocalIPv4() + " | Externe IP: " + NetworkInfo.getExternalIPv4(), smallFont));
+        document.add(new Paragraph("LAN IPv4: " + NetworkInfo.getLocalIPv4() + " | LAN IPv6: " + NetworkInfo.getLocalIPv6(), smallFont));
+        document.add(new Paragraph("Externe IPv4: " + NetworkInfo.getExternalIPv4() + " | Externe IPv6: " + NetworkInfo.getExternalIPv6(), smallFont));
         document.add(Chunk.NEWLINE);
 
         // Alle Messungen holen

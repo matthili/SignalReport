@@ -6,11 +6,13 @@ import org.xbill.DNS.Record;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DnsBenchmark {
     private final List<Config.DnsServer> dnsServers;
     private final String hostname;
     private final int timeoutMs;
+    private static final AtomicInteger queryCounter = new AtomicInteger(0);
 
     public DnsBenchmark(List<Config.DnsServer> dnsServers, String hostname, int timeoutMs) {
         this.dnsServers = dnsServers;
@@ -44,10 +46,11 @@ public class DnsBenchmark {
         long start = System.nanoTime();
 
         try {
-            //  Echte DNS-Query mit spezifischem Server (umgeht PiHole-Cache!)
+            // echte Queries auf das konfigurierte Hostname
             SimpleResolver resolver = new SimpleResolver(server.getAddress());
             resolver.setTimeout(timeoutMs / 1000, timeoutMs % 1000);
 
+            // DNS-Query auf das echte Hostname (z.B. "google.com")
             Record record = Record.newRecord(
                 Name.fromString(hostname + "."),
                 Type.A,
@@ -60,7 +63,10 @@ public class DnsBenchmark {
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
 
-            boolean success = response.getRcode() == Rcode.NOERROR;
+            // Erfolg bei NOERROR (0) oder NXDOMAIN (3) – beides sind gültige DNS-Antworten
+            // NXDOMAIN bedeutet "Domain existiert nicht" – das ist kein Netzwerkfehler!
+            int rcode = response.getRcode();
+            boolean success = rcode == Rcode.NOERROR || rcode == Rcode.NXDOMAIN;
 
             return new DnsResult(
                 server.getName(),

@@ -28,6 +28,10 @@ public class Config {
 
     public SetupConfig getSetup() { return setup; }
     public void setSetup(SetupConfig setup) { this.setup = setup; }
+    private PushConfig push = new PushConfig();
+
+    public PushConfig getPush() { return push; }
+    public void setPush(PushConfig push) { this.push = push; }
 
 public static Config load(String path) throws IOException {
 
@@ -312,6 +316,20 @@ public static Config load(String path) throws IOException {
         return userPasswordHash.equals(hashPassword(password));
     }
 
+}
+    public static class PushConfig {
+    private boolean enabled = false;
+    private double latencyThreshold = 100.0; // ms
+    private int consecutiveBadMeasurements = 2;
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public double getLatencyThreshold() { return latencyThreshold; }
+    public void setLatencyThreshold(double threshold) { this.latencyThreshold = threshold; }
+
+    public int getConsecutiveBadMeasurements() { return consecutiveBadMeasurements; }
+    public void setConsecutiveBadMeasurements(int count) { this.consecutiveBadMeasurements = count; }
 }
 
     public static class SetupConfig {

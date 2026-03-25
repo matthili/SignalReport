@@ -28,7 +28,10 @@ public class HttpMeasurer {
             HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
-            boolean success = response.statusCode() == 200;
+
+            // 🔑 NEU: Erfolg bei allen 2xx und 3xx Statuscodes (nicht nur 200!)
+            int statusCode = response.statusCode();
+            boolean success = statusCode >= 200 && statusCode < 400;
 
             return new Measurement(url, latency, success, "HTTP");
         } catch (Exception e) {
