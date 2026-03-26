@@ -25,14 +25,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 
-public class PdfReportGenerator {
+public class PdfReportGenerator
+{
     private final H2MeasurementRepository repository;
 
-    public PdfReportGenerator(H2MeasurementRepository repository) {
+    public PdfReportGenerator(H2MeasurementRepository repository)
+    {
         this.repository = repository;
     }
 
-    public byte[] generateReport(int hours) throws Exception {
+    public byte[] generateReport(int hours) throws Exception
+    {
         Document document = new Document(PageSize.A4);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter.getInstance(document, baos);
@@ -52,26 +55,30 @@ public class PdfReportGenerator {
         Config config = Config.getInstance();
         Config.UserInfo userInfo = config.getUserInfo();
         boolean hasUserInfo = userInfo != null &&
-            (!userInfo.getProvider().isEmpty() ||
-             !userInfo.getCustomerId().isEmpty() ||
-             !userInfo.getUserName().isEmpty());
+                (!userInfo.getProvider().isEmpty() ||
+                        !userInfo.getCustomerId().isEmpty() ||
+                        !userInfo.getUserName().isEmpty());
 
-        if (hasUserInfo) {
+        if (hasUserInfo)
+            {
             Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD);
             document.add(new Paragraph("Kunde:", sectionFont));
 
             Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
-            if (!userInfo.getUserName().isEmpty()) {
+            if (!userInfo.getUserName().isEmpty())
+                {
                 document.add(new Paragraph("Name:          " + userInfo.getUserName(), regularFont));
-            }
-            if (!userInfo.getProvider().isEmpty()) {
+                }
+            if (!userInfo.getProvider().isEmpty())
+                {
                 document.add(new Paragraph("Provider:      " + userInfo.getProvider(), regularFont));
-            }
-            if (!userInfo.getCustomerId().isEmpty()) {
+                }
+            if (!userInfo.getCustomerId().isEmpty())
+                {
                 document.add(new Paragraph("Kundennummer:  " + userInfo.getCustomerId(), regularFont));
-            }
+                }
             document.add(Chunk.NEWLINE);
-        }
+            }
 
         // Zeitraum
         Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
@@ -89,11 +96,13 @@ public class PdfReportGenerator {
         // Alle Messungen holen
         List<Measurement> allMeasurements = repository.findLastN(100000);
         List<Measurement> filteredMeasurements = new ArrayList<>();
-        for (Measurement m : allMeasurements) {
-            if (!m.getTimestamp().isBefore(since)) {
+        for (Measurement m : allMeasurements)
+            {
+            if (!m.getTimestamp().isBefore(since))
+                {
                 filteredMeasurements.add(m);
+                }
             }
-        }
 
         // === PING STATISTIK ===
         document.add(new Paragraph("PING-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
@@ -110,14 +119,15 @@ public class PdfReportGenerator {
 
         // PING Chart
         List<Measurement> pingMeasurements = filterByType(filteredMeasurements, "PING");
-        if (!pingMeasurements.isEmpty()) {
+        if (!pingMeasurements.isEmpty())
+            {
             BufferedImage pingChart = createLatencyChart(pingMeasurements, "PING", detectTargetChanges(pingMeasurements));
             addChartToPdf(document, pingChart, "PING Latenz über Zeit");
             document.add(Chunk.NEWLINE);
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
             document.add(new Paragraph(pingTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
             //document.add(Chunk.NEXTPAGE); //provoziert leere Seite
-        }
+            }
 
 
         // === DNS STATISTIK ===
@@ -134,7 +144,8 @@ public class PdfReportGenerator {
 
         // DNS Chart
         List<Measurement> dnsMeasurements = filterByType(filteredMeasurements, "DNS");
-        if (!dnsMeasurements.isEmpty()) {
+        if (!dnsMeasurements.isEmpty())
+            {
             BufferedImage dnsChart = createLatencyChart(dnsMeasurements, "DNS", detectTargetChanges(dnsMeasurements));
             addChartToPdf(document, dnsChart, "DNS Latenz über Zeit");
             document.add(Chunk.NEWLINE);
@@ -142,7 +153,7 @@ public class PdfReportGenerator {
             document.add(new Paragraph(dnsTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
             //document.add(Chunk.NEWLINE);
             document.add(Chunk.NEXTPAGE);
-        }
+            }
 
         // === HTTP STATISTIK ===
         document.add(new Paragraph("HTTP-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
@@ -158,7 +169,8 @@ public class PdfReportGenerator {
 
         // HTTP Chart
         List<Measurement> httpMeasurements = filterByType(filteredMeasurements, "HTTP");
-        if (!httpMeasurements.isEmpty()) {
+        if (!httpMeasurements.isEmpty())
+            {
             BufferedImage httpChart = createLatencyChart(httpMeasurements, "HTTP", detectTargetChanges(httpMeasurements));
             addChartToPdf(document, httpChart, "HTTP Latenz über Zeit");
             document.add(Chunk.NEWLINE);
@@ -166,19 +178,21 @@ public class PdfReportGenerator {
             document.add(new Paragraph(httpTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
             //document.add(Chunk.NEWLINE);
             document.add(Chunk.NEXTPAGE);
-        }
+            }
 
         // === TOP 10 SCHLECHTESTE MESSUNGEN ===
         document.add(new Paragraph("Top 10 schlechteste Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
         document.add(Chunk.NEWLINE);
 
         List<Measurement> worstMeasurements = getWorstMeasurements(filteredMeasurements, 10);
-        if (!worstMeasurements.isEmpty()) {
+        if (!worstMeasurements.isEmpty())
+            {
             PdfPTable worstTable = createWorstMeasurementsTable(worstMeasurements);
             document.add(worstTable);
-        } else {
+            } else
+            {
             document.add(new Paragraph("Keine Messungen gefunden.", FontFactory.getFont(FontFactory.HELVETICA, 10)));
-        }
+            }
         document.add(Chunk.NEWLINE);
 
         // === VERBINDUNGSAUSFÄLLE ===
@@ -190,47 +204,56 @@ public class PdfReportGenerator {
         document.add(new Paragraph("Gesamtanzahl Verbindungsausfälle: " + totalOutages, statFont));
         document.add(Chunk.NEWLINE);
 
-        if (!outages.isEmpty()) {
+        if (!outages.isEmpty())
+            {
             document.add(new Paragraph("Top 10 längste Verbindungsausfälle", FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD)));
             document.add(Chunk.NEWLINE);
 
             List<ConnectionOutage> longestOutages = getLongestOutages(outages, 10);
             PdfPTable outagesTable = createOutagesTable(longestOutages);
             document.add(outagesTable);
-        }
+            }
 
         document.close();
         return baos.toByteArray();
     }
 
     // Hilfsmethoden
-    private List<Measurement> filterByType(List<Measurement> measurements, String type) {
+    private List<Measurement> filterByType(List<Measurement> measurements, String type)
+    {
         List<Measurement> result = new ArrayList<>();
-        for (Measurement m : measurements) {
-            if (m.getType().equals(type)) {
+        for (Measurement m : measurements)
+            {
+            if (m.getType().equals(type))
+                {
                 result.add(m);
+                }
             }
-        }
         return result;
     }
 
-    private List<Measurement> getWorstMeasurements(List<Measurement> measurements, int count) {
+    private List<Measurement> getWorstMeasurements(List<Measurement> measurements, int count)
+    {
         List<Measurement> successful = new ArrayList<>();
-        for (Measurement m : measurements) {
-            if (m.isSuccess()) {
+        for (Measurement m : measurements)
+            {
+            if (m.isSuccess())
+                {
                 successful.add(m);
+                }
             }
-        }
 
         successful.sort((a, b) -> Double.compare(b.getLatencyMs(), a.getLatencyMs()));
 
-        if (successful.size() > count) {
+        if (successful.size() > count)
+            {
             return successful.subList(0, count);
-        }
+            }
         return successful;
     }
 
-    private List<ConnectionOutage> detectConnectionOutages(List<Measurement> measurements) {
+    private List<ConnectionOutage> detectConnectionOutages(List<Measurement> measurements)
+    {
         List<ConnectionOutage> outages = new ArrayList<>();
 
         if (measurements.isEmpty()) return outages;
@@ -240,97 +263,114 @@ public class PdfReportGenerator {
 
         List<Measurement> currentOutage = null;
 
-        for (Measurement m : measurements) {
-            if (!m.isSuccess()) {
-                if (currentOutage == null) {
+        for (Measurement m : measurements)
+            {
+            if (!m.isSuccess())
+                {
+                if (currentOutage == null)
+                    {
                     currentOutage = new ArrayList<>();
-                }
+                    }
                 currentOutage.add(m);
-            } else {
-                if (currentOutage != null && currentOutage.size() >= 2) {
+                } else
+                {
+                if (currentOutage != null && currentOutage.size() >= 2)
+                    {
                     outages.add(new ConnectionOutage(
-                        currentOutage.get(0).getTimestamp(),
-                        currentOutage.get(currentOutage.size() - 1).getTimestamp(),
-                        currentOutage.size(),
-                        currentOutage.get(0).getType()
+                            currentOutage.get(0).getTimestamp(),
+                            currentOutage.get(currentOutage.size() - 1).getTimestamp(),
+                            currentOutage.size(),
+                            currentOutage.get(0).getType()
                     ));
-                }
+                    }
                 currentOutage = null;
+                }
             }
-        }
 
         // Letzten Ausfall speichern, falls am Ende
-        if (currentOutage != null && currentOutage.size() >= 2) {
+        if (currentOutage != null && currentOutage.size() >= 2)
+            {
             outages.add(new ConnectionOutage(
-                currentOutage.get(0).getTimestamp(),
-                currentOutage.get(currentOutage.size() - 1).getTimestamp(),
-                currentOutage.size(),
-                currentOutage.get(0).getType()
+                    currentOutage.get(0).getTimestamp(),
+                    currentOutage.get(currentOutage.size() - 1).getTimestamp(),
+                    currentOutage.size(),
+                    currentOutage.get(0).getType()
             ));
-        }
+            }
 
         return outages;
     }
 
-    private List<ConnectionOutage> getLongestOutages(List<ConnectionOutage> outages, int count) {
+    private List<ConnectionOutage> getLongestOutages(List<ConnectionOutage> outages, int count)
+    {
         outages.sort((a, b) -> Long.compare(b.getDurationSeconds(), a.getDurationSeconds()));
 
-        if (outages.size() > count) {
+        if (outages.size() > count)
+            {
             return outages.subList(0, count);
-        }
+            }
         return outages;
     }
 
-    private List<TargetChange> detectTargetChanges(List<Measurement> measurements) {
+    private List<TargetChange> detectTargetChanges(List<Measurement> measurements)
+    {
         List<TargetChange> changes = new ArrayList<>();
 
         if (measurements.isEmpty()) return changes;
 
         String currentTarget = measurements.get(0).getTarget();
 
-        for (int i = 1; i < measurements.size(); i++) {
+        for (int i = 1; i < measurements.size(); i++)
+            {
             Measurement m = measurements.get(i);
-            if (!m.getTarget().equals(currentTarget)) {
+            if (!m.getTarget().equals(currentTarget))
+                {
                 changes.add(new TargetChange(m.getTimestamp(), currentTarget, m.getTarget()));
                 currentTarget = m.getTarget();
+                }
             }
-        }
 
         return changes;
     }
 
-    private String getTargetsChronological(List<Measurement> measurements) {
-    if (measurements == null || measurements.isEmpty()) {
-        return "Keine Messungen im Zeitraum";
+    private String getTargetsChronological(List<Measurement> measurements)
+    {
+        if (measurements == null || measurements.isEmpty())
+            {
+            return "Keine Messungen im Zeitraum";
+            }
+
+        // LinkedHashSet behält Reihenfolge des ersten Auftretens
+        java.util.LinkedHashSet<String> uniqueTargets = new java.util.LinkedHashSet<>();
+
+        // Liste ist absteigend sortiert (neueste zuerst) → rückwärts traversieren für chronologische Reihenfolge
+        for (int i = measurements.size() - 1; i >= 0; i--)
+            {
+            uniqueTargets.add(measurements.get(i).getTarget());
+            }
+
+        // Formatierung mit farblichem Hinweis bei mehreren Zielen
+        String targetsList = String.join(", ", uniqueTargets);
+        String prefix = uniqueTargets.size() > 1
+                ? "⚠️ Gemessene Ziele (chronologisch): "
+                : "Gemessenes Ziel: ";
+
+        return prefix + targetsList;
     }
 
-    // LinkedHashSet behält Reihenfolge des ersten Auftretens
-    java.util.LinkedHashSet<String> uniqueTargets = new java.util.LinkedHashSet<>();
-
-    // Liste ist absteigend sortiert (neueste zuerst) → rückwärts traversieren für chronologische Reihenfolge
-    for (int i = measurements.size() - 1; i >= 0; i--) {
-        uniqueTargets.add(measurements.get(i).getTarget());
-    }
-
-    // Formatierung mit farblichem Hinweis bei mehreren Zielen
-    String targetsList = String.join(", ", uniqueTargets);
-    String prefix = uniqueTargets.size() > 1
-        ? "⚠️ Gemessene Ziele (chronologisch): "
-        : "Gemessenes Ziel: ";
-
-    return prefix + targetsList;
-    }
-
-    private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges) {
+    private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
+    {
         XYSeries series = new XYSeries(type + " Latenz");
         Map<Integer, TargetChange> changePoints = new HashMap<>();
 
-        for (int i = 0; i < measurements.size(); i++) {
+        for (int i = 0; i < measurements.size(); i++)
+            {
             Measurement m = measurements.get(i);
-            if (m.isSuccess()) {
+            if (m.isSuccess())
+                {
                 series.add(i, m.getLatencyMs());
+                }
             }
-        }
 
         XYSeriesCollection dataset = new XYSeriesCollection(series);
         JFreeChart chart = ChartFactory.createXYLineChart(
@@ -363,28 +403,33 @@ public class PdfReportGenerator {
         chart.draw(g2, new java.awt.geom.Rectangle2D.Double(0, 0, width, height));
 
         // Ziel-Änderungen markieren
-        if (!targetChanges.isEmpty() && !measurements.isEmpty()) {
+        if (!targetChanges.isEmpty() && !measurements.isEmpty())
+            {
             g2.setColor(Color.RED);
             g2.setStroke(new BasicStroke(2.0f));
 
-            for (TargetChange change : targetChanges) {
+            for (TargetChange change : targetChanges)
+                {
                 // Finde Position der Änderung
-                for (int i = 0; i < measurements.size(); i++) {
-                    if (measurements.get(i).getTimestamp().equals(change.getTimestamp())) {
+                for (int i = 0; i < measurements.size(); i++)
+                    {
+                    if (measurements.get(i).getTimestamp().equals(change.getTimestamp()))
+                        {
                         int x = (int) ((double) i / measurements.size() * width);
                         g2.drawLine(x, 0, x, height);
                         break;
+                        }
                     }
                 }
             }
-        }
 
         g2.dispose();
 
         return image;
     }
 
-    private void addChartToPdf(Document document, BufferedImage chart, String title) throws DocumentException, IOException {
+    private void addChartToPdf(Document document, BufferedImage chart, String title) throws DocumentException, IOException
+    {
         // Sicherheitsabstand vor Chart
         document.add(Chunk.NEWLINE);
 
@@ -405,7 +450,8 @@ public class PdfReportGenerator {
         document.add(Chunk.NEWLINE);
     }
 
-    private PdfPTable createWorstMeasurementsTable(List<Measurement> measurements) {
+    private PdfPTable createWorstMeasurementsTable(List<Measurement> measurements)
+    {
         PdfPTable table = new PdfPTable(5);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{2, 1, 2, 1, 1});
@@ -419,20 +465,22 @@ public class PdfReportGenerator {
 
         Font contentFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+                .withZone(ZoneId.systemDefault());
 
-        for (Measurement m : measurements) {
+        for (Measurement m : measurements)
+            {
             addTableCell(table, dtf.format(m.getTimestamp()), contentFont, false);
             addTableCell(table, m.getType(), contentFont, false);
             addTableCell(table, m.getTarget(), contentFont, false);
             addTableCell(table, String.format("%.1f ms", m.getLatencyMs()), contentFont, false);
             addTableCell(table, m.getHostHash().substring(0, 8), contentFont, false);
-        }
+            }
 
         return table;
     }
 
-    private PdfPTable createOutagesTable(List<ConnectionOutage> outages) {
+    private PdfPTable createOutagesTable(List<ConnectionOutage> outages)
+    {
         PdfPTable table = new PdfPTable(4);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{2, 2, 1, 1});
@@ -445,49 +493,76 @@ public class PdfReportGenerator {
 
         Font contentFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+                .withZone(ZoneId.systemDefault());
 
-        for (ConnectionOutage outage : outages) {
+        for (ConnectionOutage outage : outages)
+            {
             addTableCell(table, dtf.format(outage.getStart()), contentFont, false);
             addTableCell(table, dtf.format(outage.getEnd()), contentFont, false);
             addTableCell(table, outage.getDurationFormatted(), contentFont, false);
             addTableCell(table, outage.getType(), contentFont, false);
-        }
+            }
 
         return table;
     }
 
-    private void addTableCell(PdfPTable table, String text, Font font, boolean isHeader) {
+    private void addTableCell(PdfPTable table, String text, Font font, boolean isHeader)
+    {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
-        if (isHeader) {
+        if (isHeader)
+            {
             cell.setBorder(Rectangle.BOTTOM);
             cell.setBorderWidthBottom(1.5f);
-        } else {
+            } else
+            {
             cell.setBorder(Rectangle.NO_BORDER);
-        }
+            }
         table.addCell(cell);
     }
 
     // Hilfsklassen
-    private static class ConnectionOutage {
+    private static class ConnectionOutage
+    {
         private final Instant start;
         private final Instant end;
         private final int measurementCount;
         private final String type;
 
-        public ConnectionOutage(Instant start, Instant end, int measurementCount, String type) {
+        public ConnectionOutage(Instant start, Instant end, int measurementCount, String type)
+        {
             this.start = start;
             this.end = end;
             this.measurementCount = measurementCount;
             this.type = type;
         }
 
-        public Instant getStart() { return start; }
-        public Instant getEnd() { return end; }
-        public int getMeasurementCount() { return measurementCount; }
-        public String getType() { return type; }
-        public long getDurationSeconds() { return java.time.Duration.between(start, end).getSeconds(); }
-        public String getDurationFormatted() {
+        public Instant getStart()
+        {
+            return start;
+        }
+
+        public Instant getEnd()
+        {
+            return end;
+        }
+
+        public int getMeasurementCount()
+        {
+            return measurementCount;
+        }
+
+        public String getType()
+        {
+            return type;
+        }
+
+        public long getDurationSeconds()
+        {
+            return java.time.Duration.between(start, end).getSeconds();
+        }
+
+        public String getDurationFormatted()
+        {
             long seconds = getDurationSeconds();
             if (seconds < 60) return seconds + "s";
             if (seconds < 3600) return (seconds / 60) + "m " + (seconds % 60) + "s";
@@ -495,19 +570,32 @@ public class PdfReportGenerator {
         }
     }
 
-    private static class TargetChange {
+    private static class TargetChange
+    {
         private final Instant timestamp;
         private final String oldTarget;
         private final String newTarget;
 
-        public TargetChange(Instant timestamp, String oldTarget, String newTarget) {
+        public TargetChange(Instant timestamp, String oldTarget, String newTarget)
+        {
             this.timestamp = timestamp;
             this.oldTarget = oldTarget;
             this.newTarget = newTarget;
         }
 
-        public Instant getTimestamp() { return timestamp; }
-        public String getOldTarget() { return oldTarget; }
-        public String getNewTarget() { return newTarget; }
+        public Instant getTimestamp()
+        {
+            return timestamp;
+        }
+
+        public String getOldTarget()
+        {
+            return oldTarget;
+        }
+
+        public String getNewTarget()
+        {
+            return newTarget;
+        }
     }
 }

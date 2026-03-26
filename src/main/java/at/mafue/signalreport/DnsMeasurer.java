@@ -2,8 +2,10 @@ package at.mafue.signalreport;
 
 import java.net.InetAddress;
 
-public class DnsMeasurer {
-    public Measurement measure(String hostname) throws Exception {
+public class DnsMeasurer
+{
+    public Measurement measure(String hostname) throws Exception
+    {
         long start = System.nanoTime();
         InetAddress address = InetAddress.getByName(hostname);
         long end = System.nanoTime();

@@ -1,92 +1,115 @@
 package at.mafue.signalreport;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class PushNotificationService {
+public class PushNotificationService
+{
+    // SLF4J Logger-Instanz (statisch für die ganze Klasse)
+    private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
+
     private static PushNotificationService instance;
     private final List<String> subscribedClients = new CopyOnWriteArrayList<>();
     private boolean enabled = false;
     private double latencyThreshold = 100.0; // ms
     private int consecutiveBadMeasurements = 2;
 
-    private PushNotificationService() {}
+    private PushNotificationService()
+    {
+        // Privater Konstruktor für Singleton
+    }
 
-    public static synchronized PushNotificationService getInstance() {
-        if (instance == null) {
+    public static synchronized PushNotificationService getInstance()
+    {
+        if (instance == null)
+            {
             instance = new PushNotificationService();
-        }
+            }
         return instance;
     }
 
-    public void enable() {
+    public void enable()
+    {
         this.enabled = true;
-        System.out.println("🔔 Push-Benachrichtigungen aktiviert");
+        logger.info("Push-Benachrichtigungen aktiviert");
     }
 
-    public void disable() {
+    public void disable()
+    {
         this.enabled = false;
-        System.out.println("🔕 Push-Benachrichtigungen deaktiviert");
+        logger.info("Push-Benachrichtigungen deaktiviert");
     }
 
-    public boolean isEnabled() {
+    public boolean isEnabled()
+    {
         return enabled;
     }
 
-    public void setLatencyThreshold(double threshold) {
+    public void setLatencyThreshold(double threshold)
+    {
         this.latencyThreshold = threshold;
     }
 
-    public double getLatencyThreshold() {
+    public double getLatencyThreshold()
+    {
         return latencyThreshold;
     }
 
-    public void setConsecutiveBadMeasurements(int count) {
+    public void setConsecutiveBadMeasurements(int count)
+    {
         this.consecutiveBadMeasurements = count;
     }
 
-    public int getConsecutiveBadMeasurements() {
+    public int getConsecutiveBadMeasurements()
+    {
         return consecutiveBadMeasurements;
     }
 
-    public void subscribeClient(String clientId) {
-        if (!subscribedClients.contains(clientId)) {
+    public void subscribeClient(String clientId)
+    {
+        if (!subscribedClients.contains(clientId))
+            {
             subscribedClients.add(clientId);
-            System.out.println("✅ Push-Client registriert: " + clientId);
-        }
+            logger.info("Push-Client registriert: {}", clientId);
+            }
     }
 
-    public void unsubscribeClient(String clientId) {
+    public void unsubscribeClient(String clientId)
+    {
         subscribedClients.remove(clientId);
-        System.out.println("❌ Push-Client entfernt: " + clientId);
+        logger.info("Push-Client entfernt: {}", clientId);
     }
 
-    public List<String> getSubscribedClients() {
+    public List<String> getSubscribedClients()
+    {
         return new ArrayList<>(subscribedClients);
     }
 
-    public void sendNotification(String title, String body) {
+    public void sendNotification(String title, String body)
+    {
         if (!enabled) return;
 
-        System.out.println("🔔 Push-Benachrichtigung: " + title + " - " + body);
-        // Hier würde die tatsächliche Push-API-Integration kommen
+        logger.info("Push-Benachrichtigung: {} - {}", title, body);
+        // Hier würde die tatsächliche Push-API-Integration Platz finden
         // (z.B. mit webpush-java Bibliothek für VAPID)
+        // für dieses Projekt war es leider nicht praxistauglich umsetzbar, da aktuell nur mit SSL-Zertifikat möglich.
     }
 
-    public void checkAndNotify(String type, double latency, boolean success, int consecutiveFailures) {
+    public void checkAndNotify(String type, double latency, boolean success, int consecutiveFailures)
+    {
         if (!enabled) return;
 
-        if (!success) {
-            sendNotification(
-                "⚠️ Internet-Ausfall erkannt!",
-                type + "-Verbindung unterbrochen"
-            );
-        } else if (latency > latencyThreshold && consecutiveFailures >= consecutiveBadMeasurements) {
-            sendNotification(
-                "⚠️ Schlechte Internet-Verbindung",
-                type + "-Latenz: " + String.format("%.1f ms", latency) + " (Schwellwert: " + latencyThreshold + " ms)"
-            );
-        }
+        if (!success)
+            {
+            logger.warn("⚠️ Internet-Ausfall erkannt! {}-Verbindung unterbrochen", type);
+            } else if (latency > latencyThreshold && consecutiveFailures >= consecutiveBadMeasurements)
+            {
+            logger.warn("⚠️ Schlechte Internet-Verbindung: {}-Latenz: {:.1f} ms (Schwellwert: {} ms)",
+                    type, latency, latencyThreshold);
+            }
     }
 }

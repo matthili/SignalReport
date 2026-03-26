@@ -2,9 +2,11 @@ package at.mafue.signalreport;
 
 import java.net.InetAddress;
 
-public class PingMeasurer {
+public class PingMeasurer
+{
     // KEIN festes Ziel mehr – wird bei jeder Messung übergeben
-    public Measurement measure(String target) throws Exception {
+    public Measurement measure(String target) throws Exception
+    {
         long start = System.nanoTime();
         boolean reachable = InetAddress.getByName(target).isReachable(3000);
         long end = System.nanoTime();

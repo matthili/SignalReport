@@ -97,7 +97,7 @@
     "adminPasswordHash" : "fbb0814d561c0bd4ee53440778df5f8ef79bff4157c6b66a78cbb5429ac9702b"
   },
   "push" : {
-    "enabled" : false,
+    "enabled" : true,
     "latencyThreshold" : 100.0,
     "consecutiveBadMeasurements" : 2
   }

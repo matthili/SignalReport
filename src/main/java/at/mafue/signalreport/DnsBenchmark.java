@@ -8,53 +8,62 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class DnsBenchmark {
+public class DnsBenchmark
+{
     private final List<Config.DnsServer> dnsServers;
     private final String hostname;
     private final int timeoutMs;
     private static final AtomicInteger queryCounter = new AtomicInteger(0);
 
-    public DnsBenchmark(List<Config.DnsServer> dnsServers, String hostname, int timeoutMs) {
+    public DnsBenchmark(List<Config.DnsServer> dnsServers, String hostname, int timeoutMs)
+    {
         this.dnsServers = dnsServers;
         this.hostname = hostname;
         this.timeoutMs = timeoutMs;
     }
 
-    public List<DnsResult> benchmark() throws Exception {
+    public List<DnsResult> benchmark() throws Exception
+    {
         List<DnsResult> results = new ArrayList<>();
         ExecutorService executor = Executors.newFixedThreadPool(dnsServers.size());
 
         List<Future<DnsResult>> futures = new ArrayList<>();
 
-        for (Config.DnsServer server : dnsServers) {
+        for (Config.DnsServer server : dnsServers)
+            {
             futures.add(executor.submit(() -> measureDnsServer(server)));
-        }
-
-        for (Future<DnsResult> future : futures) {
-            try {
-                results.add(future.get(timeoutMs * 2L, TimeUnit.MILLISECONDS));
-            } catch (TimeoutException e) {
-                // Timeout – überspringen
             }
-        }
+
+        for (Future<DnsResult> future : futures)
+            {
+            try
+                {
+                results.add(future.get(timeoutMs * 2L, TimeUnit.MILLISECONDS));
+                } catch (TimeoutException e)
+                {
+                // Timeout – überspringen
+                }
+            }
 
         executor.shutdown();
         return results;
     }
 
-    private DnsResult measureDnsServer(Config.DnsServer server) {
+    private DnsResult measureDnsServer(Config.DnsServer server)
+    {
         long start = System.nanoTime();
 
-        try {
-            // echte Queries auf das konfigurierte Hostname
+        try
+            {
+            // echte Queries auf dem konfigurierten Hostname
             SimpleResolver resolver = new SimpleResolver(server.getAddress());
             resolver.setTimeout(timeoutMs / 1000, timeoutMs % 1000);
 
-            // DNS-Query auf das echte Hostname (z.B. "google.com")
+            // DNS-Query auf den echten Hostname (z.B. "google.com")
             Record record = Record.newRecord(
-                Name.fromString(hostname + "."),
-                Type.A,
-                DClass.IN
+                    Name.fromString(hostname + "."),
+                    Type.A,
+                    DClass.IN
             );
 
             Message query = Message.newQuery(record);
@@ -69,31 +78,33 @@ public class DnsBenchmark {
             boolean success = rcode == Rcode.NOERROR || rcode == Rcode.NXDOMAIN;
 
             return new DnsResult(
-                server.getName(),
-                server.getAddress(),
-                server.getRegion(),
-                server.getProvider(),
-                hostname,
-                latency,
-                success
+                    server.getName(),
+                    server.getAddress(),
+                    server.getRegion(),
+                    server.getProvider(),
+                    hostname,
+                    latency,
+                    success
             );
-        } catch (Exception e) {
+            } catch (Exception e)
+            {
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
 
             return new DnsResult(
-                server.getName(),
-                server.getAddress(),
-                server.getRegion(),
-                server.getProvider(),
-                hostname,
-                latency,
-                false
+                    server.getName(),
+                    server.getAddress(),
+                    server.getRegion(),
+                    server.getProvider(),
+                    hostname,
+                    latency,
+                    false
             );
-        }
+            }
     }
 
-    public static class DnsResult {
+    public static class DnsResult
+    {
         private final String serverName;
         private final String serverAddress;
         private final String region;
@@ -103,7 +114,8 @@ public class DnsBenchmark {
         private final boolean success;
 
         public DnsResult(String serverName, String serverAddress, String region,
-                        String provider, String hostname, double latencyMs, boolean success) {
+                         String provider, String hostname, double latencyMs, boolean success)
+        {
             this.serverName = serverName;
             this.serverAddress = serverAddress;
             this.region = region;
@@ -114,12 +126,39 @@ public class DnsBenchmark {
         }
 
         // Getter
-        public String getServerName() { return serverName; }
-        public String getServerAddress() { return serverAddress; }
-        public String getRegion() { return region; }
-        public String getProvider() { return provider; }
-        public String getHostname() { return hostname; }
-        public double getLatencyMs() { return latencyMs; }
-        public boolean isSuccess() { return success; }
+        public String getServerName()
+        {
+            return serverName;
+        }
+
+        public String getServerAddress()
+        {
+            return serverAddress;
+        }
+
+        public String getRegion()
+        {
+            return region;
+        }
+
+        public String getProvider()
+        {
+            return provider;
+        }
+
+        public String getHostname()
+        {
+            return hostname;
+        }
+
+        public double getLatencyMs()
+        {
+            return latencyMs;
+        }
+
+        public boolean isSuccess()
+        {
+            return success;
+        }
     }
 }

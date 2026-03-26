@@ -7,15 +7,19 @@ import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-public class HostIdentifier {
+public class HostIdentifier
+{
 
     private static String cachedHash = null;
     private static String cachedHostname = null;
     private static String cachedOS = null;
 
-    public static String getHostHash() {
-        if (cachedHash == null) {
-            try {
+    public static String getHostHash()
+    {
+        if (cachedHash == null)
+            {
+            try
+                {
                 // Hostname ermitteln
                 String hostname = getHostname();
 
@@ -34,61 +38,76 @@ public class HostIdentifier {
 
                 // Hex-String erstellen
                 StringBuilder hexString = new StringBuilder();
-                for (byte b : hashBytes) {
+                for (byte b : hashBytes)
+                    {
                     String hex = Integer.toHexString(0xff & b);
                     if (hex.length() == 1) hexString.append('0');
                     hexString.append(hex);
-                }
+                    }
 
                 cachedHash = hexString.toString().substring(0, 16); // Kürzen auf 16 Zeichen
-            } catch (Exception e) {
+                } catch (Exception e)
+                {
                 cachedHash = "unknown";
+                }
             }
-        }
         return cachedHash;
     }
 
-    private static String getMacAddress() {
-        try {
+    private static String getMacAddress()
+    {
+        try
+            {
             InetAddress ip = InetAddress.getLocalHost();
             NetworkInterface network = NetworkInterface.getByInetAddress(ip);
-            if (network != null) {
+            if (network != null)
+                {
                 byte[] mac = network.getHardwareAddress();
-                if (mac != null) {
+                if (mac != null)
+                    {
                     StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < mac.length; i++) {
+                    for (int i = 0; i < mac.length; i++)
+                        {
                         sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : ""));
-                    }
+                        }
                     return sb.toString();
+                    }
                 }
-            }
-        } catch (UnknownHostException | SocketException e) {
+            } catch (UnknownHostException | SocketException e)
+            {
             e.printStackTrace();
-        }
+            }
         return "unknown";
     }
 
-    public static String getHostname() {
-        if (cachedHostname == null) {
-            try {
+    public static String getHostname()
+    {
+        if (cachedHostname == null)
+            {
+            try
+                {
                 cachedHostname = InetAddress.getLocalHost().getHostName();
-            } catch (UnknownHostException e) {
+                } catch (UnknownHostException e)
+                {
                 cachedHostname = "unknown";
+                }
             }
-        }
         return cachedHostname;
     }
 
-    public static String getOperatingSystem() {
-        if (cachedOS == null) {
+    public static String getOperatingSystem()
+    {
+        if (cachedOS == null)
+            {
             cachedOS = System.getProperty("os.name") + " " + System.getProperty("os.version");
-        }
+            }
         return cachedOS;
     }
 
     // Für Debugging
-    public static String getFullHostInfo() {
+    public static String getFullHostInfo()
+    {
         return String.format("Hostname: %s | OS: %s | Hash: %s",
-            getHostname(), getOperatingSystem(), getHostHash());
+                getHostname(), getOperatingSystem(), getHostHash());
     }
 }
