@@ -29,6 +29,7 @@ public class WebServer
         {
         config.showJavalinBanner = false;
         config.jsonMapper(new io.javalin.json.JavalinJackson(objectMapper));
+        config.staticFiles.add("/web");
         }).start(port);
 
         // Setup-Middleware: Prüfen, ob Setup abgeschlossen ist
@@ -776,6 +777,7 @@ public class WebServer
                 <html>
                 <head>
                     <meta charset="UTF-8">
+                    <link rel="icon" type="image/png" href="/favicon.png">
                     <title>SignalReport</title>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
                     <style>
@@ -1793,6 +1795,7 @@ public class WebServer
                 <html>
                 <head>
                     <meta charset="UTF-8">
+                    <link rel="icon" type="image/png" href="/favicon.png">
                     <title>SignalReport Setup</title>
                     <style>
                         body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; }
