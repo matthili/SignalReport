@@ -57,6 +57,18 @@ public class Config
         this.push = push;
     }
 
+    private ThemeConfig theme = new ThemeConfig();
+
+    public ThemeConfig getTheme()
+    {
+        return theme;
+    }
+
+    public void setTheme(ThemeConfig theme)
+    {
+        this.theme = theme;
+    }
+
     public static Config load(String path) throws IOException
     {
 
@@ -618,6 +630,21 @@ public class Config
                 {
                 return "";
                 }
+        }
+    }
+
+    public static class ThemeConfig
+    {
+        private boolean darkMode = false;
+
+        public boolean isDarkMode()
+        {
+            return darkMode;
+        }
+
+        public void setDarkMode(boolean darkMode)
+        {
+            this.darkMode = darkMode;
         }
     }
 

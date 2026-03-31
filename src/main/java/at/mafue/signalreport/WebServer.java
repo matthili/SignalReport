@@ -741,6 +741,29 @@ public class WebServer
             }
         });
 
+        // Theme-Einstellungen (Dark Mode)
+        app.get("/api/theme/settings", ctx ->
+        {
+        Config config = Config.getInstance();
+        ctx.json(Map.of("darkMode", config.getTheme().isDarkMode()));
+        });
+
+        app.post("/api/theme/settings", ctx ->
+        {
+        try
+            {
+            var body = ctx.bodyAsClass(java.util.Map.class);
+            boolean darkMode = Boolean.parseBoolean(body.get("darkMode").toString());
+            Config config = Config.getInstance();
+            config.getTheme().setDarkMode(darkMode);
+            Config.save("config.json");
+            ctx.status(200).result("Theme gespeichert");
+            } catch (Exception e)
+            {
+            ctx.status(500).result("Fehler beim Speichern: " + e.getMessage());
+            }
+        });
+
         System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
     }
 
@@ -772,6 +795,8 @@ public class WebServer
     // HTML-Seite erstellen
     private String createHtmlPage()
     {
+        boolean darkMode = Config.getInstance().getTheme().isDarkMode();
+        String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
         return """
                 <!DOCTYPE html>
                 <html>
@@ -781,54 +806,98 @@ public class WebServer
                     <title>SignalReport</title>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
                     <style>
-                        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 20px; background: #f8f9fa; }
-                        .header { text-align: center; margin-bottom: 30px; }
-                        .header h1 { color: #0d6efd; }
-                        .network-info { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                        :root {
+                            --bg-body: #f8f9fa;
+                            --bg-card: #ffffff;
+                            --bg-tab-inactive: #e9ecef;
+                            --bg-tab-active: #0d6efd;
+                            --bg-table-header: #0d6efd;
+                            --bg-region-europa: #cfe8ff;
+                            --bg-region-nordamerika: #ffe0b2;
+                            --color-primary: #0d6efd;
+                            --color-text: #212529;
+                            --color-text-secondary: #6c757d;
+                            --color-border: #dddddd;
+                            --color-shadow: rgba(0,0,0,0.1);
+                            --color-shadow-light: rgba(0,0,0,0.05);
+                            --color-input-bg: #ffffff;
+                            --color-input-border: #ddd;
+                            --bg-info-box: #e7f5ff;
+                            --bg-card-warn: #fff8e6;
+                            --bg-card-warn-inner: #fff3cd;
+                        }
+                        body.dark-mode {
+                            --bg-body: #1a1a2e;
+                            --bg-card: #16213e;
+                            --bg-tab-inactive: #2c2c44;
+                            --bg-tab-active: #0d6efd;
+                            --bg-table-header: #0a58ca;
+                            --bg-region-europa: #1a3a5c;
+                            --bg-region-nordamerika: #3d2e0a;
+                            --color-primary: #4d94ff;
+                            --color-text: #e0e0e0;
+                            --color-text-secondary: #9e9e9e;
+                            --color-border: #3a3a5c;
+                            --color-shadow: rgba(0,0,0,0.3);
+                            --color-shadow-light: rgba(0,0,0,0.2);
+                            --color-input-bg: #1e1e3a;
+                            --color-input-border: #3a3a5c;
+                            --bg-info-box: #0a2540;
+                            --bg-card-warn: #2a1f0a;
+                            --bg-card-warn-inner: #3d2e0a;
+                        }
+                        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 20px; background: var(--bg-body); color: var(--color-text); }
+                        .header { text-align: center; margin-bottom: 30px; position: relative; }
+                        .header h1 { color: var(--color-primary); }
+                        #theme-toggle { position: absolute; right: 0; top: 10px; background: none; border: 2px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; color: var(--color-primary); }
+                        .network-info { background: var(--bg-card); padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px var(--color-shadow); }
                         .network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
                         .network-item { text-align: center; word-wrap: break-word; hyphens: auto; }
-                        .network-label { font-size: 0.9em; color: #6c757d; margin-bottom: 5px; }
-                        .network-value { font-weight: bold; font-family: monospace; font-size: 1.1em; color: #0d6efd; }
-                        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-                        .tab { padding: 10px 20px; background: #e9ecef; border: none; border-radius: 5px; cursor: pointer; }
-                        .tab.active { background: #0d6efd; color: white; }
+                        .network-label { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 5px; }
+                        .network-value { font-weight: bold; font-family: monospace; font-size: 1.1em; color: var(--color-primary); }
+                        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+                        .tab { padding: 10px 20px; background: var(--bg-tab-inactive); color: var(--color-text); border: none; border-radius: 5px; cursor: pointer; }
+                        .tab.active { background: var(--bg-tab-active); color: white; }
                         .tab-content { display: none; }
                         .tab-content.active { display: block; }
                         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px; }
-                        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-                        .stat-label { font-size: 0.9em; color: #6c757d; margin-bottom: 5px; }
+                        .stat-card { background: var(--bg-card); padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px var(--color-shadow-light); }
+                        .stat-label { font-size: 0.9em; color: var(--color-text-secondary); margin-bottom: 5px; }
                         .stat-value { font-size: 1.8em; font-weight: bold; }
-                        .stat-avg { color: #0d6efd; }
+                        .stat-avg { color: var(--color-primary); }
                         .stat-p95 { color: #fd7e14; }
                         .stat-loss { color: #dc3545; }
                         .stat-jitter { color: #198754; }
-                        .chart-container { width: 100%; height: 300px; margin-bottom: 30px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                        .heatmap-container { width: 100%; height: 220px; margin-top: 30px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.9em; }
-                        th { background: #0d6efd; color: white; }
+                        .chart-container { width: 100%; height: 300px; margin-bottom: 30px; background: var(--bg-card); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px var(--color-shadow); }
+                        .heatmap-container { width: 100%; height: 220px; margin-top: 30px; background: var(--bg-card); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px var(--color-shadow); }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: var(--bg-card); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px var(--color-shadow); }
+                        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--color-border); font-size: 0.9em; }
+                        th { background: var(--bg-table-header); color: white; }
                         .excellent { color: #198754; font-weight: bold; }
                         .good { color: #ffc107; font-weight: bold; }
                         .poor { color: #dc3545; font-weight: bold; }
-                        .failure { color: #6c757d; text-decoration: line-through; }
-                        .footer { text-align: center; margin-top: 30px; color: #6c757d; font-size: 0.9em; }
+                        .failure { color: var(--color-text-secondary); text-decoration: line-through; }
+                        .footer { text-align: center; margin-top: 30px; color: var(--color-text-secondary); font-size: 0.9em; }
                         .button-group { display: flex; gap: 10px; margin: 25px 0; flex-wrap: wrap; }
-                        .btn { padding: 10px 15px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
-                        .btn-secondary { background: #6c757d; }
+                        .btn { padding: 10px 15px; background: var(--color-primary); color: white; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
+                        .btn-secondary { background: var(--color-text-secondary); }
                         .btn-success { background: #198754; }
-                        .region-europa { background: #cfe8ff; }
-                        .region-nordamerika { background: #ffe0b2; }
+                        .region-europa { background: var(--bg-region-europa); }
+                        .region-nordamerika { background: var(--bg-region-nordamerika); }
                         .dns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
-                        .dns-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                        .dns-card { background: var(--bg-card); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px var(--color-shadow); }
                         .dns-card h4 { margin: 0 0 10px 0; font-size: 1.1em; }
-                        .dns-card .latency { font-size: 1.5em; font-weight: bold; color: #0d6efd; }
-                        .dns-card .region { font-size: 0.9em; color: #6c757d; }
+                        .dns-card .latency { font-size: 1.5em; font-weight: bold; color: var(--color-primary); }
+                        .dns-card .region { font-size: 0.9em; color: var(--color-text-secondary); }
                         .dns-card .success { color: #198754; }
                         .dns-card .failure { color: #dc3545; }
+                        input, select { background: var(--color-input-bg); color: var(--color-text); border: 1px solid var(--color-input-border); }
                     </style>
                 </head>
-                <body>
+                <body""" + bodyClass + """
+                >
                     <div class="header">
+                        <button id="theme-toggle" onclick="toggleTheme()" title="Dark Mode umschalten"></button>
                         <h1>📡 SignalReport</h1>
                         <p>Internet-Qualitäts-Monitoring</p>
                     </div>
@@ -965,7 +1034,7 @@ public class WebServer
                         <h2>🌐 IP-Änderungs-Tracking</h2>
                         <p>Überwachung der externen IP-Adresse – erkennt automatisch, wann sich die IP ändert.</p>
                 
-                        <div style="background:#e7f5ff; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+                        <div style="background:var(--bg-info-box); padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <strong>💡 Hinweis:</strong> 
                             <ul style="margin:10px 0 0 20px;">
                                 <li>Die externe IPv4-Adresse wird bei jeder Messung überprüft</li>
@@ -1007,7 +1076,7 @@ public class WebServer
                     <div id="security" class="tab-content">
                         <h2>🔐 Sicherheit & Authentifizierung</h2>
                 
-                        <div style="background:#e7f5ff; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+                        <div style="background:var(--bg-info-box); padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <strong>💡 Hinweis:</strong>\s
                             <ul style="margin:10px 0 0 20px;">
                                 <li>Admin-Passwort wurde bei der ersten Einrichtung festgelegt</li>
@@ -1016,7 +1085,7 @@ public class WebServer
                             </ul>
                         </div>
                 
-                        <div style="background:white; padding:20px; border-radius:8px; margin-bottom:20px;">
+                        <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin-bottom:20px;">
                             <h3>Authentifizierung</h3>
                 
                             <div id="auth-status" style="margin-bottom:20px; padding:15px; border-radius:8px;"></div>
@@ -1066,7 +1135,7 @@ public class WebServer
                         <h2>⚙️ Messkonfiguration</h2>
                         <p>Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert.</p>
                 
-                        <div style="background:white; padding:20px; border-radius:8px; margin:20px 0;">
+                        <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
                             <h3>📍 Messziele & Intervall</h3>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                 <div>
@@ -1088,7 +1157,7 @@ public class WebServer
                             </div>
                         </div>
                 
-                        <div style="background:#fff8e6; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #ffc107;">
+                        <div style="background:var(--bg-card-warn); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #ffc107;">
                             <h3>⏸️ Maintenance-Fenster (Messungsunterbrechung)</h3>
                             <p>Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden.</p>
                 
@@ -1097,7 +1166,7 @@ public class WebServer
                                 <label for="maintenance-enabled" style="font-weight:bold;">Maintenance-Fenster aktivieren</label>
                             </div>
                 
-                            <div id="maintenance-fields" style="display:none; margin-top:15px; padding:15px; background:#fff3cd; border-radius:8px;">
+                            <div id="maintenance-fields" style="display:none; margin-top:15px; padding:15px; background:var(--bg-card-warn-inner); border-radius:8px;">
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:15px; align-items:end;">
                                     <div>
                                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Von Stunde</label>
@@ -1132,7 +1201,7 @@ public class WebServer
                             </div>
                         </div>
                 
-                        <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+                        <div style="background:var(--bg-info-box); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <h3>🔔 Browser-Benachrichtigungen</h3>
                             <p>Erhalte Push-Benachrichtigungen bei Internet-Problemen (Browser-Berechtigung erforderlich).</p>
                 
@@ -1141,7 +1210,7 @@ public class WebServer
                                 <label for="push-enabled" style="font-weight:bold;">Push-Benachrichtigungen aktivieren</label>
                             </div>
                 
-                            <div id="push-settings" style="display:none; margin-top:20px; padding:15px; background:#f8f9fa; border-radius:8px;">
+                            <div id="push-settings" style="display:none; margin-top:20px; padding:15px; background:var(--bg-body); border-radius:8px;">
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
                                     <div>
                                         <label style="display:block; margin-bottom:5px; font-weight:bold;">Latenz-Schwellwert (ms)</label>
@@ -1157,7 +1226,7 @@ public class WebServer
                                     </div>
                                 </div>
                 
-                                <div style="margin-top:15px; padding:10px; background:#d1ecf1; border-radius:5px; font-size:0.9em;">
+                                <div style="margin-top:15px; padding:10px; background:var(--bg-info-box); border-radius:5px; font-size:0.9em;">
                                     <strong>🔔 Benachrichtigungsarten:</strong>
                                     <ul style="margin:8px 0 0 20px; padding-left:10px;">
                                         <li>❌ Internet-Ausfall (keine Verbindung)</li>
@@ -1167,7 +1236,7 @@ public class WebServer
                             </div>
                         </div>
                 
-                        <div style="background:#e7f5ff; padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #0d6efd;">
+                        <div style="background:var(--bg-info-box); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <h3>👤 Benutzer-Informationen</h3>
                             <p>Diese Informationen werden im PDF-Bericht angezeigt.</p>
                 
@@ -1758,6 +1827,46 @@ public class WebServer
                             }
                         }
                 
+                        // Theme-Toggle
+                        const isDarkInitial = document.body.classList.contains('dark-mode');
+                        document.getElementById('theme-toggle').textContent = isDarkInitial ? '\u2600\uFE0F' : '\uD83C\uDF19';
+                        if (isDarkInitial) {
+                            Chart.defaults.color = '#e0e0e0';
+                            Chart.defaults.borderColor = '#3a3a5c';
+                        }
+
+                        function toggleTheme() {
+                            const isDark = document.body.classList.toggle('dark-mode');
+                            document.getElementById('theme-toggle').textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+                            updateChartTheme(isDark);
+                            fetch('/api/theme/settings', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ darkMode: isDark })
+                            }).catch(err => console.error('Theme-Speicher-Fehler:', err));
+                        }
+
+                        function updateChartTheme(isDark) {
+                            const textColor = isDark ? '#e0e0e0' : '#666';
+                            const gridColor = isDark ? '#3a3a5c' : '#e0e0e0';
+                            Chart.defaults.color = textColor;
+                            Chart.defaults.borderColor = gridColor;
+                            if (window.latencyChart) {
+                                window.latencyChart.options.scales.x.ticks.color = textColor;
+                                window.latencyChart.options.scales.y.ticks.color = textColor;
+                                window.latencyChart.options.scales.x.grid.color = gridColor;
+                                window.latencyChart.options.scales.y.grid.color = gridColor;
+                                window.latencyChart.update();
+                            }
+                            if (window.hourlyChart) {
+                                window.hourlyChart.options.scales.x.ticks.color = textColor;
+                                window.hourlyChart.options.scales.y.ticks.color = textColor;
+                                window.hourlyChart.options.scales.x.grid.color = gridColor;
+                                window.hourlyChart.options.scales.y.grid.color = gridColor;
+                                window.hourlyChart.update();
+                            }
+                        }
+
                         // Initial laden
                         loadNetworkInfo();
                         loadStatistics();
@@ -1790,6 +1899,8 @@ public class WebServer
     // Setup-Seite erstellen
     private String createSetupPage()
     {
+        boolean darkMode = Config.getInstance().getTheme().isDarkMode();
+        String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
         return """
                 <!DOCTYPE html>
                 <html>
@@ -1798,26 +1909,55 @@ public class WebServer
                     <link rel="icon" type="image/png" href="/favicon.png">
                     <title>SignalReport Setup</title>
                     <style>
-                        body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; }
-                        .setup-container { max-width: 600px; margin: 100px auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                        h1 { color: #0d6efd; text-align: center; margin-bottom: 30px; }
+                        :root {
+                            --bg-body: #f8f9fa;
+                            --bg-card: #ffffff;
+                            --bg-tab-inactive: #e9ecef;
+                            --color-primary: #0d6efd;
+                            --color-primary-hover: #0b5ed7;
+                            --color-text: #495057;
+                            --color-text-secondary: #6c757d;
+                            --color-border: #dddddd;
+                            --color-shadow: rgba(0,0,0,0.1);
+                            --color-input-bg: #ffffff;
+                            --bg-info-box: #e7f5ff;
+                            --bg-error: #f8d7da;
+                        }
+                        body.dark-mode {
+                            --bg-body: #1a1a2e;
+                            --bg-card: #16213e;
+                            --bg-tab-inactive: #2c2c44;
+                            --color-primary: #4d94ff;
+                            --color-primary-hover: #3a7bd5;
+                            --color-text: #e0e0e0;
+                            --color-text-secondary: #9e9e9e;
+                            --color-border: #3a3a5c;
+                            --color-shadow: rgba(0,0,0,0.3);
+                            --color-input-bg: #1e1e3a;
+                            --bg-info-box: #0a2540;
+                            --bg-error: #3d1520;
+                        }
+                        body { font-family: Arial, sans-serif; background: var(--bg-body); color: var(--color-text); margin: 0; padding: 0; }
+                        .setup-container { max-width: 600px; margin: 100px auto; background: var(--bg-card); padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px var(--color-shadow); }
+                        h1 { color: var(--color-primary); text-align: center; margin-bottom: 30px; }
                         .setup-steps { display: flex; justify-content: space-between; margin-bottom: 30px; }
                         .step { text-align: center; width: 30%; }
-                        .step-number { display: inline-block; width: 30px; height: 30px; background: #e9ecef; border-radius: 50%; line-height: 30px; font-weight: bold; }
-                        .step.active .step-number { background: #0d6efd; color: white; }
+                        .step-number { display: inline-block; width: 30px; height: 30px; background: var(--bg-tab-inactive); border-radius: 50%; line-height: 30px; font-weight: bold; }
+                        .step.active .step-number { background: var(--color-primary); color: white; }
                         .form-group { margin-bottom: 20px; }
-                        label { display: block; margin-bottom: 8px; font-weight: bold; color: #495057; }
-                        input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+                        label { display: block; margin-bottom: 8px; font-weight: bold; color: var(--color-text); }
+                        input[type="password"] { width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 5px; font-size: 16px; background: var(--color-input-bg); color: var(--color-text); }
                         .checkbox-group { display: flex; align-items: center; gap: 10px; }
                         input[type="checkbox"] { width: 18px; height: 18px; }
-                        .btn { width: 100%; padding: 12px; background: #0d6efd; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-                        .btn:hover { background: #0b5ed7; }
-                        .btn:disabled { background: #6c757d; cursor: not-allowed; }
-                        .error { color: #dc3545; margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px; display: none; }
-                        .info-box { background: #e7f5ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #0d6efd; }
+                        .btn { width: 100%; padding: 12px; background: var(--color-primary); color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+                        .btn:hover { background: var(--color-primary-hover); }
+                        .btn:disabled { background: var(--color-text-secondary); cursor: not-allowed; }
+                        .error { color: #dc3545; margin-top: 10px; padding: 10px; background: var(--bg-error); border-radius: 5px; display: none; }
+                        .info-box { background: var(--bg-info-box); padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid var(--color-primary); }
                     </style>
                 </head>
-                <body>
+                <body""" + bodyClass + """
+                >
                     <div class="setup-container">
                         <h1>📡 SignalReport Setup</h1>
                 
