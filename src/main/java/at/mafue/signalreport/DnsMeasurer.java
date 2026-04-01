@@ -2,7 +2,7 @@ package at.mafue.signalreport;
 
 import java.net.InetAddress;
 
-public class DnsMeasurer
+public class DnsMeasurer implements Measurer
 {
     public Measurement measure(String hostname) throws Exception
     {

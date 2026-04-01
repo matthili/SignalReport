@@ -2,7 +2,7 @@ package at.mafue.signalreport;
 
 import java.net.InetAddress;
 
-public class PingMeasurer
+public class PingMeasurer implements Measurer
 {
     // KEIN festes Ziel mehr – wird bei jeder Messung übergeben
     public Measurement measure(String target) throws Exception

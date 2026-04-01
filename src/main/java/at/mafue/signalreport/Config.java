@@ -110,6 +110,25 @@ public class Config
         return instance;
     }
 
+    // Passwort-Hashing (wird von AuthConfig und SetupConfig gemeinsam verwendet)
+    public static String hashPassword(String password)
+    {
+        try
+            {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(password.getBytes());
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hashBytes)
+                {
+                hex.append(String.format("%02x", b));
+                }
+            return hex.toString();
+            } catch (Exception e)
+            {
+            return "";
+            }
+    }
+
     // Getter
     public MeasurementConfig getMeasurement()
     {
@@ -516,33 +535,14 @@ public class Config
             this.userPasswordHash = hash;
         }
 
-        // Passwort-Hashing
-        public static String hashPassword(String password)
-        {
-            try
-                {
-                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-                byte[] hashBytes = digest.digest(password.getBytes());
-                StringBuilder hex = new StringBuilder();
-                for (byte b : hashBytes)
-                    {
-                    hex.append(String.format("%02x", b));
-                    }
-                return hex.toString();
-                } catch (Exception e)
-                {
-                return "";
-                }
-        }
-
         public boolean verifyAdminPassword(String password)
         {
-            return adminPasswordHash.equals(hashPassword(password));
+            return adminPasswordHash.equals(Config.hashPassword(password));
         }
 
         public boolean verifyUserPassword(String password)
         {
-            return userPasswordHash.equals(hashPassword(password));
+            return userPasswordHash.equals(Config.hashPassword(password));
         }
 
     }
@@ -611,25 +611,7 @@ public class Config
 
         public boolean verifyAdminPassword(String password)
         {
-            return adminPasswordHash.equals(hashPassword(password));
-        }
-
-        public static String hashPassword(String password)
-        {
-            try
-                {
-                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-                byte[] hashBytes = digest.digest(password.getBytes());
-                StringBuilder hex = new StringBuilder();
-                for (byte b : hashBytes)
-                    {
-                    hex.append(String.format("%02x", b));
-                    }
-                return hex.toString();
-                } catch (Exception e)
-                {
-                return "";
-                }
+            return adminPasswordHash.equals(Config.hashPassword(password));
         }
     }
 
