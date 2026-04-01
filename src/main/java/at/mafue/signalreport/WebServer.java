@@ -795,8 +795,6 @@ public class WebServer
     }
 
 
-    // HTML-Rendering wurde in HtmlPageRenderer.java und SetupPageRenderer.java ausgelagert
-
     public void stop()
     {
         if (app != null)

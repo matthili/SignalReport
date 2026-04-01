@@ -719,7 +719,7 @@ public class HtmlPageRenderer
 
                               // Cooldown-Check
                               if (dnsBenchmarkCooldownTimer) {
-                                  const remaining = Math.ceil((dnsBenchmarkCooldownTimer._target - Date.now()) / 1000);
+                                  const remaining = Math.ceil((dnsBenchmarkCooldownEndTime - Date.now()) / 1000);
                                   alert(`\u26A0\uFE0F Bitte warte noch ${remaining} Sekunden bis zum nächsten Benchmark.`);
                                   return;
                               }
@@ -732,6 +732,7 @@ public class HtmlPageRenderer
                                   if (dnsBenchmarkCooldownTimer) {
                                       clearTimeout(dnsBenchmarkCooldownTimer);
                                       dnsBenchmarkCooldownTimer = null;
+                                      dnsBenchmarkCooldownEndTime = 0;
                                   }
                                   loadingElement.textContent = 'State zurückgesetzt. Benchmark kann neu gestartet werden.';
                                   return;
@@ -794,9 +795,11 @@ public class HtmlPageRenderer
 
                                   // Cooldown starten
                                   loadingElement.textContent = 'Nächster Benchmark möglich in 30 Sekunden...';
+                                  dnsBenchmarkCooldownEndTime = Date.now() + 30000;
                                   dnsBenchmarkCooldownTimer = setTimeout(() => {
                                       loadingElement.textContent = 'Klicke auf "Benchmark ausführen"...';
                                       dnsBenchmarkCooldownTimer = null;
+                                      dnsBenchmarkCooldownEndTime = 0;
                                       console.log('[DNS] Cooldown abgelaufen. State: ready');
                                   }, 30000);
                               });
@@ -1085,6 +1088,7 @@ public class HtmlPageRenderer
                         // DNS-Benchmark State (MUSS HIER STEHEN, NICHT IN DER FUNKTION!)
                         let isDnsBenchmarkRunning = false;
                         let dnsBenchmarkCooldownTimer = null;
+                        let dnsBenchmarkCooldownEndTime = 0;
 
                         // Alle 5 Sekunden aktualisieren
                         setInterval(loadMeasurements, 5000);

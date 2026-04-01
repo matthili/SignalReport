@@ -126,7 +126,7 @@ public class PdfReportGenerator
             document.add(Chunk.NEWLINE);
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
             document.add(new Paragraph(pingTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
-            //document.add(Chunk.NEXTPAGE); //provoziert leere Seite, wenn aktiv
+            //document.add(Chunk.NEXTPAGE); //provoziert leere Seite
             }
 
 
@@ -340,16 +340,18 @@ public class PdfReportGenerator
             return "Keine Messungen im Zeitraum";
             }
 
+        // LinkedHashSet behält Reihenfolge des ersten Auftretens
+        java.util.LinkedHashSet<String> uniqueTargets = new java.util.LinkedHashSet<>();
+
         // Liste ist absteigend sortiert (neueste zuerst) → rückwärts traversieren für chronologische Reihenfolge
-        java.util.List<String> targets = new java.util.ArrayList<>();
         for (int i = measurements.size() - 1; i >= 0; i--)
             {
-            targets.add(measurements.get(i).getTarget());
+            uniqueTargets.add(measurements.get(i).getTarget());
             }
 
         // Formatierung mit farblichem Hinweis bei mehreren Zielen
-        String targetsList = String.join(", ", targets);
-        String prefix = targets.size() > 1
+        String targetsList = String.join(", ", uniqueTargets);
+        String prefix = uniqueTargets.size() > 1
                 ? "⚠️ Gemessene Ziele (chronologisch): "
                 : "Gemessenes Ziel: ";
 
