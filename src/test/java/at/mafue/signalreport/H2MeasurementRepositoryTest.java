@@ -184,4 +184,48 @@ class H2MeasurementRepositoryTest {
         assertEquals("INITIAL", changes.get(1).getChangeType(), "Älteste Änderung sollte INITIAL sein");
         assertEquals("1.2.3.4", changes.get(1).getNewIp(), "Älteste IP sollte 1.2.3.4 sein");
     }
+
+    @Test
+    void testSameIpNoNewChange() throws SQLException {
+        // Gleiche IP zweimal hintereinander darf keinen neuen CHANGE erzeugen
+        repo.trackIpChange("1.2.3.4", "testhash456"); // INITIAL
+        repo.trackIpChange("1.2.3.4", "testhash456"); // Gleiche IP → kein neuer Eintrag
+        repo.trackIpChange("1.2.3.4", "testhash456"); // Gleiche IP → kein neuer Eintrag
+
+        List<H2MeasurementRepository.IpChange> changes = repo.getIpChanges(10);
+
+        // Es darf nur der INITIAL-Eintrag existieren
+        long countForHost = changes.stream()
+            .filter(c -> "testhash456".equals(c.getHostHash()))
+            .count();
+        assertEquals(1, countForHost,
+            "Gleiche IP darf keinen neuen Eintrag erzeugen, nur INITIAL");
+    }
+
+    @Test
+    void testStatisticsWithEmptyDatabase() throws SQLException {
+        // Leere Datenbank (nach clearTestData): Darf keinen Fehler werfen
+        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+
+        assertNotNull(stats, "Statistik-Objekt darf auch bei leerer DB nicht null sein");
+        assertEquals(0.0, stats.getAvgLatency(), 0.01, "Durchschnitt bei 0 Messungen muss 0 sein");
+        assertEquals(0.0, stats.getP95Latency(), 0.01, "P95 bei 0 Messungen muss 0 sein");
+        assertEquals(0.0, stats.getPacketLossPercent(), 0.01, "Paketverlust bei 0 Messungen muss 0 sein");
+    }
+
+    @Test
+    void testHostReregistrationUpdatesLastSeen() throws SQLException {
+        // Gleicher Host zweimal registrieren: lastSeen soll aktualisiert werden
+        repo.registerHost("testhash789", "myhost", "Linux");
+        try { Thread.sleep(50); } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        repo.registerHost("testhash789", "myhost", "Linux");
+
+        List<H2MeasurementRepository.HostInfo> hosts = repo.getAllHosts();
+        long count = hosts.stream()
+            .filter(h -> "testhash789".equals(h.getHostHash()))
+            .count();
+        assertEquals(1, count, "Gleicher Host darf nicht doppelt registriert werden");
+    }
 }

@@ -102,6 +102,6 @@
     "consecutiveBadMeasurements" : 2
   },
   "theme" : {
-    "darkMode" : false
+    "darkMode" : true
   }
 }

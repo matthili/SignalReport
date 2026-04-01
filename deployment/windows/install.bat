@@ -91,7 +91,8 @@ echo [INFO] Installiere Windows-Dienst "SignalReport"...
     --StopMode=jvm ^
     --StartClass=at.mafue.signalreport.SignalReportApp ^
     --StopClass=at.mafue.signalreport.SignalReportApp ^
-    --StopMethod=main ^
+    --StopMethod=stop ^
+    --StopTimeout=10 ^
     --Jvm=%JAVA_HOME%\bin\server\jvm.dll ^
     --JvmOptions=-Dfile.encoding=UTF-8 ^
     --Classpath=%INSTALL_DIR%\signalreport.jar ^

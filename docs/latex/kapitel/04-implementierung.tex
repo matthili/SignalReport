@@ -1,38 +1,56 @@
 \section{Implementierung}
 \label{sec:implementierung}
 
-\subsection{Mess-Engine}
-Die Mess-Engine implementiert drei Messarten mit dynamischen Zielen:
+\subsection{Mess-Engine und Strategy-Pattern}
 
-\begin{itemize}
-    \item \textbf{Ping-Messung}: Nutzt \texttt{InetAddress.isReachable()} mit konfigurierbarem Ziel
-    \item \textbf{DNS-Messung}: Nutzt \texttt{InetAddress.getByName()} mit konfigurierbarem Hostname
-    \item \textbf{HTTP-Messung}: Nutzt \texttt{java.net.http.HttpClient} mit konfigurierbarer URL
-\end{itemize}
+Die Mess-Engine basiert auf dem \texttt{Measurer}-Interface, das alle Messtypen
+vereinheitlicht (Strategy-Pattern). Jede Implementierung hat eine einzige Methode
+\texttt{measure(String target)}, die ein \texttt{Measurement}-Objekt zurueckgibt:
 
-\begin{lstlisting}[language=Java, caption=Beispiel für Ping-Messung mit dynamischem Ziel]
-public Measurement measure(String target) throws Exception {
-    long start = System.nanoTime();
-    boolean reachable = InetAddress.getByName(target).isReachable(3000);
-    long end = System.nanoTime();
-    double latency = (end - start) / 1_000_000.0;
-    return new Measurement(target, latency, reachable, "PING");
+\begin{lstlisting}[language=Java, caption={Measurer-Interface}]
+public interface Measurer {
+    Measurement measure(String target) throws Exception;
+}
+\end{lstlisting}
+
+Die drei Implementierungen:
+
+\begin{description}
+  \item[PingMeasurer] Nutzt \texttt{InetAddress.isReachable(3000)} fuer ICMP-Echo-Tests.
+    Misst die Round-Trip-Time in Nanosekunden und konvertiert zu Millisekunden.
+  \item[DnsMeasurer] Nutzt \texttt{InetAddress.getByName(hostname)} und misst die Zeit
+    der DNS-Aufloesung.
+  \item[HttpMeasurer] Nutzt \texttt{java.net.http.HttpClient} mit konfigurierbarem
+    Timeout (5\,Sekunden). Misst die Gesamtzeit des HTTP-GET-Requests.
+\end{description}
+
+\begin{lstlisting}[language=Java, caption={PingMeasurer-Implementierung}]
+public class PingMeasurer implements Measurer {
+    public Measurement measure(String target) throws Exception {
+        long start = System.nanoTime();
+        boolean reachable = InetAddress.getByName(target).isReachable(3000);
+        long end = System.nanoTime();
+        double latency = (end - start) / 1_000_000.0;
+        return new Measurement(target, latency, reachable, "PING");
+    }
 }
 \end{lstlisting}
 
 \subsection{IP-Tracking und Host-Identifikation}
-Jede Messung speichert zusätzlich Netzwerk-Informationen:
 
+Jede Messung speichert zusaetzlich Netzwerk-Informationen:
 \begin{itemize}
-    \item Lokale IPv4- und IPv6-Adressen
-    \item Externe IPv4- und IPv6-Adressen (über ipify.org)
-    \item Eindeutiger Host-Hash (basierend auf Hostname, OS und MAC-Adresse)
+  \item Lokale IPv4- und IPv6-Adressen
+  \item Externe IPv4- und IPv6-Adressen (ueber ipify.org)
+  \item Eindeutiger Host-Hash (MD5 aus Hostname + OS + MAC-Adresse)
 \end{itemize}
 
-Die IP-Tracking-Logik erkennt automatisch Änderungen der externen IP:
+Die IP-Tracking-Logik erkennt automatisch Aenderungen der externen IP und protokolliert
+sie in der \texttt{ip\_changes}-Tabelle:
 
-\begin{lstlisting}[language=Java, caption=IP-Änderungserkennung]
-public void trackIpChange(String currentIp, String hostHash) throws SQLException {
+\begin{lstlisting}[language=Java, caption={IP-Aenderungserkennung}]
+public void trackIpChange(String currentIp, String hostHash)
+        throws SQLException {
     String lastIp = getLastKnownIp(hostHash);
     if (lastIp == null) {
         recordIpChange(null, currentIp, "INITIAL", hostHash);
@@ -42,62 +60,142 @@ public void trackIpChange(String currentIp, String hostHash) throws SQLException
 }
 \end{lstlisting}
 
+\textbf{Hinweis zu IPv6 (DS-Lite):} Bei Providern mit DS-Lite (z.\,B.\ Magenta Telekom)
+wird die externe IPv6-Adresse als ``unknown'' angezeigt, da diese Provider gemaess
+RFC~8415 keine stabile IPv6-Praefixdelegation anbieten.
+
 \subsection{Statistische Auswertung}
-Die statistische Auswertung berechnet folgende Kennzahlen:
+
+Die statistische Auswertung berechnet vier Kennzahlen fuer jeden Messtyp:
 
 \begin{itemize}
-    \item \textbf{Durchschnittliche Latenz}: $\mu = \frac{1}{n}\sum_{i=1}^{n}x_i$
-    \item \textbf{95th Percentile}: Wert, unter dem 95\% der Messungen liegen
-    \item \textbf{Paketverlust}: $\frac{\text{fehlgeschlagene Messungen}}{\text{gesamte Messungen}} \times 100$
-    \item \textbf{Jitter}: Durchschnitt der Differenzen zwischen aufeinanderfolgenden Messungen
+  \item \textbf{Durchschnittliche Latenz}: $\mu = \frac{1}{n}\sum_{i=1}^{n}x_i$
+  \item \textbf{95th Percentile}: Wert, unter dem 95\,\% der Messungen liegen --
+    ein robusterer Indikator als der Durchschnitt, da er Ausreisser toleriert
+  \item \textbf{Paketverlust}: $\frac{\text{fehlgeschlagene Messungen}}{\text{gesamte Messungen}} \times 100$
+  \item \textbf{Jitter}: Durchschnitt der absoluten Differenzen zwischen
+    aufeinanderfolgenden Messungen -- zeigt die Stabilitaet der Verbindung
 \end{itemize}
 
-\begin{lstlisting}[language=Java, caption=Beispiel für 95th Percentile-Berechnung]
-// Statistiken aus der Datenbank holen
-List<Double> latencies = new ArrayList<>();
-// ... Daten laden ...
-Collections.sort(latencies);
-int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
-double p95Latency = latencies.get(p95Index);
+\subsection{Web-Interface und Rendering-Architektur}
+
+Das Web-Interface ist mit Javalin 5.6.3 implementiert. Um die Trennung von
+Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenstaendige Klassen
+ausgelagert:
+
+\begin{description}
+  \item[WebServer] (ca.\ 800 Zeilen) -- Verwaltet Javalin-Routen, REST-API-Endpunkte,
+    Authentifizierungs-Middleware und Setup-Logik. Delegiert die HTML-Generierung an die
+    Renderer.
+  \item[HtmlPageRenderer] (ca.\ 1100 Zeilen) -- Generiert die Hauptseite mit allen
+    UI-Komponenten: Live-Chart (Chart.js), Statistik-Panel, Heatmap, DNS-Benchmark,
+    Konfigurations-Tabs und IP-Tracking.
+  \item[SetupPageRenderer] (ca.\ 195 Zeilen) -- Generiert den Setup-Assistenten fuer die
+    Ersteinrichtung.
+\end{description}
+
+\subsubsection{Dark Mode}
+
+Das Theming basiert auf CSS Custom Properties (Variablen), die in zwei Bloecken
+definiert sind:
+
+\begin{lstlisting}[language=Java, caption={CSS-Variablen fuer Light/Dark Mode}]
+:root {
+    --bg-body: #f8f9fa;
+    --bg-card: #ffffff;
+    --color-text: #212529;
+    /* ... weitere Variablen ... */
+}
+body.dark-mode {
+    --bg-body: #1a1a2e;
+    --bg-card: #16213e;
+    --color-text: #e0e0e0;
+    /* ... weitere Variablen ... */
+}
 \end{lstlisting}
 
-\subsection{Web-Interface}
-Das Web-Interface wurde mit Javalin implementiert und bietet:
+Um ein \textit{Flackern} beim Laden zu vermeiden (Flash of Wrong Theme), wird die
+CSS-Klasse server-seitig injiziert:
 
-\begin{itemize}
-    \item \textbf{REST-API}: Für Datenzugriff (z. B. \texttt{/api/measurements})
-    \item \textbf{Live-Chart}: Aktualisiert sich alle 5 Sekunden mit Chart.js
-    \item \textbf{Heatmap}: Zeigt Latenzentwicklung pro Stunde
-    \item \textbf{Statistik-Panel}: Sofortige Einschätzung der Netzwerkqualität
-    \item \textbf{Konfigurations-UI}: Änderung von Messzielen und Einstellungen
-    \item \textbf{Setup-Wizard}: Erstmalige Einrichtung über Web-Oberfläche
-\end{itemize}
+\begin{lstlisting}[language=Java, caption={Server-seitige Theme-Injection}]
+boolean darkMode = Config.getInstance().getTheme().isDarkMode();
+String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
+// ... im HTML-Template:
+return """<body""" + bodyClass + """>...</body>""";
+\end{lstlisting}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\textwidth]{../diagrams/ui.png}
-    \caption{Web-Interface von SignalReport}
-    \label{fig:ui}
-\end{figure}
+Chart.js-Diagramme reagieren nicht auf CSS-Variablen, daher werden deren Farben
+(Achsenbeschriftung, Gitterlinien) explizit per JavaScript beim Theme-Wechsel
+aktualisiert.
+
+\subsubsection{DNS-Benchmark}
+
+Der DNS-Benchmark vergleicht konfigurierbare DNS-Server weltweit (Google, Cloudflare,
+Quad9, etc.) per paralleler Abfrage. Ein 30-Sekunden-Cooldown verhindert Missbrauch.
+Die Ergebnisse werden nach Latenz sortiert und mit regionaler Farbcodierung dargestellt.
 
 \subsection{PDF-Export}
-Der PDF-Export mit OpenPDF generiert professionelle Berichte mit:
+
+Der PDF-Export mit OpenPDF und JFreeChart generiert professionelle Berichte mit:
 
 \begin{itemize}
-    \item Kundendaten (Name, Provider, Kundennummer)
-    \item Host-Informationen (Hostname, Hash, IPs)
-    \item 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Änderungen
-    \item Ziel-Informationen unter jedem Chart
-    \item Top 10 schlechteste Messungen
-    \item Top 10 längste Verbindungsausfälle
-    \item Gesamtanzahl der Ausfälle
+  \item Kundendaten (Name, Provider, Kundennummer)
+  \item Host-Informationen (Hostname, Hash, IPs)
+  \item 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Aenderungen
+  \item Chronologische Ziel-Liste unter jedem Chart
+  \item Top 10 schlechteste Messungen (sortiert nach Latenz)
+  \item Verbindungsausfaelle mit Gesamtanzahl
+  \item Top 10 laengste Verbindungsausfaelle
 \end{itemize}
 
-\begin{lstlisting}[language=Java, caption=PDF-Chart-Generierung]
-BufferedImage pingChart = createLatencyChart(
-    pingMeasurements,
-    "PING",
-    detectTargetChanges(pingMeasurements)
-);
-addChartToPdf(document, pingChart, "PING Latenz über Zeit");
+Berichte koennen fuer drei Zeitraeume generiert werden: 24 Stunden, 7 Tage und
+12 Monate. Sie sind direkt als Anlage fuer Provider-Beschwerden verwendbar.
+
+\subsection{Konfigurationsmanagement}
+
+Die \texttt{Config}-Klasse ist als Singleton implementiert und verwaltet alle
+Einstellungen in verschachtelten statischen Klassen:
+
+\begin{lstlisting}[language=Java, caption={Config-Struktur (Auszug)}]
+public class Config {
+    private MeasurementConfig measurement;
+    private MaintenanceWindow maintenanceWindow;
+    private UserInfo userInfo;
+    private SetupConfig setup;
+    private AuthConfig auth;
+    private ThemeConfig theme;  // Dark Mode
+    private List<DnsServer> dnsServers;
+
+    public static String hashPassword(String password) {
+        // SHA-256 Hashing -- zentral, nicht dupliziert
+    }
+}
 \end{lstlisting}
+
+Die Persistenz erfolgt ueber Jackson JSON-Serialisierung in \texttt{config.json}.
+Aenderungen ueber die Web-UI werden sofort gespeichert.
+
+\subsection{Datenbank-Schema}
+
+H2 wird im FILE-Modus betrieben (\texttt{jdbc:h2:./data/signalreport}). Drei Tabellen
+bilden das Schema:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Tabelle} & \textbf{Primaerschluessel} & \textbf{Inhalt} \\
+\hline
+\texttt{measurements} & id (BIGINT) & Zeitstempel, Ziel, Latenz, Erfolg, Typ,
+  IPv4/v6, Host-Hash \\
+\hline
+\texttt{hosts} & host\_hash (VARCHAR) & Hostname, Betriebssystem, Erstregistrierung,
+  letzte Aktivitaet \\
+\hline
+\texttt{ip\_changes} & id (BIGINT) & Zeitstempel, alte/neue IP, Aenderungstyp,
+  Host-Hash \\
+\hline
+\end{tabular}
+\caption{H2-Datenbank-Schema}
+\label{tab:dbschema}
+\end{table}

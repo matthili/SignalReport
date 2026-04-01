@@ -1,14 +1,32 @@
-┌─────────────────────────────────────┐
-│  Java-Backend (Spark Java)          │
-│  • Mess-Engine (Ping/DNS/HTTP)      │
-│  • H2 Database (embedded)           │
-│  • REST-API (/api/metrics)          │
-└──────────────┬──────────────────────┘
-               │ HTTP
-┌──────────────▼──────────────────────┐
-│  Browser (Chrome/Firefox/Safari)    │
-│  • Live-Chart via Chart.js          │
-│  • Tabelle der Historie             │
-│  • PDF-Export-Button                │
-└─────────────────────────────────────┘
+# SignalReport – Architektur-Übersicht
 
+```
+┌─────────────────────────────────────────┐
+│  Java-Backend (Javalin 5.6.3)          │
+│  ├── Mess-Engine                        │
+│  │   ├── PingMeasurer (implements       │
+│  │   ├── DnsMeasurer    Measurer)       │
+│  │   ├── HttpMeasurer                   │
+│  │   └── DnsBenchmark                   │
+│  ├── H2 Database (embedded)             │
+│  ├── WebServer (REST-API + Routing)     │
+│  │   ├── HtmlPageRenderer               │
+│  │   └── SetupPageRenderer              │
+│  ├── PdfReportGenerator (OpenPDF)       │
+│  ├── PushNotificationService            │
+│  ├── Config (JSON, Singleton)           │
+│  └── NetworkInfo / HostIdentifier       │
+└──────────────┬──────────────────────────┘
+               │ HTTP (Port 4567)
+┌──────────────▼──────────────────────────┐
+│  Browser (Chrome/Firefox/Safari/Edge)   │
+│  ├── Live-Chart (Chart.js, 5s Updates)  │
+│  ├── Statistik-Panel + Heatmap          │
+│  ├── DNS-Benchmark-UI                   │
+│  ├── Konfigurations-Tabs                │
+│  ├── Dark Mode (CSS Custom Properties)  │
+│  └── PDF/CSV-Export                     │
+└─────────────────────────────────────────┘
+```
+
+Vollständige Dokumentation: `docs/latex/signalreport-dokumentation.pdf`

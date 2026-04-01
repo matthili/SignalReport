@@ -11,18 +11,49 @@
 \usepackage{titlesec}
 \usepackage{xcolor}
 \usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{csquotes}
 
-% Seitenränder
+% Seitenraender
 \geometry{a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
 
-% Überschriften-Stil
+% Ueberschriften-Stil
 \titleformat{\section}{\normalfont\Large\bfseries\color{blue}}{\thesection}{1em}{}
 \titleformat{\subsection}{\normalfont\large\bfseries\color{blue!80}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{blue!60}}{\thesubsubsection}{1em}{}
+
+% Listings-Konfiguration
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!70!black},
+  showstringspaces=false,
+  tabsize=4
+}
+
+% JSON-Sprachdefinition fuer Listings
+\lstdefinelanguage{json}{
+  morestring=[b]",
+  morecomment=[l]{//},
+  literate=
+    *{:}{{{\color{blue!70!black}:}}}{1}
+     {,}{{{\color{blue!70!black},}}}{1}
+     {\{}{{{\color{blue!70!black}\{}}}{1}
+     {\}}{{{\color{blue!70!black}\}}}}{1}
+     {[}{{{\color{blue!70!black}[}}}{1}
+     {]}{{{\color{blue!70!black}]}}}{1}
+}
 
 % Titel
-\title{SignalReport: Internet-Qualitäts-Monitoring}
+\title{SignalReport: Internet-Qualitaets-Monitoring\\[0.5em]
+\large Projektdokumentation -- Diplomlehrgang 2026}
 \author{Matthias F.}
-\date{19. Februar 2026}
+\date{April 2026}
 
 % Dokument
 \begin{document}
@@ -37,6 +68,12 @@
 % Kapitel 2: Anforderungen
 \input{kapitel/02-anforderungen}
 
+% Kapitel 2a: User Stories
+\input{kapitel/02a-userstories}
+
+% Kapitel 2b: Feature Requests
+\input{kapitel/02b-featurerequests}
+
 % Kapitel 3: Architektur
 \input{kapitel/03-architektur}
 
@@ -49,12 +86,14 @@
 % Kapitel 6: Fazit
 \input{kapitel/06-fazit}
 
+% Kapitel 7: Installation und Betrieb
+\input{kapitel/07-installation}
+
+% Kapitel 8: API-Referenz
+\input{kapitel/08-api-referenz}
+
 % Literaturverzeichnis
 \bibliographystyle{plain}
 \bibliography{literatur}
-
-% Anhänge
-%\appendix
-%\input{kapitel/anhang-a}
 
 \end{document}

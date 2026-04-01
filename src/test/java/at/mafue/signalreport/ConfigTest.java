@@ -162,4 +162,107 @@ class ConfigTest {
         assertEquals("987654321", config.getUserInfo().getCustomerId());
         assertEquals("Erika Musterfrau", config.getUserInfo().getUserName());
     }
+
+    // --- Neue Tests: hashPassword ---
+
+    @Test
+    void testHashPasswordProducesConsistentResult() {
+        // Gleicher Input muss immer gleichen Hash ergeben
+        String hash1 = Config.hashPassword("testPasswort123");
+        String hash2 = Config.hashPassword("testPasswort123");
+
+        assertNotNull(hash1);
+        assertFalse(hash1.isEmpty(), "Hash darf nicht leer sein");
+        assertEquals(hash1, hash2, "Gleiche Passwoerter muessen gleichen Hash erzeugen");
+    }
+
+    @Test
+    void testHashPasswordDifferentInputs() {
+        // Verschiedene Passwoerter muessen verschiedene Hashes erzeugen
+        String hash1 = Config.hashPassword("passwort1");
+        String hash2 = Config.hashPassword("passwort2");
+
+        assertNotEquals(hash1, hash2, "Verschiedene Passwoerter muessen verschiedene Hashes erzeugen");
+    }
+
+    @Test
+    void testHashPasswordIsSHA256Length() {
+        // SHA-256 erzeugt immer 64 Hex-Zeichen
+        String hash = Config.hashPassword("meinPasswort");
+        assertEquals(64, hash.length(), "SHA-256 Hash muss 64 Zeichen lang sein (32 Bytes hex)");
+    }
+
+    // --- Neue Tests: Auth-Verifizierung ---
+
+    @Test
+    void testAuthConfigVerifyPasswords() {
+        Config.AuthConfig auth = new Config.AuthConfig();
+        String adminPw = "adminGeheim";
+        String userPw = "userGeheim";
+
+        auth.setAdminPasswordHash(Config.hashPassword(adminPw));
+        auth.setUserPasswordHash(Config.hashPassword(userPw));
+
+        assertTrue(auth.verifyAdminPassword(adminPw), "Korrektes Admin-Passwort muss verifiziert werden");
+        assertFalse(auth.verifyAdminPassword("falsch"), "Falsches Admin-Passwort darf nicht verifiziert werden");
+        assertTrue(auth.verifyUserPassword(userPw), "Korrektes User-Passwort muss verifiziert werden");
+        assertFalse(auth.verifyUserPassword("falsch"), "Falsches User-Passwort darf nicht verifiziert werden");
+    }
+
+    @Test
+    void testSetupConfigVerifyAdminPassword() {
+        Config.SetupConfig setup = new Config.SetupConfig();
+        String pw = "setupAdmin123";
+
+        setup.setAdminPasswordHash(Config.hashPassword(pw));
+
+        assertTrue(setup.verifyAdminPassword(pw), "Korrektes Setup-Passwort muss verifiziert werden");
+        assertFalse(setup.verifyAdminPassword("anderes"), "Falsches Setup-Passwort darf nicht verifiziert werden");
+    }
+
+    // --- Neue Tests: Theme-Config ---
+
+    @Test
+    void testThemeConfigDefault() {
+        Config.ThemeConfig theme = new Config.ThemeConfig();
+        assertFalse(theme.isDarkMode(), "Dark Mode muss standardmaessig deaktiviert sein");
+    }
+
+    @Test
+    void testThemeConfigToggle() {
+        Config.ThemeConfig theme = new Config.ThemeConfig();
+
+        theme.setDarkMode(true);
+        assertTrue(theme.isDarkMode(), "Dark Mode muss aktivierbar sein");
+
+        theme.setDarkMode(false);
+        assertFalse(theme.isDarkMode(), "Dark Mode muss deaktivierbar sein");
+    }
+
+    // --- Neuer Test: Save und Reload ---
+
+    @Test
+    void testConfigSaveAndReload() throws IOException {
+        String savePath = "test-config-save.json";
+        try {
+            // Aendern
+            config.updateTargets("9.9.9.9", "heise.de", "https://orf.at", 60);
+            config.getTheme().setDarkMode(true);
+
+            // Speichern (ueber statische Methode mit temporaerem Singleton)
+            // Da Config.save den Singleton verwendet, setzen wir ihn
+            Config.save(savePath);
+
+            // Neu laden
+            Config reloaded = Config.load(savePath);
+
+            // Pruefen, dass Aenderungen persistiert wurden
+            assertEquals("9.9.9.9", reloaded.getMeasurement().getTargets().getPing());
+            assertEquals("heise.de", reloaded.getMeasurement().getTargets().getDns());
+            assertEquals("https://orf.at", reloaded.getMeasurement().getTargets().getHttp());
+            assertEquals(60, reloaded.getMeasurement().getIntervalSeconds());
+        } finally {
+            new java.io.File(savePath).delete();
+        }
+    }
 }

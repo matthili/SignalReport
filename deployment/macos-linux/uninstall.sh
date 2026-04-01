@@ -67,7 +67,7 @@ fi
 # Desktop-Verknüpfung entfernen (macOS)
 if [ "$PLATFORM" = "macos" ]; then
     echo "[INFO] Entferne Desktop-Verknüpfung..."
-    rm -f "$HOME/Desktop/SignalReport - Verbindungsanalyse.webloc" 2>/dev/null || true
+    rm -f "/Users/$USER/Desktop/SignalReport - Verbindungsanalyse.webloc" 2>/dev/null || true
 fi
 
 echo

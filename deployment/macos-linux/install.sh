@@ -78,6 +78,13 @@ fi
 cp signalreport.jar "$INSTALL_DIR/signalreport.jar"
 chown "$USER:$GROUP" "$INSTALL_DIR/signalreport.jar"
 
+# Java-Home ermitteln (MUSS vor jsvc-Kompilierung passieren)
+if [ -z "$JAVA_HOME" ]; then
+    JAVA_HOME="$(/usr/libexec/java_home 2>/dev/null || echo /usr/lib/jvm/default-java)"
+    export JAVA_HOME
+fi
+echo "[INFO] JAVA_HOME: $JAVA_HOME"
+
 # Apache Commons Daemon herunterladen (jsvc für Unix)
 echo "[INFO] Lade Apache Commons Daemon 1.5.1 (jsvc) herunter..."
 DAEMON_URL="https://archive.apache.org/dist/commons/daemon/binaries/unix/commons-daemon-1.5.1-bin-unix.tar.gz"
@@ -121,11 +128,6 @@ elif [ "$PLATFORM" = "macos" ]; then
         JSVC_BIN="$INSTALL_DIR/jsvc"
         cd - > /dev/null
     fi
-fi
-
-# Java-Home ermitteln
-if [ -z "$JAVA_HOME" ]; then
-    JAVA_HOME="$(/usr/libexec/java_home 2>/dev/null || echo /usr/lib/jvm/default-java)"
 fi
 
 # Systemd-Service erstellen (Linux)
@@ -278,7 +280,7 @@ fi
 # Desktop-Verknüpfung (macOS)
 if [ "$PLATFORM" = "macos" ]; then
     echo "[INFO] Erstelle Desktop-Verknüpfung..."
-    cat > "$HOME/Desktop/SignalReport - Verbindungsanalyse.webloc" <<EOF
+    cat > "/Users/$USER/Desktop/SignalReport - Verbindungsanalyse.webloc" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -288,7 +290,7 @@ if [ "$PLATFORM" = "macos" ]; then
 </dict>
 </plist>
 EOF
-    chmod 644 "$HOME/Desktop/SignalReport - Verbindungsanalyse.webloc"
+    chmod 644 "/Users/$USER/Desktop/SignalReport - Verbindungsanalyse.webloc"
 fi
 
 echo

@@ -5,6 +5,10 @@ skinparam packageStyle rectangle
 skinparam linetype ortho
 
 package "measurement" {
+  interface Measurer <<interface>> {
+    +Measurement measure(String target)
+  }
+
   class PingMeasurer {
     +Measurement measure(String target)
   }
@@ -14,10 +18,14 @@ package "measurement" {
   }
 
   class HttpMeasurer {
+    -HttpClient client
     +Measurement measure(String url)
   }
 
   class DnsBenchmark {
+    -List<DnsServer> dnsServers
+    -String hostname
+    -int timeoutMs
     +List<DnsResult> benchmark()
     -DnsResult measureDnsServer(DnsServer server)
   }
@@ -40,7 +48,6 @@ package "model" {
     +double getLatencyMs()
     +boolean isSuccess()
     +String getType()
-    +String getLocalIPv4()
     +String getHostHash()
   }
 }
@@ -66,16 +73,12 @@ package "persistence" {
     -double maxLatency
     -double packetLossPercent
     -double jitter
-    +double getAvgLatency()
-    +double getP95Latency()
   }
 
   class "H2MeasurementRepository.HourlyAverage" as RepoHourlyAvg {
     -int hourOfDay
     -double avgLatency
     -int count
-    +int getHourOfDay()
-    +double getAvgLatency()
   }
 
   class "H2MeasurementRepository.HostInfo" as RepoHostInfo {
@@ -84,8 +87,6 @@ package "persistence" {
     -String operatingSystem
     -Instant firstSeen
     -Instant lastSeen
-    +String getHostHash()
-    +String getHostname()
   }
 
   class "H2MeasurementRepository.IpChange" as RepoIpChange {
@@ -94,8 +95,6 @@ package "persistence" {
     -String newIp
     -String changeType
     -String hostHash
-    +Instant getTimestamp()
-    +String getNewIp()
   }
 
   class "H2MeasurementRepository.IpChangeStats" as RepoIpChangeStats {
@@ -103,13 +102,12 @@ package "persistence" {
     -int changeCount
     -Instant firstChange
     -Instant lastChange
-    +String getHostHash()
-    +int getChangeCount()
   }
 }
 
 package "config" {
-  class Config {
+  class Config <<Singleton>> {
+    -{static} volatile Config instance
     -MeasurementConfig measurement
     -DatabaseConfig database
     -WebserverConfig webserver
@@ -118,24 +116,22 @@ package "config" {
     -UserInfo userInfo
     -SetupConfig setup
     -AuthConfig auth
-    +static Config load(String path)
-    +static void save(String path)
-    +static Config getInstance()
+    -ThemeConfig theme
+    +{static} Config load(String path)
+    +{static} void save(String path)
+    +{static} Config getInstance()
+    +{static} String hashPassword(String password)
   }
 
   class "Config.MeasurementConfig" as ConfigMeas {
     -int intervalSeconds
     -Targets targets
-    +int getIntervalSeconds()
-    +Targets getTargets()
   }
 
   class "Config.Targets" as ConfigTargets {
     -String ping
     -String dns
     -String http
-    +String getPing()
-    +void setPing(String ping)
   }
 
   class "Config.MaintenanceWindow" as ConfigMaint {
@@ -144,7 +140,6 @@ package "config" {
     -int startMinute
     -int endHour
     -int endMinute
-    +boolean isEnabled()
     +boolean isMaintenanceTime()
   }
 
@@ -152,22 +147,26 @@ package "config" {
     -String provider
     -String customerId
     -String userName
-    +String getProvider()
   }
 
   class "Config.SetupConfig" as ConfigSetup {
     -boolean setupCompleted
     -String adminPasswordHash
-    +boolean isSetupCompleted()
-    +void setSetupCompleted(boolean completed)
+    +boolean verifyAdminPassword(String pw)
   }
 
   class "Config.AuthConfig" as ConfigAuth {
     -boolean enabled
     -String adminPasswordHash
     -String userPasswordHash
-    +boolean isEnabled()
-    +boolean verifyAdminPassword(String password)
+    +boolean verifyAdminPassword(String pw)
+    +boolean verifyUserPassword(String pw)
+  }
+
+  class "Config.ThemeConfig" as ConfigTheme {
+    -boolean darkMode
+    +boolean isDarkMode()
+    +void setDarkMode(boolean darkMode)
   }
 
   class "Config.DnsServer" as ConfigDnsServer {
@@ -175,17 +174,25 @@ package "config" {
     -String address
     -String region
     -String provider
-    +String getName()
-    +String getAddress()
   }
 }
 
 package "web" {
   class WebServer {
     -H2MeasurementRepository repository
+    -HtmlPageRenderer htmlPageRenderer
+    -SetupPageRenderer setupPageRenderer
     -Javalin app
     +void start(int port)
     +void stop()
+  }
+
+  class HtmlPageRenderer {
+    +String render()
+  }
+
+  class SetupPageRenderer {
+    +String render()
   }
 }
 
@@ -193,35 +200,34 @@ package "export" {
   class PdfReportGenerator {
     -H2MeasurementRepository repository
     +byte[] generateReport(int hours)
-    -BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
-    -String getTargetsChronological(List<Measurement> measurements)
-    -List<ConnectionOutage> detectConnectionOutages(List<Measurement> measurements)
+    -BufferedImage createLatencyChart(...)
+    -List<String> getTargetsChronological(...)
+    -List<ConnectionOutage> detectConnectionOutages(...)
   }
 
-  class PushNotificationService {
+  class PushNotificationService <<Singleton>> {
     -List<String> subscribedClients
     -boolean enabled
     -double latencyThreshold
     -int consecutiveBadMeasurements
-    +static PushNotificationService getInstance()
-    +void enable()
-    +void checkAndNotify(String type, double latency, boolean success, int consecutiveFailures)
+    +{static} PushNotificationService getInstance()
+    +void checkAndNotify(...)
   }
 }
 
 package "network" {
   class HostIdentifier {
-    -static String cachedHash
-    +static String getHostHash()
-    +static String getHostname()
-    +static String getOperatingSystem()
+    -{static} String cachedHash
+    +{static} String getHostHash()
+    +{static} String getHostname()
+    +{static} String getOperatingSystem()
   }
 
   class NetworkInfo {
-    +static String getLocalIPv4()
-    +static String getExternalIPv4()
-    +static String getLocalIPv6()
-    +static String getExternalIPv6()
+    +{static} String getLocalIPv4()
+    +{static} String getExternalIPv4()
+    +{static} String getLocalIPv6()
+    +{static} String getExternalIPv6()
   }
 }
 
@@ -231,36 +237,47 @@ package "main" {
   }
 }
 
-PingMeasurer --> Measurement
-DnsMeasurer --> Measurement
-HttpMeasurer --> Measurement
-DnsBenchmark --> ConfigDnsServer
-DnsBenchmark --> DnsBenchmark.DnsResult
+' --- Vererbung / Interface ---
+Measurer <|.. PingMeasurer
+Measurer <|.. DnsMeasurer
+Measurer <|.. HttpMeasurer
 
+' --- Messung ---
+PingMeasurer --> Measurement : erzeugt
+DnsMeasurer --> Measurement : erzeugt
+HttpMeasurer --> Measurement : erzeugt
+DnsBenchmark --> ConfigDnsServer : verwendet
+
+' --- Repository ---
 H2MeasurementRepository --> RepoStats
 H2MeasurementRepository --> RepoHourlyAvg
 H2MeasurementRepository --> RepoHostInfo
 H2MeasurementRepository --> RepoIpChange
 H2MeasurementRepository --> RepoIpChangeStats
 
+' --- Config ---
 Config --> ConfigMeas
 ConfigMeas --> ConfigTargets
 Config --> ConfigMaint
 Config --> ConfigUser
 Config --> ConfigSetup
 Config --> ConfigAuth
+Config --> ConfigTheme
 Config --> ConfigDnsServer
 
+' --- Web ---
 WebServer --> H2MeasurementRepository
+WebServer --> HtmlPageRenderer : delegiert HTML-Rendering
+WebServer --> SetupPageRenderer : delegiert Setup-Rendering
 WebServer --> Config
+HtmlPageRenderer --> Config : liest Theme
+SetupPageRenderer --> Config : liest Theme
 
+' --- Export ---
 PdfReportGenerator --> H2MeasurementRepository
 PdfReportGenerator --> Measurement
-PdfReportGenerator --> ConnectionOutage
-PdfReportGenerator --> TargetChange
 
-PushNotificationService --> Measurement
-
+' --- Main ---
 SignalReportApp --> PingMeasurer
 SignalReportApp --> DnsMeasurer
 SignalReportApp --> HttpMeasurer
@@ -271,34 +288,27 @@ SignalReportApp --> NetworkInfo
 SignalReportApp --> Config
 
 note top of H2MeasurementRepository
-  <<Singleton>>
   Embedded H2-Datenbank
   Datenbank-Datei: ./data/signalreport.mv.db
-  Features:
-  • Messungen speichern/lesen
-  • Statistik-Berechnung
-  • IP-Tracking
-  • Host-Management
+  Tabellen: measurements, hosts, ip_changes
 end note
 
 note right of WebServer
-  Javalin Web-Framework
-  Port: 4567
+  Javalin Web-Framework (Port 4567)
   REST-API + HTML-UI
-  Features:
-  • Setup-Wizard
-  • Authentifizierung
-  • Push-Benachrichtigungen
-  • Live-Updates
+  HTML-Rendering ausgelagert in
+  HtmlPageRenderer / SetupPageRenderer
+end note
+
+note right of Measurer
+  Strategy-Pattern:
+  Einheitliches Interface
+  fuer alle Messtypen
 end note
 
 note bottom of Config
   Zentrale Konfigurationsverwaltung
-  Features:
-  • JSON-Persistenz
-  • Maintenance-Fenster
-  • DNS-Server-Liste
-  • Setup-Status
-  • Authentifizierung
+  JSON-Persistenz (config.json)
+  hashPassword() zentral dedupliziert
 end note
 @enduml

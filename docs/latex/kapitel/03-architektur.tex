@@ -2,7 +2,15 @@
 \label{sec:architektur}
 
 \subsection{Gesamtarchitektur}
-Die Gesamtarchitektur von SignalReport ist in Abbildung \ref{fig:deployment} dargestellt.
+
+SignalReport folgt einer monolithischen Architektur, bei der alle Komponenten in einer
+einzigen JAR-Datei zusammengefasst sind. Diese Entscheidung wurde bewusst getroffen, um
+die Installation so einfach wie moeglich zu halten -- es wird kein separater
+Datenbankserver, kein Application-Server und kein Build-System beim Endbenutzer benoetigt.
+
+Das Deployment-Diagramm in Abbildung \ref{fig:deployment} zeigt die drei Ebenen der
+Architektur: den Client (Browser), das Server-System (JVM mit allen Komponenten) und die
+externen Dienste (DNS-Server, Web-Server, ipify.org).
 
 \begin{figure}[H]
     \centering
@@ -12,17 +20,50 @@ Die Gesamtarchitektur von SignalReport ist in Abbildung \ref{fig:deployment} dar
 \end{figure}
 
 \subsection{Komponenten-Design}
-Die Komponenten-Übersicht zeigt die wichtigsten Module und deren Interaktionen (Abbildung \ref{fig:component}).
+
+Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:component}):
+
+\begin{description}
+  \item[measurement] Mess-Engine mit dem \texttt{Measurer}-Interface und drei
+    Implementierungen (Ping, DNS, HTTP) sowie dem DNS-Benchmark.
+  \item[model] Das \texttt{Measurement}-Datenobjekt als zentrales Transferobjekt.
+  \item[persistence] \texttt{H2MeasurementRepository} fuer die embedded Datenbank
+    (Messungen, Hosts, IP-Aenderungen).
+  \item[config] Singleton-Konfiguration mit JSON-Persistenz und verschachtelten
+    Konfigurations-Klassen (Targets, MaintenanceWindow, Auth, Theme, etc.).
+  \item[web] \texttt{WebServer} (Javalin) mit ausgelagertem HTML-Rendering in
+    \texttt{HtmlPageRenderer} und \texttt{SetupPageRenderer}.
+  \item[export] \texttt{PdfReportGenerator} (OpenPDF + JFreeChart) und
+    \texttt{PushNotificationService} fuer Browser-Benachrichtigungen.
+  \item[network] \texttt{HostIdentifier} (stabiler Host-Hash) und \texttt{NetworkInfo}
+    (lokale/externe IP-Ermittlung).
+\end{description}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/component-diagram.png}
-    \caption{Komponenten-Übersicht von SignalReport}
+    \caption{Komponenten-Uebersicht von SignalReport}
     \label{fig:component}
 \end{figure}
 
 \subsection{Klassen-Design}
-Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die Kernkomponenten der Anwendung.
+
+Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die vollstaendige Klassenstruktur.
+Besonders hervorzuheben sind:
+
+\begin{itemize}
+  \item Das \textbf{Measurer-Interface} (Strategy-Pattern): Alle drei Messtypen
+    implementieren das gleiche Interface \texttt{Measurer} mit der Methode
+    \texttt{measure(String target)}. Dadurch koennen neue Messtypen hinzugefuegt werden,
+    ohne bestehenden Code zu aendern (Open/Closed Principle).
+  \item Die \textbf{Renderer-Klassen}: Das HTML-Rendering wurde aus dem WebServer in
+    eigenstaendige Klassen ausgelagert (\texttt{HtmlPageRenderer},
+    \texttt{SetupPageRenderer}), um die Trennung von Verantwortlichkeiten (Separation of
+    Concerns) zu wahren. Der WebServer schrumpfte dadurch von ueber 2100 auf ca.\ 800
+    Zeilen.
+  \item Die \textbf{Config-Hierarchie}: Verschachtelte statische Klassen fuer verschiedene
+    Konfigurationsbereiche; zentrale \texttt{hashPassword()}-Methode statt dupliziertem Code.
+\end{itemize}
 
 \begin{figure}[H]
     \centering
@@ -31,37 +72,77 @@ Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die Kernkomponenten der 
     \label{fig:class}
 \end{figure}
 
-\subsection{Key-Design-Entscheidungen}
-\begin{itemize}
-    \item \textbf{Kein separates Backend}: Alle Komponenten in einer Anwendung (einfachere Installation)
-    \item \textbf{H2-Datenbank}: Embedded-DB für plattformunabhängige Installation
-    \item \textbf{Javalin statt Spring Boot}: Minimaler Overhead für Web-Interface
-    \item \textbf{Java 21}: Nutzung moderner Features wie Virtual Threads
-    \item \textbf{OpenPDF statt PDFBox}: Einfachere PDF-Generierung mit besserer Schriftarten-Unterstützung
-\end{itemize}
+\subsection{Design-Entscheidungen}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|p{9cm}|}
+\hline
+\textbf{Entscheidung} & \textbf{Begruendung} \\
+\hline
+Monolithische Architektur & Einfachste Installation: eine JAR-Datei, keine externen
+  Abhaengigkeiten \\
+\hline
+H2 Embedded Database & Plattformunabhaengig, kein separater DB-Server, portable
+  Datei \\
+\hline
+Javalin statt Spring Boot & Minimaler Overhead (ca.\ 5\,MB vs.\ 30+\,MB), schneller
+  Startup \\
+\hline
+Java 21 & Virtual Threads, Pattern Matching, Text Blocks fuer
+  HTML-Templates \\
+\hline
+OpenPDF statt PDFBox & Einfachere API fuer Tabellen und Charts; bessere
+  Schriftarten-Unterstuetzung \\
+\hline
+Inline-HTML statt Templates & Kein Template-Engine-Overhead; Java Text Blocks ermoeglichen
+  lesbaren HTML-Code; Dark Mode via CSS Custom Properties \\
+\hline
+Apache Commons Daemon & Professioneller Dienst-Betrieb auf allen Plattformen
+  (procrun/jsvc) \\
+\hline
+\end{tabular}
+\caption{Architektur-Entscheidungen (Architecture Decision Records)}
+\label{tab:adr}
+\end{table}
 
 \subsection{Datenfluss bei der Messung}
-Der Datenfluss bei der kontinuierlichen Messung ist in Abbildung \ref{fig:sequence-measurement} dargestellt.
+
+Der Messablauf (Abbildung \ref{fig:sequence-measurement}) zeigt den kontinuierlichen
+Zyklus:
+\begin{enumerate}
+  \item Konfiguration laden und Maintenance-Fenster pruefen
+  \item Externe IP ermitteln und IP-Aenderungen protokollieren
+  \item Drei Messungen ausfuehren (Ping, DNS, HTTP)
+  \item Ergebnisse in der Datenbank speichern
+  \item Konfigurierbares Intervall abwarten
+\end{enumerate}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/sequence-measurement.png}
-    \caption{Datenfluss bei der Messung}
+    \caption{Sequenzdiagramm: Messablauf}
     \label{fig:sequence-measurement}
 \end{figure}
 
 \subsection{PDF-Export-Prozess}
-Der Prozess zur Generierung von PDF-Berichten ist in Abbildung \ref{fig:sequence-pdf} dargestellt.
+
+Der PDF-Bericht (Abbildung \ref{fig:sequence-pdf}) durchlaeuft mehrere Schritte:
+Statistik-Berechnung, Chart-Generierung mit JFreeChart, Zielaenderungs-Erkennung,
+Ausfall-Analyse und abschliessende PDF-Zusammenstellung mit OpenPDF.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/sequence-pdf.png}
-    \caption{PDF-Export-Prozess}
+    \caption{Sequenzdiagramm: PDF-Export}
     \label{fig:sequence-pdf}
 \end{figure}
 
 \subsection{Use-Cases}
-Die funktionalen Anforderungen aus Benutzersicht sind im Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zusammengefasst.
+
+Das Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zeigt alle 16 Anwendungsfaelle,
+aufgeteilt auf die drei Akteure Benutzer, Administrator und System. Die vollstaendigen
+User Stories zu jedem Use Case finden sich in Abschnitt \ref{sec:userstories}.
 
 \begin{figure}[H]
     \centering
@@ -70,12 +151,15 @@ Die funktionalen Anforderungen aus Benutzersicht sind im Use-Case-Diagramm (Abbi
     \label{fig:usecase}
 \end{figure}
 
-\subsection{Authentifizierungs-Zustände}
-Das State-Diagramm in Abbildung \ref{fig:state-auth} zeigt die verschiedenen Zustände der Authentifizierung.
+\subsection{Authentifizierungs-Zustaende}
+
+Das State-Diagramm (Abbildung \ref{fig:state-auth}) modelliert den Lebenszyklus der
+Authentifizierung: vom initialen Setup ueber den oeffentlichen Zugriff bis zum geschuetzten
+Modus mit Admin- und User-Rollen.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../diagrams/state-diagram-auth.png}
-    \caption{State-Diagramm Authentifizierung}
+    \caption{State-Diagramm: Authentifizierung}
     \label{fig:state-auth}
 \end{figure}
