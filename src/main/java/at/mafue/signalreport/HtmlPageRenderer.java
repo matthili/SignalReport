@@ -974,7 +974,7 @@ public class HtmlPageRenderer
                             })
                             .then(response => response.text())
                             .then(message => {
-                                statusDiv.style.background = '#d4edda';
+                                statusDiv.style.background = '#778899';
                                 statusDiv.textContent = '\u2705 Konfiguration erfolgreich gespeichert!';
                                 setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
                             })
