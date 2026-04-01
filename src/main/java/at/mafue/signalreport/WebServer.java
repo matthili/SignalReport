@@ -846,7 +846,8 @@ public class WebServer
                             --bg-card-warn: #2a1f0a;
                             --bg-card-warn-inner: #3d2e0a;
                         }
-                        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 20px; background: var(--bg-body); color: var(--color-text); }
+                        *, *::before, *::after { box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; max-width: 1230px; margin: 40px auto; padding: 20px; background: var(--bg-body); color: var(--color-text); }
                         .header { text-align: center; margin-bottom: 30px; position: relative; }
                         .header h1 { color: var(--color-primary); }
                         #theme-toggle { position: absolute; right: 0; top: 10px; background: none; border: 2px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; color: var(--color-primary); }
