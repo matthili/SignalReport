@@ -48,9 +48,9 @@ class ConfigTest {
                 "endMinute": 10
               },
               "userInfo": {
-                "provider": "Telekom",
-                "customerId": "123456789",
-                "userName": "Max Mustermann"
+                "provider": "Vodafone",
+                "customerId": "987654321",
+                "userName": "Erika Musterfrau"
               }
             }
             """;

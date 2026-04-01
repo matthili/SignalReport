@@ -108,8 +108,8 @@ public class PushNotificationService
             logger.warn("⚠️ Internet-Ausfall erkannt! {}-Verbindung unterbrochen", type);
             } else if (latency > latencyThreshold && consecutiveFailures >= consecutiveBadMeasurements)
             {
-            logger.warn("⚠️ Schlechte Internet-Verbindung: {}-Latenz: {:.1f} ms (Schwellwert: {} ms)",
-                    type, latency, latencyThreshold);
+            logger.warn("⚠️ Schlechte Internet-Verbindung: {}-Latenz: {} ms (Schwellwert: {} ms)",
+                    type, String.format("%.1f", latency), latencyThreshold);
             }
     }
 }

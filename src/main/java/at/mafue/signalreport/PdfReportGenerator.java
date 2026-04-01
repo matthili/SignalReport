@@ -126,7 +126,7 @@ public class PdfReportGenerator
             document.add(Chunk.NEWLINE);
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
             document.add(new Paragraph(pingTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
-            //document.add(Chunk.NEXTPAGE); //provoziert leere Seite
+            //document.add(Chunk.NEXTPAGE); //provoziert leere Seite, wenn aktiv
             }
 
 

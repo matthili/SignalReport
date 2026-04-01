@@ -100,5 +100,8 @@
     "enabled" : true,
     "latencyThreshold" : 100.0,
     "consecutiveBadMeasurements" : 2
+  },
+  "theme" : {
+    "darkMode" : true
   }
 }
