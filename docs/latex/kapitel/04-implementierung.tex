@@ -41,7 +41,7 @@ public class PingMeasurer implements Measurer {
 Jede Messung speichert zusätzlich Netzwerk-Informationen:
 \begin{itemize}
   \item Lokale IPv4- und IPv6-Adressen
-  \item Externe IPv4- und IPv6-Adressen (über ipify.org)
+  \item Externe IPv4- und IPv6-Adressen (über ipify.org, mit 120-Sekunden-Cache)
   \item Eindeutiger Host-Hash (MD5 aus Hostname + OS + MAC-Adresse)
 \end{itemize}
 
@@ -178,7 +178,9 @@ Die Persistenz erfolgt über Jackson JSON-Serialisierung in \texttt{config.json}
 \subsection{Datenbank-Schema}
 
 H2 wird im FILE-Modus betrieben (\texttt{jdbc:h2:./data/signalreport}). Drei Tabellen
-bilden das Schema:
+bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und \texttt{findAll()}
+ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte, während
+\texttt{findLastN(int)} für die Live-Anzeige im Web-Interface verwendet wird:
 
 \begin{table}[h]
 \centering

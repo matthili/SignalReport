@@ -1,7 +1,7 @@
 \section{Installation und Betrieb}
 \label{sec:installation}
 
-SignalReport ist als einzelne ausfuehrbare JAR-Datei konzipiert und benoetigt lediglich
+SignalReport ist als einzelne ausführbare JAR-Datei konzipiert und benötigt lediglich
 eine Java-21-Laufzeitumgebung. Dieses Kapitel beschreibt die verschiedenen
 Installationswege und den Betrieb als Hintergrund-Dienst.
 
@@ -11,7 +11,7 @@ Installationswege und den Betrieb als Hintergrund-Dienst.
   \item \textbf{Java 21+} -- OpenJDK (Temurin) oder Oracle JDK
   \item \textbf{Betriebssystem:} Windows 10/11, macOS 13+, Linux (systemd), Synology DSM 7+
   \item \textbf{Arbeitsspeicher:} mind.\ 256\,MB frei (empfohlen: 512\,MB)
-  \item \textbf{Speicherplatz:} ca.\ 50\,MB fuer die Anwendung; Datenbank waechst mit der
+  \item \textbf{Speicherplatz:} ca.\ 50\,MB für die Anwendung; Datenbank wächst mit der
     Laufzeit (ca.\ 1\,MB pro Tag bei 10-Sekunden-Intervall)
   \item \textbf{Netzwerk:} Port 4567 (TCP) muss frei sein
 \end{itemize}
@@ -24,25 +24,25 @@ Der einfachste Weg, SignalReport zu starten:
 java -jar signalreport.jar
 \end{lstlisting}
 
-Anschliessend ist das Web-Interface unter \texttt{http://localhost:4567} erreichbar.
+Anschließend ist das Web-Interface unter \texttt{http://localhost:4567} erreichbar.
 Beim ersten Start wird automatisch der Setup-Assistent angezeigt.
 
-\textbf{Hinweis:} Bei dieser Variante laeuft SignalReport nur, solange das Terminal-Fenster
-geoeffnet bleibt. Fuer den Dauerbetrieb empfiehlt sich die Installation als Dienst.
+\textbf{Hinweis:} Bei dieser Variante läuft SignalReport nur, solange das Terminal-Fenster
+geöffnet bleibt. Für den Dauerbetrieb empfiehlt sich die Installation als Dienst.
 
 \subsection{Installation als Windows-Dienst}
 \label{subsec:install-windows}
 
-Das Projekt enthaelt ein Installations-Skript unter
+Das Projekt enthält ein Installations-Skript unter
 \texttt{deployment/windows/install.bat}, das SignalReport mittels Apache Commons Daemon
 (procrun) als Windows-Dienst einrichtet.
 
 \subsubsection{Ablauf}
 
 \begin{enumerate}
-  \item Skript als Administrator ausfuehren (Rechtsklick $\rightarrow$ ``Als Administrator
-    ausfuehren'')
-  \item Automatische Pruefung: Administrator-Rechte und Java-Installation
+  \item Skript als Administrator ausführen (Rechtsklick $\rightarrow$ ``Als Administrator
+    ausführen'')
+  \item Automatische Prüfung: Administrator-Rechte und Java-Installation
   \item Erstellung der Verzeichnisse:
     \begin{itemize}
       \item \texttt{\%ProgramFiles\%\textbackslash SignalReport} -- Programmdateien
@@ -50,8 +50,8 @@ Das Projekt enthaelt ein Installations-Skript unter
     \end{itemize}
   \item Download von Apache Commons Daemon 1.5.1 (\texttt{prunsrv.exe})
   \item Registrierung des Windows-Dienstes ``SignalReport'' (Autostart, LocalSystem)
-  \item Erstellung einer Desktop-Verknuepfung
-  \item Einrichtung einer Firewall-Regel fuer Port 4567
+  \item Erstellung einer Desktop-Verknüpfung
+  \item Einrichtung einer Firewall-Regel für Port 4567
 \end{enumerate}
 
 \subsubsection{Verwaltung}
@@ -68,7 +68,7 @@ net start SignalReport
 "%ProgramFiles%\SignalReport\prunmgr.exe"
 \end{lstlisting}
 
-Die Deinstallation erfolgt ueber \texttt{deployment/windows/uninstall.bat} (ebenfalls als
+Die Deinstallation erfolgt über \texttt{deployment/windows/uninstall.bat} (ebenfalls als
 Administrator).
 
 \subsection{Installation unter Linux (systemd)}
@@ -80,7 +80,7 @@ und erstellt unter Linux einen systemd-Service.
 \subsubsection{Ablauf}
 
 \begin{enumerate}
-  \item Ausfuehrung mit \texttt{sudo ./install.sh}
+  \item Ausführung mit \texttt{sudo ./install.sh}
   \item Erstellung eines System-Benutzers \texttt{signalreport} (kein Login)
   \item Verzeichnisstruktur:
     \begin{itemize}
@@ -88,7 +88,7 @@ und erstellt unter Linux einen systemd-Service.
       \item \texttt{/var/lib/signalreport/} -- Datenbank und Konfiguration
       \item \texttt{/var/log/signalreport/} -- Log-Dateien
     \end{itemize}
-  \item Optional: Kompilierung von jsvc (Apache Commons Daemon) fuer professionellen
+  \item Optional: Kompilierung von jsvc (Apache Commons Daemon) für professionellen
     Daemon-Modus; Fallback auf direkten Java-Start
   \item Erstellung und Aktivierung der systemd-Unit \texttt{signalreport.service}
 \end{enumerate}
@@ -119,8 +119,8 @@ Das gleiche Skript (\texttt{install.sh}) erkennt macOS und erstellt einen launch
   \item Installationsverzeichnis: \texttt{/Applications/SignalReport/}
   \item Datenverzeichnis: \texttt{\textasciitilde/Library/Application Support/SignalReport/}
   \item Service-Datei: \texttt{/Library/LaunchDaemons/com.signalreport.service.plist}
-  \item Desktop-Verknuepfung: \texttt{.webloc}-Datei auf dem Schreibtisch
-  \item Laeuft als angemeldeter Benutzer (nicht als separater Systembenutzer)
+  \item Desktop-Verknüpfung: \texttt{.webloc}-Datei auf dem Schreibtisch
+  \item Läuft als angemeldeter Benutzer (nicht als separater Systembenutzer)
 \end{itemize}
 
 \subsubsection{Verwaltung}
@@ -147,7 +147,7 @@ als Docker-Container betrieben werden. Ein Dockerfile ist im Verzeichnis
 \label{subsec:konfiguration}
 
 Nach dem ersten Start wird automatisch eine \texttt{config.json} im Arbeitsverzeichnis
-erstellt. Alle Einstellungen koennen ueber das Web-Interface geaendert werden; alternativ
+erstellt. Alle Einstellungen können über das Web-Interface geändert werden; alternativ
 kann die Datei manuell bearbeitet werden (bei gestopptem Dienst).
 
 \begin{lstlisting}[language=json, caption={Beispiel config.json (Auszug)}]
@@ -178,7 +178,7 @@ kann die Datei manuell bearbeitet werden (bei gestopptem Dienst).
 
 \subsection{Backup und Migration}
 
-Fuer ein vollstaendiges Backup genuegt es, zwei Dateien/Verzeichnisse zu sichern:
+Für ein vollständiges Backup genügt es, zwei Dateien/Verzeichnisse zu sichern:
 
 \begin{enumerate}
   \item \texttt{config.json} -- Alle Einstellungen (Ziele, Passwort-Hashes, Theme)

@@ -5,24 +5,26 @@
 Die Teststrategie umfasste:
 
 \begin{itemize}
-    \item \textbf{Unit-Tests}: Für die Kernkomponenten (z. B. Statistik-Berechnung, Config-Handling)
+    \item \textbf{Unit-Tests}: Für die Kernkomponenten (z. B. Statistik-Berechnung, Config-Handling, Measurer-Interface)
     \item \textbf{Integrationstests}: Für die Datenbankanbindung und API-Endpunkte
     \item \textbf{E2E-Tests}: Für das Web-Interface und PDF-Export
     \item \textbf{Manuelle Tests}: Für UI-Interaktionen und Benutzerfreundlichkeit
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die Testabdeckung umfasst:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 7 Testklassen mit insgesamt 59 Tests decken folgende Bereiche ab:
 
 \begin{itemize}
-    \item \textbf{Measurement}: Grundlegende Objekt-Erstellung und Validierung
-    \item \textbf{HostIdentifier}: Stabile Host-Identifikation über Neustarts
-    \item \textbf{Statistics}: Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust
-    \item \textbf{Config}: Laden/Speichern von Konfiguration mit allen Features
-    \item \textbf{H2MeasurementRepository}: Vollständige Datenbank-Integration mit IP-Tracking
+    \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
+    \item \textbf{HostIdentifierTest} (4 Tests): Stabile Host-Identifikation über Neustarts
+    \item \textbf{StatisticsTest} (9 Tests): Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust mit realen DB-Abfragen
+    \item \textbf{ConfigTest} (17 Tests): Laden/Speichern von Konfiguration, hashPassword, Auth-Verifikation, Theme, Save+Reload
+    \item \textbf{H2MeasurementRepositoryTest} (10 Tests): Vollständige Datenbank-Integration mit IP-Tracking, Host-Registrierung
+    \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
+    \item \textbf{MaintenanceWindowTest} (7 Tests): Deaktiviert, ganztägig, aktuelle Zeit, Mitternachtsübergang, Standardwerte
 \end{itemize}
 
-Alle Tests laufen ohne externe Abhängigkeiten (Mocking für Netzwerkaufrufe) und sind in unter 2 Sekunden durchführbar.
+Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
 
 \subsection{Beispiel-Test für Statistik-Berechnung}
 \begin{lstlisting}[language=Java, caption=Test für 95th Percentile]
@@ -39,7 +41,7 @@ void testP95CalculationWithSortedLatencies() {
     double p95Value = latencies.get(p95Index);
 
     // Assert
-    assertEquals(18, p95Index, "Index für 95th Percentile muss 18 sein");
+    assertEquals(18, p95Index, "Index fuer 95th Percentile muss 18 sein");
     assertEquals(190.0, p95Value, 0.01, "95th Percentile-Wert muss 190.0 sein");
 }
 \end{lstlisting}
@@ -51,11 +53,13 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests & 24 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow) & 39 & 100\% \\
 \hline
-Integrationstests & 8 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository) & 19 & 100\% \\
 \hline
-E2E-Tests & 5 & 100\% \\
+E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
+\hline
+\textbf{Gesamt} & \textbf{59 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -73,8 +77,8 @@ E2E-Tests & 5 & 100\% \\
 \subsection{Test-Philosophie und -Qualität}
 SignalReport verwendet eine gezielte Test-Strategie:
 \begin{itemize}
-    \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking), nicht auf Debug-Hilfen wie \texttt{toString()}
-    \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung)
+    \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
+    \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 15+ Tests laufen reproduzierbar grün – nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 59 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

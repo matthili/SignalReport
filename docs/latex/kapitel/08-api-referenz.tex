@@ -7,7 +7,7 @@ das JSON-Format.
 
 \subsection{Authentifizierung}
 
-Wenn die Authentifizierung aktiviert ist, muessen alle API-Aufrufe einen
+Wenn die Authentifizierung aktiviert ist, müssen alle API-Aufrufe einen
 \texttt{Authorization}-Header mit HTTP Basic Auth enthalten:
 
 \begin{lstlisting}[language=bash, caption={Beispiel: API-Aufruf mit Authentifizierung}]
@@ -28,10 +28,10 @@ Schreibende Endpunkte (POST) erfordern Admin-Rechte.
 GET & \texttt{/api/measurements} & Letzte Messungen abrufen.
   Parameter: \texttt{limit} (Anzahl, Standard: 50) \\
 \hline
-GET & \texttt{/api/statistics} & Statistiken fuer einen Messtyp.
+GET & \texttt{/api/statistics} & Statistiken für einen Messtyp.
   Parameter: \texttt{type} (PING|DNS|HTTP), \texttt{hours} (Zeitraum) \\
 \hline
-GET & \texttt{/api/hourly} & Stuendliche Durchschnittswerte fuer Heatmap.
+GET & \texttt{/api/hourly} & Stündliche Durchschnittswerte für Heatmap.
   Parameter: \texttt{type}, \texttt{days} \\
 \hline
 \end{tabular}
@@ -101,10 +101,10 @@ GET & \texttt{/api/dns-benchmark} & DNS-Benchmark starten.
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
-GET & \texttt{/api/ip-changes} & Letzte IP-Aenderungen.
+GET & \texttt{/api/ip-changes} & Letzte IP-Änderungen.
   Parameter: \texttt{limit} \\
 \hline
-GET & \texttt{/api/ip-change-stats} & Statistik ueber IP-Aenderungen
+GET & \texttt{/api/ip-change-stats} & Statistik über IP-Änderungen
   pro Host \\
 \hline
 GET & \texttt{/api/hosts} & Liste aller registrierten Hosts \\
@@ -129,7 +129,7 @@ POST & \texttt{/api/settings} & Konfiguration aktualisieren
 \hline
 GET & \texttt{/api/theme/settings} & Theme-Einstellungen abrufen \\
 \hline
-POST & \texttt{/api/theme/settings} & Theme aendern.
+POST & \texttt{/api/theme/settings} & Theme ändern.
   Body: \texttt{\{``darkMode'': true\}} \\
 \hline
 \end{tabular}
@@ -145,14 +145,14 @@ POST & \texttt{/api/theme/settings} & Theme aendern.
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
-POST & \texttt{/api/setup/complete} & Ersteinrichtung abschliessen.
+POST & \texttt{/api/setup/complete} & Ersteinrichtung abschließen.
   Setzt Admin-Passwort und optionale Authentifizierung. \\
 \hline
 POST & \texttt{/api/auth/enable} & Authentifizierung aktivieren \\
 \hline
 POST & \texttt{/api/auth/disable} & Authentifizierung deaktivieren \\
 \hline
-POST & \texttt{/api/auth/change-password} & Admin-Passwort aendern \\
+POST & \texttt{/api/auth/change-password} & Admin-Passwort ändern \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: Authentifizierung}
@@ -169,10 +169,10 @@ POST & \texttt{/api/auth/change-password} & Admin-Passwort aendern \\
 \hline
 GET & \texttt{/api/push/settings} & Push-Einstellungen abrufen \\
 \hline
-POST & \texttt{/api/push/settings} & Push-Einstellungen aendern
+POST & \texttt{/api/push/settings} & Push-Einstellungen ändern
   (Schwellwert, Anzahl) \\
 \hline
-POST & \texttt{/api/push/subscribe} & Client fuer Push registrieren \\
+POST & \texttt{/api/push/subscribe} & Client für Push registrieren \\
 \hline
 GET & \texttt{/api/push/poll} & Ausstehende Benachrichtigungen abrufen
   (Long Polling) \\

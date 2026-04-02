@@ -3,6 +3,8 @@ package at.mafue.signalreport;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,6 +15,7 @@ import java.util.List;
 
 public class Config
 {
+    private static final Logger logger = LoggerFactory.getLogger(Config.class);
     private static volatile Config instance;
 
     private MeasurementConfig measurement;
@@ -84,12 +87,12 @@ public class Config
                 ObjectMapper mapper = new ObjectMapper();
                 mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                 instance = mapper.readValue(configFile, Config.class);
-                System.out.println("Konfiguration geladen (Config): " + configFile.getAbsolutePath());
+                logger.info("Konfiguration geladen: {}", configFile.getAbsolutePath());
                 } else
                 {
                 instance = createDefault();
                 save(path);
-                System.out.println("Standard-Konfiguration erstellt: " + configFile.getAbsolutePath());
+                logger.info("Standard-Konfiguration erstellt: {}", configFile.getAbsolutePath());
                 }
             }
         return instance;

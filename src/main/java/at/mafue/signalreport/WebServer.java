@@ -3,6 +3,8 @@ package at.mafue.signalreport;
 import io.javalin.Javalin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.time.Instant;
@@ -11,6 +13,7 @@ import java.util.Map;
 
 public class WebServer
 {
+    private static final Logger logger = LoggerFactory.getLogger(WebServer.class);
     private final H2MeasurementRepository repository;
     private final HtmlPageRenderer htmlPageRenderer = new HtmlPageRenderer();
     private final SetupPageRenderer setupPageRenderer = new SetupPageRenderer();
@@ -764,7 +767,7 @@ public class WebServer
             }
         });
 
-        System.out.println("🌍 Web-Interface läuft unter: http://localhost:" + port);
+        logger.info("🌍 Web-Interface läuft unter: http://localhost:{}", port);
     }
 
     // Hilfsklasse für JSON-Fehler

@@ -1,8 +1,12 @@
-# 📡 SignalReport – Internet-Qualitäts-Monitoring
+<p align="center">
+  <img src="src/main/resources/web/logo_mit_schriftzug_dark.png" alt="SignalReport" width="500">
+</p>
 
-[![Java 21+](https://img.shields.io/badge/Java-21+-007396?logo=java)](https://openjdk.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![JUnit Tests](https://img.shields.io/badge/Tests-100%25%20passing-brightgreen)](https://junit.org/)
+<p align="center">
+  <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-59%20passing-brightgreen" alt="JUnit Tests"></a>
+</p>
 
 Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachung deiner Internet-Qualität – mit PDF-Berichten für Provider-Beschwerden, IP-Tracking und DNS-Benchmark.
 
@@ -109,20 +113,30 @@ Der 12-Monats-Bericht enthält:
 
 ```
 signalreport/
-├── src/main/java/at/mafue/signalreport/  # Quellcode
-│   ├── Config.java                       # Zentrale Konfiguration
-│   ├── H2MeasurementRepository.java      # Datenbank-Zugriff
-│   ├── PdfReportGenerator.java           # PDF-Generierung
-│   ├── WebServer.java                    # Javalin Webserver
-│   ├── SignalReportApp.java              # Hauptklasse
-│   └── ...                               # Weitere Klassen
-├── src/test/java/at/mafue/signalreport/  # JUnit-Tests (100% Grün)
+├── src/main/java/at/mafue/signalreport/
+│   ├── SignalReportApp.java              # Hauptklasse (Entry Point)
+│   ├── Config.java                       # Singleton-Konfiguration (JSON)
+│   ├── Measurer.java                     # Interface (Strategy-Pattern)
+│   ├── PingMeasurer.java                 # ICMP-Ping-Messung
+│   ├── DnsMeasurer.java                  # DNS-Auflösungs-Messung
+│   ├── HttpMeasurer.java                 # HTTP-GET-Messung
+│   ├── DnsBenchmark.java                 # DNS-Server-Vergleich
+│   ├── H2MeasurementRepository.java      # Datenbank-Zugriff (H2)
+│   ├── WebServer.java                    # Javalin REST-API + Routing
+│   ├── HtmlPageRenderer.java             # HTML-Rendering Hauptseite
+│   ├── SetupPageRenderer.java            # HTML-Rendering Setup-Wizard
+│   ├── PdfReportGenerator.java           # PDF-Export (OpenPDF + JFreeChart)
+│   ├── NetworkInfo.java                  # IP-Adress-Ermittlung (mit Cache)
+│   └── HostIdentifier.java              # Host-Hash (stabile ID)
+├── src/test/java/at/mafue/signalreport/ # 7 Testklassen, 59 Tests
+├── src/main/resources/web/               # Statische Dateien (Logos, Favicons)
 ├── docs/
-│   ├── diagrams/                         # UML-Diagramme (PNG)
+│   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
 │   ├── latex/                            # Vollständige LaTeX-Dokumentation
-│   └── screenshots/                      # Platzhalter für UI-Screenshots
+│   └── screenshots/                      # UI-Screenshots
+├── deployment/                           # Installations-Skripte (Win/Linux/macOS)
 ├── config.json                           # Auto-generierte Konfiguration
-├── data/                                 # H2-Datenbank-Dateien
+├── data/                                 # H2-Datenbank (gitignored)
 ├── pom.xml                               # Maven-Build-Konfiguration
 └── README.md                             # Diese Datei
 ```

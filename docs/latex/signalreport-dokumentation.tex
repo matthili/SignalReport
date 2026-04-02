@@ -14,10 +14,10 @@
 \usepackage{enumitem}
 \usepackage{csquotes}
 
-% Seitenraender
+% Seitenränder
 \geometry{a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
 
-% Ueberschriften-Stil
+% Überschriften-Stil
 \titleformat{\section}{\normalfont\Large\bfseries\color{blue}}{\thesection}{1em}{}
 \titleformat{\subsection}{\normalfont\large\bfseries\color{blue!80}}{\thesubsection}{1em}{}
 \titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{blue!60}}{\thesubsubsection}{1em}{}
@@ -50,7 +50,7 @@
 }
 
 % Titel
-\title{SignalReport: Internet-Qualitaets-Monitoring\\[0.5em]
+\title{SignalReport: Internet-Qualitäts-Monitoring\\[0.5em]
 \large Projektdokumentation -- Diplomlehrgang 2026}
 \author{Matthias F.}
 \date{April 2026}
@@ -58,6 +58,10 @@
 % Dokument
 \begin{document}
 
+\begin{center}
+    \includegraphics[width=0.5\textwidth]{../../src/main/resources/web/logo_mit_schriftzug_light.png}
+\end{center}
+\vspace{1cm}
 \maketitle
 \tableofcontents
 \newpage
@@ -91,6 +95,10 @@
 
 % Kapitel 8: API-Referenz
 \input{kapitel/08-api-referenz}
+
+% Anhang A: UML-Diagramme
+\newpage
+\input{kapitel/anhang-a}
 
 % Literaturverzeichnis
 \bibliographystyle{plain}

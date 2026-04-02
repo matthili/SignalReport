@@ -18,16 +18,18 @@ SignalReport/
 │   │   ├── SetupPageRenderer.java        # HTML-Rendering Setup-Wizard
 │   │   ├── PdfReportGenerator.java       # PDF-Export (OpenPDF + JFreeChart)
 │   │   ├── PushNotificationService.java  # Browser-Benachrichtigungen
-│   │   ├── NetworkInfo.java              # IP-Adress-Ermittlung
+│   │   ├── NetworkInfo.java              # IP-Adress-Ermittlung (120s Cache)
 │   │   └── HostIdentifier.java           # Host-Hash (stabile ID)
-│   ├── test/java/at/mafue/signalreport/
-│   │   ├── MeasurementTest.java          # Unit-Tests Measurement
-│   │   ├── HostIdentifierTest.java       # Unit-Tests Host-Hash
-│   │   ├── StatisticsTest.java           # Unit-Tests Statistik
-│   │   ├── ConfigTest.java               # Unit-Tests Konfiguration
-│   │   └── H2MeasurementRepositoryTest.java  # Integration-Tests DB
+│   ├── test/java/at/mafue/signalreport/  # 7 Testklassen, 59 Tests
+│   │   ├── MeasurementTest.java          # Unit-Tests Measurement (5)
+│   │   ├── HostIdentifierTest.java       # Unit-Tests Host-Hash (4)
+│   │   ├── StatisticsTest.java           # Integrations-Tests Statistik (9)
+│   │   ├── ConfigTest.java               # Unit-Tests Konfiguration (17)
+│   │   ├── H2MeasurementRepositoryTest.java  # Integration-Tests DB (10)
+│   │   ├── MeasurerInterfaceTest.java    # Unit-Tests Measurer-Interface (6)
+│   │   └── MaintenanceWindowTest.java    # Unit-Tests Wartungsfenster (7)
 │   └── main/resources/
-│       └── web/                          # Statische Dateien (Favicon, Logo)
+│       └── web/                          # Statische Dateien (Logos, Favicons, Service Worker)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
 │   ├── latex/                            # LaTeX-Dokumentation
