@@ -7,7 +7,7 @@ actor System as System
 actor Admin as Administrator
 
 rectangle "SignalReport" {
-  usecase "Erstmaliges Setup durchfuehren" as UC1
+  usecase "Erstmaliges Setup durchführen" as UC1
   usecase "Anmelden (Authentifizierung)" as UC2
   usecase "Messungen konfigurieren" as UC3
   usecase "Live-Messungen in Web-UI anzeigen" as UC4
@@ -15,14 +15,14 @@ rectangle "SignalReport" {
   usecase "Heatmap pro Stunde anzeigen" as UC6
   usecase "PDF-Bericht generieren" as UC7
   usecase "CSV-Daten exportieren" as UC8
-  usecase "DNS-Benchmark durchfuehren" as UC9
+  usecase "DNS-Benchmark durchführen" as UC9
   usecase "Host-Informationen anzeigen" as UC10
-  usecase "IP-Aenderungen tracken" as UC11
+  usecase "IP-Änderungen tracken" as UC11
   usecase "Push-Benachrichtigungen erhalten" as UC12
   usecase "Authentifizierung verwalten" as UC13
   usecase "Dark Mode umschalten" as UC15
   usecase "Wartungsfenster konfigurieren" as UC16
-  usecase "Kontinuierliche Messung durchfuehren" as UC14
+  usecase "Kontinuierliche Messung durchführen" as UC14
 }
 
 Benutzer --> UC2
@@ -56,26 +56,26 @@ note right of UC1
   * Admin-Passwort festlegen
   * Authentifizierung optional aktivieren
   * User-Passwort setzen (falls aktiviert)
-  * Wird nur einmal beim ersten Start durchgefuehrt
+  * Wird nur einmal beim ersten Start durchgeführt
 end note
 
 note right of UC3
   **Messungen konfigurieren**
-  * Ping-Ziel (IP) aendern
-  * DNS-Ziel (Hostname) aendern
-  * HTTP-Ziel (URL) aendern
+  * Ping-Ziel (IP) ändern
+  * DNS-Ziel (Hostname) ändern
+  * HTTP-Ziel (URL) ändern
   * Messintervall einstellen (5s-1h)
   * Benutzer-Info eingeben
 end note
 
 note right of UC7
   **PDF-Bericht generieren**
-  * Zeitraeume: 24h, 7 Tage, 12 Monate
+  * Zeiträume: 24h, 7 Tage, 12 Monate
   * Enthalt:
     - Kundendaten + Host-Info
     - 3 Charts (PING/DNS/HTTP)
     - Top 10 schlechteste Messungen
-    - Verbindungsausfaelle
+    - Verbindungsausfälle
 end note
 
 note right of UC9
@@ -97,7 +97,7 @@ end note
 note right of UC16
   **Wartungsfenster**
   * Start- und Endzeit konfigurierbar
-  * Unterstuetzt Mitternachts-Uebergang
+  * Unterstützt Mitternachts-Übergang
   * Messungen werden pausiert
   * Status im UI sichtbar
 end note
@@ -106,7 +106,7 @@ note right of UC14
   **Kontinuierliche Messung**
   * Automatisch alle X Sekunden
   * IP-Tracking bei jeder Messung
-  * Ueberspringt Maintenance-Fenster
+  * Überspringt Maintenance-Fenster
   * Speichert in H2-Datenbank
 end note
 @enduml

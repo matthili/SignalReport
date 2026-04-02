@@ -1,89 +1,141 @@
 \section{Feature Requests (geplante Erweiterungen)}
 \label{sec:featurerequests}
 
-Waehrend User Stories den \textit{aktuellen} Funktionsumfang beschreiben, dokumentieren
-Feature Requests die \textit{zukuenftigen} Erweiterungsmoeglichkeiten. Sie entstehen aus
-eigenen Ideen, Rueckmeldungen potenzieller Nutzer und technischen Ueberlegungen.
+Während User Stories den \textit{aktuellen} Funktionsumfang beschreiben, dokumentieren
+Feature Requests die \textit{zukünftigen} Erweiterungsmöglichkeiten. Sie entstehen aus
+eigenen Ideen, Rückmeldungen potenzieller Nutzer und technischen Überlegungen.
 
 Die Priorisierung erfolgt nach dem MoSCoW-Schema:
 \begin{itemize}
-  \item \textbf{Must} -- Wird in der naechsten Version umgesetzt
+  \item \textbf{Must} -- Wird in der nächsten Version umgesetzt
   \item \textbf{Should} -- Sollte bald umgesetzt werden
-  \item \textbf{Could} -- Waere schoen, aber nicht dringend
+  \item \textbf{Could} -- Wäre schön, aber nicht dringend
   \item \textbf{Won't (yet)} -- Aktuell nicht geplant, aber vorstellbar
 \end{itemize}
 
 \subsection{FR-01: Automatischer PDF-Versand per E-Mail}
 \begin{description}
-  \item[Prioritaet:] Should
-  \item[Beschreibung:] Der Benutzer soll einen Zeitplan konfigurieren koennen (z.\,B.\
-    woechtentlich oder monatlich), nach dem SignalReport automatisch einen PDF-Bericht
+  \item[Priorität:] Should
+  \item[Beschreibung:] Der Benutzer soll einen Zeitplan konfigurieren können (z.\,B.\
+    wöchentlich oder monatlich), nach dem SignalReport automatisch einen PDF-Bericht
     generiert und per SMTP an eine konfigurierte E-Mail-Adresse versendet.
-  \item[Motivation:] Viele Benutzer moechten regelmaessige Berichte erhalten, ohne sich
-    manuell einloggen zu muessen. Besonders fuer Provider-Beschwerden ist ein monatlicher
+  \item[Motivation:] Viele Benutzer möchten regelmäßige Berichte erhalten, ohne sich
+    manuell einloggen zu müssen. Besonders für Provider-Beschwerden ist ein monatlicher
     Report hilfreich.
-  \item[Technische Ueberlegungen:] SMTP-Konfiguration in config.json; javax.mail oder
+  \item[Technische Überlegungen:] SMTP-Konfiguration in config.json; javax.mail oder
     Jakarta Mail; Scheduler via ScheduledExecutorService.
 \end{description}
 
-\subsection{FR-02: Prometheus-Exporter fuer Grafana-Integration}
+\subsection{FR-02: Prometheus-Exporter für Grafana-Integration}
 \begin{description}
-  \item[Prioritaet:] Could
+  \item[Priorität:] Could
   \item[Beschreibung:] Ein \texttt{/metrics}-Endpoint im Prometheus-Exposition-Format soll
     bereitgestellt werden, damit bestehende Monitoring-Infrastrukturen (Grafana, Prometheus)
-    die SignalReport-Daten integrieren koennen.
+    die SignalReport-Daten integrieren können.
   \item[Motivation:] Fortgeschrittene Benutzer haben oft bereits ein Grafana-Dashboard und
-    moechten die Internetqualitaet dort einbinden.
-  \item[Technische Ueberlegungen:] Einfaches Text-Format; keine externe Library noetig;
+    möchten die Internetqualität dort einbinden.
+  \item[Technische Überlegungen:] Einfaches Text-Format; keine externe Library nötig;
     Metriken: \texttt{signalreport\_ping\_latency\_ms}, \texttt{signalreport\_dns\_latency\_ms},
     \texttt{signalreport\_http\_latency\_ms}, \texttt{signalreport\_packet\_loss\_percent}.
 \end{description}
 
 \subsection{FR-03: Multi-Host-Vergleich}
 \begin{description}
-  \item[Prioritaet:] Could
-  \item[Beschreibung:] Wenn SignalReport auf mehreren Geraeten laeuft (z.\,B.\ Desktop und NAS),
-    sollen die Messdaten in einer zentralen Ansicht verglichen werden koennen.
-  \item[Motivation:] Ermoeglicht die Unterscheidung, ob ein Problem am Geraet (WLAN vs.\
+  \item[Priorität:] Could
+  \item[Beschreibung:] Wenn SignalReport auf mehreren Geräten läuft (z.\,B.\ Desktop und NAS),
+    sollen die Messdaten in einer zentralen Ansicht verglichen werden können.
+  \item[Motivation:] Ermöglicht die Unterscheidung, ob ein Problem am Gerät (WLAN vs.\
     Kabel) oder am Provider liegt.
-  \item[Technische Ueberlegungen:] Bereits vorbereitet durch das Host-Hash-System in der
-    Datenbank; erfordert API-Endpunkte fuer Host-uebergreifende Abfragen.
+  \item[Technische Überlegungen:] Bereits vorbereitet durch das Host-Hash-System in der
+    Datenbank; erfordert API-Endpunkte für hostübergreifende Abfragen.
 \end{description}
 
 \subsection{FR-04: Docker-Container}
 \begin{description}
-  \item[Prioritaet:] Should
+  \item[Priorität:] Should
   \item[Beschreibung:] Ein offizielles Docker-Image soll bereitgestellt werden, das
-    SignalReport als Container ausfuehrbar macht (z.\,B.\ auf einem NAS mit Docker-Support
+    SignalReport als Container ausführbar macht (z.\,B.\ auf einem NAS mit Docker-Support
     oder in einer Cloud-Umgebung).
-  \item[Motivation:] Docker ist der De-facto-Standard fuer einfache Deployments; besonders
+  \item[Motivation:] Docker ist der De-facto-Standard für einfache Deployments; besonders
     auf Synology NAS mit Container Manager.
-  \item[Technische Ueberlegungen:] Dockerfile basierend auf \texttt{eclipse-temurin:21-jre};
-    Volume-Mount fuer \texttt{data/} und \texttt{config.json}; Port-Mapping 4567.
+  \item[Technische Überlegungen:] Dockerfile basierend auf \texttt{eclipse-temurin:21-jre};
+    Volume-Mount für \texttt{data/} und \texttt{config.json}; Port-Mapping 4567.
 \end{description}
 
 \subsection{FR-05: Traceroute-Analyse}
 \begin{description}
-  \item[Prioritaet:] Won't (yet)
-  \item[Beschreibung:] Zusaetzlich zur reinen Latenz-Messung soll ein Traceroute zum Ziel
-    durchgefuehrt und visualisiert werden koennen, um den genauen Punkt im Netzwerkpfad zu
-    identifizieren, an dem Verzoegerungen entstehen.
+  \item[Priorität:] Won't (yet)
+  \item[Beschreibung:] Zusätzlich zur reinen Latenz-Messung soll ein Traceroute zum Ziel
+    durchgeführt und visualisiert werden können, um den genauen Punkt im Netzwerkpfad zu
+    identifizieren, an dem Verzögerungen entstehen.
   \item[Motivation:] Hilft bei der Diagnose, ob das Problem beim eigenen Router, beim
     Provider oder auf dem Weg zum Zielserver liegt.
-  \item[Technische Ueberlegungen:] Plattformabhaengig (traceroute/tracert); erfordert
-    erhoehte Rechte auf manchen Systemen; lange Laufzeit.
+  \item[Technische Überlegungen:] Plattformabhängig (traceroute/tracert); erfordert
+    erhöhte Rechte auf manchen Systemen; lange Laufzeit.
 \end{description}
 
 \subsection{FR-06: Speedtest-Integration}
 \begin{description}
-  \item[Prioritaet:] Won't (yet)
-  \item[Beschreibung:] Neben Latenz-Messungen soll auch die tatsaechliche Bandbreite
-    (Download/Upload) gemessen werden koennen.
-  \item[Motivation:] Fuer Provider-Beschwerden ist die Bandbreite oft relevanter als die
+  \item[Priorität:] Won't (yet)
+  \item[Beschreibung:] Neben Latenz-Messungen soll auch die tatsächliche Bandbreite
+    (Download/Upload) gemessen werden können.
+  \item[Motivation:] Für Provider-Beschwerden ist die Bandbreite oft relevanter als die
     Latenz. Viele Nutzer erwarten einen \enquote{Speedtest} als Grundfunktion.
-  \item[Technische Ueberlegungen:] Erfordert definierte Test-Server oder eine API wie
-    Ookla/Cloudflare Speedtest; erzeugt signifikanten Traffic; nicht fuer kurze Intervalle
+  \item[Technische Überlegungen:] Erfordert definierte Test-Server oder eine API wie
+    Ookla/Cloudflare Speedtest; erzeugt signifikanten Traffic; nicht für kurze Intervalle
     geeignet.
+\end{description}
+
+\subsection{FR-07: Verbesserte Verschlüsselung}
+\begin{description}
+  \item[Priorität:] Could
+  \item[Beschreibung:] Derzeit werden Passwörter mit SHA-256 gehasht. Eine zukünftige
+    Version könnte bcrypt oder Argon2 für stärkeres Passwort-Hashing verwenden, das
+    besseren Schutz gegen Brute-Force-Angriffe bietet. Zusätzlich könnte
+    HTTPS-Unterstützung (über Let's Encrypt oder selbstsignierte Zertifikate) für
+    verschlüsselte Kommunikation ergänzt werden.
+  \item[Motivation:] SHA-256 ist zwar sicher, aber nicht speziell für Passwort-Hashing
+    konzipiert. Moderne Algorithmen wie bcrypt oder Argon2 bieten durch einstellbare
+    Kostenfaktoren deutlich besseren Schutz. HTTPS schützt die Datenübertragung
+    zwischen Browser und Server.
+  \item[Technische Überlegungen:] jBCrypt oder Bouncy-Castle-Library für Argon2;
+    Javalin-SSL-Plugin oder vorgeschalteter Reverse-Proxy (nginx/Caddy) für HTTPS.
+\end{description}
+
+\subsection{FR-08: Messenger-Benachrichtigungen bei Ausfällen}
+\begin{description}
+  \item[Priorität:] Could
+  \item[Beschreibung:] Nach Behebung eines Internetausfalls oder bei unregelmäßigen
+    Ping-Zeiten könnte SignalReport Benachrichtigungen über Messenger-APIs versenden
+    (z.\,B.\ Telegram Bot API, Signal, WhatsApp Business API). Dies geht über die
+    bestehenden Browser-Push-Benachrichtigungen hinaus, da Nutzer auch auf ihren
+    Mobilgeräten erreicht werden, wenn sie nicht am Computer sind.
+  \item[Motivation:] Browser-Push-Benachrichtigungen setzen voraus, dass der Browser
+    geöffnet ist. Messenger-Benachrichtigungen erreichen den Benutzer jederzeit auf
+    dem Smartphone -- auch unterwegs oder nachts.
+  \item[Technische Überlegungen:] Telegram Bot API (einfachste Integration, kein
+    Kosten); Signal-CLI oder signal-bot; WhatsApp Business API (kostenpflichtig);
+    konfigurierbarer Webhook-Endpunkt als generische Lösung.
+\end{description}
+
+\subsection{FR-09: ResultSet-basierte Datenbank-Iteratoren}
+\begin{description}
+  \item[Priorität:] Should
+  \item[Beschreibung:] Bei sehr großen Datenmengen (z.\,B.\ 12-Monats-Berichte mit
+    Millionen von Messungen) kann der aktuelle Ansatz, alle Daten in eine
+    \texttt{List<Measurement>} zu laden, erheblichen Arbeitsspeicher verbrauchen. Eine
+    zukünftige Optimierung könnte ResultSet-basierte Iteratoren (Cursor-basiertes
+    Streaming) verwenden, um Daten zeilenweise zu verarbeiten, ohne alles gleichzeitig
+    im RAM zu halten. Dies würde insbesondere dem CSV-Export und der PDF-Generierung
+    für lange Zeiträume zugutekommen.
+  \item[Motivation:] Bei einem Messintervall von 10 Sekunden entstehen pro Tag ca.\
+    8.640 Messungen -- über 12 Monate sind das über 3 Millionen Datensätze. Deren
+    gleichzeitiges Laden kann auf ressourcenschwachen Geräten (z.\,B.\ NAS) zu
+    Speicherengpässen führen.
+  \item[Technische Überlegungen:] H2 unterstützt scrollbare ResultSets;
+    \texttt{Statement.setFetchSize()} für Streaming; Iterator-Pattern um
+    \texttt{ResultSet} als Wrapper; Änderungen in \texttt{H2MeasurementRepository}
+    und \texttt{PdfReportGenerator}.
 \end{description}
 
 \subsection{Zusammenfassung der Feature Requests}
@@ -92,7 +144,7 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
 \centering
 \begin{tabular}{|l|l|l|}
 \hline
-\textbf{ID} & \textbf{Feature} & \textbf{Prioritaet} \\
+\textbf{ID} & \textbf{Feature} & \textbf{Priorität} \\
 \hline
 FR-01 & Automatischer PDF-Versand per E-Mail & Should \\
 FR-02 & Prometheus-Exporter (Grafana) & Could \\
@@ -100,6 +152,9 @@ FR-03 & Multi-Host-Vergleich & Could \\
 FR-04 & Docker-Container & Should \\
 FR-05 & Traceroute-Analyse & Won't (yet) \\
 FR-06 & Speedtest-Integration & Won't (yet) \\
+FR-07 & Verbesserte Verschlüsselung & Could \\
+FR-08 & Messenger-Benachrichtigungen bei Ausfällen & Could \\
+FR-09 & ResultSet-basierte Datenbank-Iteratoren & Should \\
 \hline
 \end{tabular}
 \caption{Feature Requests mit MoSCoW-Priorisierung}

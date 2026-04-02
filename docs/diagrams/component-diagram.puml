@@ -61,7 +61,7 @@ App --> Config : liest Konfiguration
 
 Web --> HtmlRenderer : delegiert HTML-Rendering
 Web --> SetupRenderer : delegiert Setup-Rendering
-Web --> Repo : liest Messungen fuer API
+Web --> Repo : liest Messungen für API
 Web --> PDF : generiert Bericht bei Anfrage
 Web --> Push : verwaltet Push-Clients
 Web --> Config : liest/aktualisiert Einstellungen
@@ -76,7 +76,7 @@ PDF --> Repo : holt Statistiken + Messungen
 PDF --> Chart : erstellt Chart-Bilder
 PDF --> OpenPDF : erstellt PDF-Dokument
 
-Push --> Repo : ueberwacht Messungen
+Push --> Repo : überwacht Messungen
 
 Ping --> GoogleDNS : pingt
 DNS --> GoogleDNS : resolved
@@ -86,12 +86,17 @@ Benchmark --> GoogleDNS : DNS-Abfrage
 Benchmark --> CloudflareDNS : DNS-Abfrage
 NetInfo --> Ipify : externe IP ermitteln
 
+note bottom of NetInfo
+  IP-Adressen werden für 120s gecacht
+  (lokal + extern, IPv4 + IPv6)
+end note
+
 Repo --> DB : speichert/liest Daten
 
 note top of App
   Hauptklasse mit main()-Methode
   Startet alle Komponenten
-  Fuehrt kontinuierliche Messung durch
+  Führt kontinuierliche Messung durch
   IP-Tracking bei jeder Messung
 end note
 
@@ -106,7 +111,7 @@ end note
 
 note bottom of DB
   Embedded H2-Datenbank
-  Kein separater Server noetig
+  Kein separater Server nötig
   Tabellen:
   * measurements
   * hosts

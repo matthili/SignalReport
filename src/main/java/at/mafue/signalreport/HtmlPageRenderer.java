@@ -11,7 +11,8 @@ public class HtmlPageRenderer
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <link rel="icon" type="image/png" href="/favicon.png">
+                    <link rel="icon" id="favicon" type="image/png" href="/favicon-32x32-light.png">
+                    <link rel="apple-touch-icon" href="/apple-icon-180x180-light.png">
                     <title>SignalReport</title>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
                     <style>
@@ -58,7 +59,10 @@ public class HtmlPageRenderer
                         *, *::before, *::after { box-sizing: border-box; }
                         body { font-family: Arial, sans-serif; max-width: 1230px; margin: 40px auto; padding: 20px; background: var(--bg-body); color: var(--color-text); }
                         .header { text-align: center; margin-bottom: 30px; position: relative; }
-                        .header h1 { color: var(--color-primary); }
+                        .header-logo { max-width: 400px; height: auto; margin: 0 auto; display: block; }
+                        .header-logo.dark { display: none; }
+                        body.dark-mode .header-logo.light { display: none; }
+                        body.dark-mode .header-logo.dark { display: block; margin: 0 auto; }
                         #theme-toggle { position: absolute; right: 0; top: 10px; background: none; border: 2px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; color: var(--color-primary); }
                         .network-info { background: var(--bg-card); padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px var(--color-shadow); }
                         .network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
@@ -108,10 +112,10 @@ public class HtmlPageRenderer
                 >
                     <div class="header">
                         <button id="theme-toggle" onclick="toggleTheme()" title="Dark Mode umschalten"></button>
-                        <h1>\uD83D\uDCE1 SignalReport</h1>
-                        <p>Internet-Qualitäts-Monitoring</p>
+                        <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="header-logo light">
+                        <img src="/logo_mit_schriftzug_dark.png" alt="SignalReport" class="header-logo dark">
                     </div>
-
+                
                     <div class="network-info">
                         <div class="network-grid">
                             <div class="network-item">
@@ -140,7 +144,7 @@ public class HtmlPageRenderer
                             </div>
                         </div>
                     </div>
-
+                
                     <div class="tabs">
                         <button class="tab active" onclick="showTab('monitoring')">\uD83D\uDCCA Monitoring</button>
                         <button class="tab" onclick="showTab('dns')">\uD83C\uDF0D DNS-Benchmark</button>
@@ -149,7 +153,7 @@ public class HtmlPageRenderer
                         <button class="tab" onclick="showTab('security')">\uD83D\uDD10 Sicherheit</button>
                         <button class="tab" onclick="showTab('settings')">\u2699\uFE0F Einstellungen</button>
                     </div>
-
+                
                     <div id="monitoring" class="tab-content active">
                         <div class="stat-grid">
                             <div class="stat-card">
@@ -169,15 +173,15 @@ public class HtmlPageRenderer
                                 <div class="stat-value stat-jitter" id="stat-jitter">-- ms</div>
                             </div>
                         </div>
-
+                
                         <div class="chart-container">
                             <canvas id="latencyChart"></canvas>
                         </div>
-
+                
                         <div class="heatmap-container">
                             <canvas id="hourlyChart"></canvas>
                         </div>
-
+                
                         <div class="button-group">
                             <a href="#" class="btn" onclick="downloadReport(24)">\uD83D\uDCC4 PDF-Bericht (24h)</a>
                             <a href="#" class="btn btn-secondary" onclick="downloadReport(168)">\uD83D\uDCC4 PDF-Bericht (7 Tage)</a>
@@ -186,7 +190,7 @@ public class HtmlPageRenderer
                             <a href="#" class="btn btn-secondary" onclick="downloadCsv(168)">\uD83D\uDCCA CSV-Export (7 Tage)</a>
                             <a href="#" class="btn btn-secondary" onclick="downloadCsvAll()">\uD83D\uDCCA CSV-Export (Alle Daten)</a>
                         </div>
-
+                
                         <table>
                             <thead>
                                 <tr>
@@ -204,11 +208,11 @@ public class HtmlPageRenderer
                             </tbody>
                         </table>
                     </div>
-
+                
                     <div id="dns" class="tab-content">
                         <h2>\uD83C\uDF0D DNS-Benchmark</h2>
                         <p>Vergleiche die Performance verschiedener DNS-Server weltweit.</p>
-
+                
                         <div class="button-group">
                             <button class="btn btn-success" onclick="runDnsBenchmark()">\uD83D\uDE80 Benchmark ausführen</button>
                             <select id="dnsHostname" style="padding: 10px; border-radius: 5px;">
@@ -218,14 +222,14 @@ public class HtmlPageRenderer
                                 <option value="wikipedia.org">wikipedia.org</option>
                             </select>
                         </div>
-
+                
                         <div id="dnsResults" class="dns-grid"></div>
                         <p id="dnsLoading" style="text-align:center; margin-top:20px;">Klicke auf "Benchmark ausführen"...</p>
                     </div>
-
+                
                     <div id="hosts" class="tab-content">
                         <h2>\uD83D\uDDA5\uFE0F Host-Informationen</h2>
-
+                
                         <table id="hostsTable">
                             <thead>
                                 <tr>
@@ -239,11 +243,11 @@ public class HtmlPageRenderer
                             <tbody id="hostsTableBody"></tbody>
                         </table>
                     </div>
-
+                
                     <div id="ip-tracking" class="tab-content">
                         <h2>\uD83C\uDF10 IP-Änderungs-Tracking</h2>
                         <p>Überwachung der externen IP-Adresse – erkennt automatisch, wann sich die IP ändert.</p>
-
+                
                         <div style="background:var(--bg-info-box); padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <strong>\uD83D\uDCA1 Hinweis:</strong>\s
                             <ul style="margin:10px 0 0 20px;">
@@ -252,7 +256,7 @@ public class HtmlPageRenderer
                                 <li>Perfekt für DSL-Anschlüsse mit dynamischer IP</li>
                             </ul>
                         </div>
-
+                
                         <h3>\uD83D\uDCCA IP-Wechsel-Statistik</h3>
                         <table id="ip-stats-table">
                             <thead>
@@ -265,7 +269,7 @@ public class HtmlPageRenderer
                             </thead>
                             <tbody id="ip-stats-body"></tbody>
                         </table>
-
+                
                         <h3>\uD83D\uDCCB Letzte IP-Änderungen</h3>
                         <table id="ip-changes-table">
                             <thead>
@@ -282,10 +286,10 @@ public class HtmlPageRenderer
                             </tbody>
                         </table>
                     </div>
-
+                
                     <div id="security" class="tab-content">
                         <h2>\uD83D\uDD10 Sicherheit & Authentifizierung</h2>
-
+                
                         <div style="background:var(--bg-info-box); padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <strong>\uD83D\uDCA1 Hinweis:</strong>\s
                             <ul style="margin:10px 0 0 20px;">
@@ -294,12 +298,12 @@ public class HtmlPageRenderer
                                 <li>User-Passwort für normale Benutzer, Admin-Passwort für Einstellungen</li>
                             </ul>
                         </div>
-
+                
                         <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin-bottom:20px;">
                             <h3>Authentifizierung</h3>
-
+                
                             <div id="auth-status" style="margin-bottom:20px; padding:15px; border-radius:8px;"></div>
-
+                
                             <div id="auth-enable-section" style="display:none;">
                                 <h4>\uD83D\uDD10 Authentifizierung aktivieren</h4>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
@@ -314,7 +318,7 @@ public class HtmlPageRenderer
                                 </div>
                                 <button onclick="enableAuth()" style="margin-top:20px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD10 Aktivieren</button>
                             </div>
-
+                
                             <div id="auth-disable-section" style="display:none;">
                                 <h4>\uD83D\uDD13 Authentifizierung deaktivieren</h4>
                                 <div style="margin-top:15px;">
@@ -323,7 +327,7 @@ public class HtmlPageRenderer
                                 </div>
                                 <button onclick="disableAuth()" style="margin-top:20px; padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD13 Deaktivieren</button>
                             </div>
-
+                
                             <div style="margin-top:30px; padding-top:20px; border-top:2px solid #e9ecef;">
                                 <h4>\uD83D\uDD10 Admin-Passwort ändern</h4>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
@@ -340,11 +344,11 @@ public class HtmlPageRenderer
                             </div>
                         </div>
                     </div>
-
+                
                     <div id="settings" class="tab-content">
                         <h2>\u2699\uFE0F Messkonfiguration</h2>
                         <p>Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert.</p>
-
+                
                         <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
                             <h3>\uD83D\uDCCD Messziele & Intervall</h3>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
@@ -366,16 +370,16 @@ public class HtmlPageRenderer
                                 </div>
                             </div>
                         </div>
-
+                
                         <div style="background:var(--bg-card-warn); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid #ffc107;">
                             <h3>\u23F8\uFE0F Maintenance-Fenster (Messungsunterbrechung)</h3>
                             <p>Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden.</p>
-
+                
                             <div style="display:flex; align-items:center; gap:15px; margin-top:15px;">
                                 <input type="checkbox" id="maintenance-enabled" style="width:18px; height:18px;">
                                 <label for="maintenance-enabled" style="font-weight:bold;">Maintenance-Fenster aktivieren</label>
                             </div>
-
+                
                             <div id="maintenance-fields" style="display:none; margin-top:15px; padding:15px; background:var(--bg-card-warn-inner); border-radius:8px;">
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:15px; align-items:end;">
                                     <div>
@@ -410,16 +414,16 @@ public class HtmlPageRenderer
                                 </div>
                             </div>
                         </div>
-
+                
                         <div style="background:var(--bg-info-box); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <h3>\uD83D\uDD14 Browser-Benachrichtigungen</h3>
                             <p>Erhalte Push-Benachrichtigungen bei Internet-Problemen (Browser-Berechtigung erforderlich).</p>
-
+                
                             <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
                                 <input type="checkbox" id="push-enabled" style="width:18px; height:18px;">
                                 <label for="push-enabled" style="font-weight:bold;">Push-Benachrichtigungen aktivieren</label>
                             </div>
-
+                
                             <div id="push-settings" style="display:none; margin-top:20px; padding:15px; background:var(--bg-body); border-radius:8px;">
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
                                     <div>
@@ -435,7 +439,7 @@ public class HtmlPageRenderer
                                         <small style="color:#6c757d;">Anzahl bevor Benachrichtigung ausgelöst wird</small>
                                     </div>
                                 </div>
-
+                
                                 <div style="margin-top:15px; padding:10px; background:var(--bg-info-box); border-radius:5px; font-size:0.9em;">
                                     <strong>\uD83D\uDD14 Benachrichtigungsarten:</strong>
                                     <ul style="margin:8px 0 0 20px; padding-left:10px;">
@@ -445,11 +449,11 @@ public class HtmlPageRenderer
                                 </div>
                             </div>
                         </div>
-
+                
                         <div style="background:var(--bg-info-box); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
                             <h3>\uD83D\uDC64 Benutzer-Informationen</h3>
                             <p>Diese Informationen werden im PDF-Bericht angezeigt.</p>
-
+                
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                 <div>
                                     <label style="display:block; margin-bottom:5px; font-weight:bold;">Provider</label>
@@ -465,17 +469,17 @@ public class HtmlPageRenderer
                                 </div>
                             </div>
                         </div>
-
+                
                         <button onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
                             \uD83D\uDCBE Konfiguration speichern
                         </button>
                         <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
                     </div>
-
+                
                     <div class="footer">
                         <p>SignalReport v1.0 • Daten aktualisieren sich automatisch</p>
                     </div>
-
+                
                     <script>
                         // Stunden-Dropdowns befüllen (0-23)
                         function populateHourDropdowns() {
@@ -491,14 +495,14 @@ public class HtmlPageRenderer
                                 });
                             });
                         }
-
+                
                         // Tab-Wechsel
                         function showTab(tabId) {
                             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
                             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
                             document.getElementById(tabId).classList.add('active');
                             event.target.classList.add('active');
-
+                
                             if (tabId === 'hosts') {
                                 loadHosts();
                             } else if (tabId === 'settings') {
@@ -511,7 +515,7 @@ public class HtmlPageRenderer
                                loadAuthStatus();
                             }
                         }
-
+                
                         // Netzwerk-Info laden
                         function loadNetworkInfo() {
                             fetch('/api/host/current')
@@ -526,7 +530,7 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('Netzwerk-Info-Fehler:', error));
                         }
-
+                
                         // Statistik laden
                         function loadStatistics() {
                             fetch('/api/statistics?hours=24')
@@ -539,7 +543,7 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('Statistik-Fehler:', error));
                         }
-
+                
                         // Haupt-Chart laden
                         function loadMeasurements() {
                             fetch('/api/measurements?limit=20')
@@ -564,17 +568,17 @@ public class HtmlPageRenderer
                                         `;
                                         tableBody.appendChild(row);
                                     });
-
+                
                                     const pingData = data.filter(m => m.type === 'PING').slice(0, 10).reverse();
                                     const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit', second:'2-digit'}));
                                     const values = pingData.map(m => m.latencyMs);
-
+                
                                     const ctx = document.getElementById('latencyChart').getContext('2d');
-
+                
                                     if (window.latencyChart && typeof window.latencyChart.destroy === 'function') {
                                         window.latencyChart.destroy();
                                     }
-
+                
                                     window.latencyChart = new Chart(ctx, {
                                         type: 'line',
                                          data: {
@@ -620,7 +624,7 @@ public class HtmlPageRenderer
                                         '<tr><td colspan="7" style="text-align:center;color:red">Fehler beim Laden der Daten</td></tr>';
                                 });
                         }
-
+                
                         // Heatmap laden
                         function loadHourlyChart() {
                             fetch('/api/hourly-averages?days=7&type=PING')
@@ -631,13 +635,13 @@ public class HtmlPageRenderer
                                         const entry = data.find(e => e.hourOfDay === h);
                                         return entry ? entry.avgLatency : null;
                                     });
-
+                
                                     const ctx = document.getElementById('hourlyChart').getContext('2d');
-
+                
                                     if (window.hourlyChart && typeof window.hourlyChart.destroy === 'function') {
                                         window.hourlyChart.destroy();
                                     }
-
+                
                                     window.hourlyChart = new Chart(ctx, {
                                         type: 'bar',
                                         data: {
@@ -683,7 +687,7 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('Stunden-Chart-Fehler:', error));
                         }
-
+                
                         // Hosts laden
                         function loadHosts() {
                             fetch('/api/hosts')
@@ -705,25 +709,25 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('Host-Fehler:', error));
                         }
-
+                
                         // DNS-Benchmark State: false=ready, true=running (Cooldown wird per setTimeout gemanagt)
                         // let isDnsBenchmarkRunning = false;
                         // let dnsBenchmarkCooldownTimer = null;
-
+                
                         // DNS-Benchmark ausführen
                             function runDnsBenchmark() {
                               const loadingElement = document.getElementById('dnsLoading');
-
+                
                               // STATE-DEBUG: Immer ausgeben, um Problem zu diagnostizieren
                               console.log('[DNS] State vor Start: isRunning=' + isDnsBenchmarkRunning + ', timer=' + (dnsBenchmarkCooldownTimer ? 'aktiv' : 'null'));
-
+                
                               // Cooldown-Check
                               if (dnsBenchmarkCooldownTimer) {
                                   const remaining = Math.ceil((dnsBenchmarkCooldownEndTime - Date.now()) / 1000);
                                   alert(`\u26A0\uFE0F Bitte warte noch ${remaining} Sekunden bis zum nächsten Benchmark.`);
                                   return;
                               }
-
+                
                               // Running-Check
                               if (isDnsBenchmarkRunning) {
                                   console.warn('[DNS] FEHLER: Benchmark läuft bereits, aber State nicht zurückgesetzt!');
@@ -737,16 +741,16 @@ public class HtmlPageRenderer
                                   loadingElement.textContent = 'State zurückgesetzt. Benchmark kann neu gestartet werden.';
                                   return;
                               }
-
+                
                               // State setzen
                               isDnsBenchmarkRunning = true;
                               const hostname = document.getElementById('dnsHostname').value;
                               loadingElement.textContent = 'Benchmark läuft... (max. 10s)';
-
+                
                               // TIMEOUT FÜR HÄNGENDE REQUESTS (10 Sekunden)
                               const controller = new AbortController();
                               const timeoutId = setTimeout(() => controller.abort(), 10000);
-
+                
                               fetch(`/api/dns/benchmark?hostname=${hostname}`, {\s
                                   method: 'POST',
                                   signal: controller.signal
@@ -759,14 +763,14 @@ public class HtmlPageRenderer
                               .then(results => {
                                   const container = document.getElementById('dnsResults');
                                   container.innerHTML = '';
-
+                
                                   results.forEach(result => {
                                       const card = document.createElement('div');
                                       card.className = `dns-card region-${result.region.toLowerCase()}`;
-
+                
                                       const statusClass = result.success ? 'success' : 'failure';
                                       const statusIcon = result.success ? '\u2705' : '\u274C';
-
+                
                                       card.innerHTML = `
                                           <h4>${result.serverName}</h4>
                                           <div class="latency ${statusClass}">${result.latencyMs.toFixed(2)} ms ${statusIcon}</div>
@@ -775,13 +779,13 @@ public class HtmlPageRenderer
                                       `;
                                       container.appendChild(card);
                                   });
-
+                
                                   console.log('[DNS] Benchmark erfolgreich abgeschlossen. Ergebnisse: ' + results.length);
                               })
                               .catch(error => {
                                   clearTimeout(timeoutId);
                                   console.error('[DNS] FEHLER:', error);
-
+                
                                   if (error.name === 'AbortError') {
                                       loadingElement.textContent = '\u26A0\uFE0F Benchmark abgebrochen (Timeout nach 10s)';
                                   } else {
@@ -792,7 +796,7 @@ public class HtmlPageRenderer
                                   // GARANTIERTER STATE-RESET (wird IMMER ausgeführt)
                                   console.log('[DNS] finally-Block: State wird zurückgesetzt');
                                   isDnsBenchmarkRunning = false;
-
+                
                                   // Cooldown starten
                                   loadingElement.textContent = 'Nächster Benchmark möglich in 30 Sekunden...';
                                   dnsBenchmarkCooldownEndTime = Date.now() + 30000;
@@ -804,7 +808,7 @@ public class HtmlPageRenderer
                                   }, 30000);
                               });
                           }
-
+                
                         // IP-Statistik laden
                         function loadIpStatistics() {
                             fetch('/api/ip-statistics')
@@ -812,12 +816,12 @@ public class HtmlPageRenderer
                                 .then(stats => {
                                     const tbody = document.getElementById('ip-stats-body');
                                     tbody.innerHTML = '';
-
+                
                                     if (stats.length === 0) {
                                         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Keine IP-Änderungen erfasst</td></tr>';
                                         return;
                                     }
-
+                
                                     stats.forEach(stat => {
                                         const row = document.createElement('tr');
                                         row.innerHTML = `
@@ -831,7 +835,7 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('IP-Statistik-Fehler:', error));
                         }
-
+                
                         // IP-Änderungen laden
                         function loadIpChanges() {
                             fetch('/api/ip-changes?limit=50')
@@ -839,17 +843,17 @@ public class HtmlPageRenderer
                                 .then(changes => {
                                     const tbody = document.getElementById('ip-changes-body');
                                     tbody.innerHTML = '';
-
+                
                                     if (changes.length === 0) {
                                         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Keine IP-Änderungen erfasst</td></tr>';
                                         return;
                                     }
-
+                
                                     changes.forEach(change => {
                                         const row = document.createElement('tr');
                                         const changeType = change.changeType === 'INITIAL' ? '\uD83D\uDFE2 Initial' : '\uD83D\uDD04 Wechsel';
                                         const changeColor = change.changeType === 'INITIAL' ? '#198754' : '#0d6efd';
-
+                
                                         row.innerHTML = `
                                             <td>${new Date(change.timestamp * 1000).toLocaleString('de-DE')}</td>
                                             <td style="font-family:monospace;font-size:0.8em;">${change.hostHash.substring(0,8)}</td>
@@ -866,7 +870,7 @@ public class HtmlPageRenderer
                                         '<tr><td colspan="5" style="text-align:center;color:red">Fehler beim Laden der IP-Änderungen</td></tr>';
                                 });
                         }
-
+                
                         // Einstellungen laden (inkl. Push)
                         function loadConfig() {
                             fetch('/api/config/current')
@@ -876,7 +880,7 @@ public class HtmlPageRenderer
                                     document.getElementById('config-dns').value = config.dns;
                                     document.getElementById('config-http').value = config.http;
                                     document.getElementById('config-interval').value = config.intervalSeconds;
-
+                
                                     const maint = config.maintenance;
                                     document.getElementById('maintenance-enabled').checked = maint.enabled;
                                     document.getElementById('maintenance-start-hour').value = maint.startHour;
@@ -884,7 +888,7 @@ public class HtmlPageRenderer
                                     document.getElementById('maintenance-end-hour').value = maint.endHour;
                                     document.getElementById('maintenance-end-minute').value = maint.endMinute;
                                     document.getElementById('maintenance-fields').style.display = maint.enabled ? 'block' : 'none';
-
+                
                                     // Push-Einstellungen laden
                                     fetch('/api/push/settings')
                                         .then(response => response.json())
@@ -895,7 +899,7 @@ public class HtmlPageRenderer
                                             document.getElementById('push-settings').style.display = push.enabled ? 'block' : 'none';
                                         })
                                         .catch(error => console.error('Push-Lade-Fehler:', error));
-
+                
                                     const ui = config.userInfo;
                                     document.getElementById('config-provider').value = ui.provider || '';
                                     document.getElementById('config-customer-id').value = ui.customerId || '';
@@ -903,16 +907,16 @@ public class HtmlPageRenderer
                                 })
                                 .catch(error => console.error('Config-Lade-Fehler:', error));
                         }
-
+                
                         // Maintenance-Checkbox Toggle
                         document.getElementById('maintenance-enabled').addEventListener('change', function() {
                             document.getElementById('maintenance-fields').style.display = this.checked ? 'block' : 'none';
                         });
-
+                
                         // Push-Checkbox Toggle
                         document.getElementById('push-enabled').addEventListener('change', function() {
                             document.getElementById('push-settings').style.display = this.checked ? 'block' : 'none';
-
+                
                             // Browser-Berechtigung anfragen, wenn aktiviert
                             if (this.checked && 'Notification' in window && Notification.permission !== 'granted') {
                                 Notification.requestPermission().then(permission => {
@@ -922,14 +926,14 @@ public class HtmlPageRenderer
                                 });
                             }
                         });
-
+                
                         // Konfiguration speichern (inkl. Push)
                         function saveConfig() {
                             const statusDiv = document.getElementById('config-status');
                             statusDiv.style.display = 'block';
                             statusDiv.style.background = '#fff3cd';
                             statusDiv.textContent = '\uD83D\uDCBE Speichere Konfiguration...';
-
+                
                             // Haupt-Konfiguration
                             const config = {
                                 ping: document.getElementById('config-ping').value.trim(),
@@ -949,14 +953,14 @@ public class HtmlPageRenderer
                                     userName: document.getElementById('config-user-name').value.trim()
                                 }
                             };
-
+                
                             //  Push-Konfiguration separat speichern
                             const pushConfig = {
                                 enabled: document.getElementById('push-enabled').checked,
                                 latencyThreshold: parseFloat(document.getElementById('push-latency-threshold').value),
                                 consecutiveBadMeasurements: parseInt(document.getElementById('push-consecutive-bad').value)
                             };
-
+                
                             // Zuerst Haupt-Konfiguration speichern
                             fetch('/api/config/update', {
                                 method: 'POST',
@@ -983,7 +987,7 @@ public class HtmlPageRenderer
                                 statusDiv.textContent = '\u274C Fehler: ' + error.message;
                             });
                         }
-
+                
                         // Security-Tab Funktionen
                         function loadAuthStatus() {
                             fetch('/api/auth/status')
@@ -1022,35 +1026,44 @@ public class HtmlPageRenderer
                             fetch('/api/auth/change-admin', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oldPassword:old, newPassword:neu})})
                             .then(r => r.text()).then(m => { alert(m); document.getElementById('change-old-admin-password').value=''; document.getElementById('change-new-admin-password').value=''; });
                         }
-
+                
                         // PDF-Download
                         function downloadReport(hours) {
                             window.location.href = '/api/report?hours=' + hours;
                         }
-
+                
                         // CSV-Download
                         function downloadCsv(hours) {
                             window.location.href = '/api/export/csv?hours=' + hours;
                         }
-
+                
                         // CSV-Download (alle Daten)
                         function downloadCsvAll() {
                             if (confirm('\u26A0\uFE0F Achtung: Dieser Export kann sehr groß werden! Fortfahren?')) {
                                 window.location.href = '/api/export/csv?all=true';
                             }
                         }
-
+                
                         // Theme-Toggle
                         const isDarkInitial = document.body.classList.contains('dark-mode');
                         document.getElementById('theme-toggle').textContent = isDarkInitial ? '\u2600\uFE0F' : '\uD83C\uDF19';
+                        updateFavicon(isDarkInitial);
                         if (isDarkInitial) {
                             Chart.defaults.color = '#e0e0e0';
                             Chart.defaults.borderColor = '#3a3a5c';
                         }
-
+                
+                        function updateFavicon(isDark) {
+                            const suffix = isDark ? 'dark' : 'light';
+                            document.getElementById('favicon').href = '/favicon-32x32-' + suffix + '.png';
+                            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+                            if (appleIcon) appleIcon.href = '/apple-icon-180x180-' + suffix + '.png';
+                        }
+                
                         function toggleTheme() {
                             const isDark = document.body.classList.toggle('dark-mode');
                             document.getElementById('theme-toggle').textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+                            updateFavicon(isDark);
                             updateChartTheme(isDark);
                             fetch('/api/theme/settings', {
                                 method: 'POST',
@@ -1058,7 +1071,7 @@ public class HtmlPageRenderer
                                 body: JSON.stringify({ darkMode: isDark })
                             }).catch(err => console.error('Theme-Speicher-Fehler:', err));
                         }
-
+                
                         function updateChartTheme(isDark) {
                             const textColor = isDark ? '#e0e0e0' : '#666';
                             const gridColor = isDark ? '#3a3a5c' : '#e0e0e0';
@@ -1079,7 +1092,7 @@ public class HtmlPageRenderer
                                 window.hourlyChart.update();
                             }
                         }
-
+                
                         // Initial laden
                         loadNetworkInfo();
                         loadStatistics();
@@ -1089,13 +1102,13 @@ public class HtmlPageRenderer
                         let isDnsBenchmarkRunning = false;
                         let dnsBenchmarkCooldownTimer = null;
                         let dnsBenchmarkCooldownEndTime = 0;
-
+                
                         // Alle 5 Sekunden aktualisieren
                         setInterval(loadMeasurements, 5000);
                         setInterval(loadStatistics, 30000);
                         setInterval(loadHourlyChart, 300000);
                         setInterval(loadNetworkInfo, 60000);
-
+                
                         // IP-Tracking alle 30 Sekunden aktualisieren
                         setInterval(() => {
                             const activeTab = document.querySelector('.tab.active');

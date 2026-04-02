@@ -6,12 +6,14 @@ public class SetupPageRenderer
     {
         boolean darkMode = Config.getInstance().getTheme().isDarkMode();
         String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
+        String faviconSuffix = darkMode ? "dark" : "light";
         return """
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <link rel="icon" type="image/png" href="/favicon.png">
+                    <link rel="icon" id="favicon" type="image/png" href="/favicon-32x32-THEME_SUFFIX.png">
+                    <link rel="apple-touch-icon" href="/apple-icon-180x180-THEME_SUFFIX.png">
                     <title>SignalReport Setup</title>
                     <style>
                         :root {
@@ -61,16 +63,15 @@ public class SetupPageRenderer
                         .info-box { background: var(--bg-info-box); padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid var(--color-primary); }
                     </style>
                 </head>
-                <body""" + bodyClass + """
-                >
+                <body BODY_CLASS>
                     <div class="setup-container">
                         <h1>\uD83D\uDCE1 SignalReport Setup</h1>
-
+                
                         <div class="info-box">
                             <strong>Willkommen!</strong>
                             <p>Dies ist die erstmalige Einrichtung von SignalReport. Bitte lege ein Admin-Passwort fest.</p>
                         </div>
-
+                
                         <div class="setup-steps">
                             <div class="step active">
                                 <div class="step-number">1</div>
@@ -85,22 +86,22 @@ public class SetupPageRenderer
                                 <div>Fertig</div>
                             </div>
                         </div>
-
+                
                         <div class="form-group">
                             <label for="adminPassword">Admin-Passwort *</label>
                             <input type="password" id="adminPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
                         </div>
-
+                
                         <div class="form-group">
                             <label for="adminPasswordConfirm">Admin-Passwort bestätigen *</label>
                             <input type="password" id="adminPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
                         </div>
-
+                
                         <div class="checkbox-group">
                             <input type="checkbox" id="enableAuth">
                             <label for="enableAuth" style="display:inline; font-weight:normal;">Authentifizierung aktivieren (empfohlen für öffentliche IP)</label>
                         </div>
-
+                
                         <div id="userPasswordGroup" style="display:none; margin-top:15px;">
                             <div class="form-group">
                                 <label for="userPassword">User-Passwort für Web-Zugriff *</label>
@@ -111,18 +112,18 @@ public class SetupPageRenderer
                                 <input type="password" id="userPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
                             </div>
                         </div>
-
+                
                         <div class="error" id="errorMessage"></div>
-
+                
                         <button class="btn" id="completeSetup">Setup abschließen</button>
                     </div>
-
+                
                     <script>
                         // Authentifizierung-Checkbox Toggle
                         document.getElementById('enableAuth').addEventListener('change', function() {
                             document.getElementById('userPasswordGroup').style.display = this.checked ? 'block' : 'none';
                         });
-
+                
                         // Setup abschließen
                         document.getElementById('completeSetup').addEventListener('click', function() {
                             const adminPassword = document.getElementById('adminPassword').value;
@@ -130,37 +131,37 @@ public class SetupPageRenderer
                             const enableAuth = document.getElementById('enableAuth').checked;
                             const userPassword = document.getElementById('userPassword').value;
                             const userPasswordConfirm = document.getElementById('userPasswordConfirm').value;
-
+                
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.style.display = 'none';
-
+                
                             // Validierung
                             if (adminPassword.length < 6) {
                                 showError('Admin-Passwort muss mindestens 6 Zeichen lang sein!');
                                 return;
                             }
-
+                
                             if (adminPassword !== adminPasswordConfirm) {
                                 showError('Admin-Passwörter stimmen nicht überein!');
                                 return;
                             }
-
+                
                             if (enableAuth) {
                                 if (userPassword.length < 6) {
                                     showError('User-Passwort muss mindestens 6 Zeichen lang sein!');
                                     return;
                                 }
-
+                
                                 if (userPassword !== userPasswordConfirm) {
                                     showError('User-Passwörter stimmen nicht überein!');
                                     return;
                                 }
                             }
-
+                
                             // API-Aufruf
                             this.disabled = true;
                             this.textContent = 'Setup wird abgeschlossen...';
-
+                
                             fetch('/api/setup/complete', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -181,7 +182,7 @@ public class SetupPageRenderer
                                 this.textContent = 'Setup abschließen';
                             });
                         });
-
+                
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;
@@ -190,6 +191,7 @@ public class SetupPageRenderer
                     </script>
                 </body>
                 </html>
-                """;
+                """.replace("BODY_CLASS", bodyClass)
+                .replace("THEME_SUFFIX", faviconSuffix);
     }
 }

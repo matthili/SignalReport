@@ -58,6 +58,8 @@ package "persistence" {
     -Connection connection
     +void save(Measurement m)
     +List<Measurement> findLastN(int n)
+    +List<Measurement> findSince(Instant since)
+    +List<Measurement> findAll()
     +Statistics calculateStatistics(String type, int hours)
     +List<HourlyAverage> calculateHourlyAverages(String type, int days)
     +void trackIpChange(String currentIp, String hostHash)
@@ -224,10 +226,18 @@ package "network" {
   }
 
   class NetworkInfo {
-    +{static} String getLocalIPv4()
-    +{static} String getExternalIPv4()
-    +{static} String getLocalIPv6()
-    +{static} String getExternalIPv6()
+    -{static} HttpClient HTTP_CLIENT
+    -{static} long CACHE_DURATION_SECONDS
+    -{static} String cachedExternalIPv4
+    -{static} String cachedExternalIPv6
+    -{static} String cachedLocalIPv4
+    -{static} String cachedLocalIPv6
+    -{static} Instant cacheTimestamp
+    -{static} synchronized void refreshCacheIfNeeded()
+    +{static} synchronized String getLocalIPv4()
+    +{static} synchronized String getExternalIPv4()
+    +{static} synchronized String getLocalIPv6()
+    +{static} synchronized String getExternalIPv6()
   }
 }
 
@@ -303,7 +313,7 @@ end note
 note right of Measurer
   Strategy-Pattern:
   Einheitliches Interface
-  fuer alle Messtypen
+  für alle Messtypen
 end note
 
 note bottom of Config

@@ -5,7 +5,7 @@
 
 Die Mess-Engine basiert auf dem \texttt{Measurer}-Interface, das alle Messtypen
 vereinheitlicht (Strategy-Pattern). Jede Implementierung hat eine einzige Methode
-\texttt{measure(String target)}, die ein \texttt{Measurement}-Objekt zurueckgibt:
+\texttt{measure(String target)}, die ein \texttt{Measurement}-Objekt zurückgibt:
 
 \begin{lstlisting}[language=Java, caption={Measurer-Interface}]
 public interface Measurer {
@@ -16,10 +16,10 @@ public interface Measurer {
 Die drei Implementierungen:
 
 \begin{description}
-  \item[PingMeasurer] Nutzt \texttt{InetAddress.isReachable(3000)} fuer ICMP-Echo-Tests.
+  \item[PingMeasurer] Nutzt \texttt{InetAddress.isReachable(3000)} für ICMP-Echo-Tests.
     Misst die Round-Trip-Time in Nanosekunden und konvertiert zu Millisekunden.
   \item[DnsMeasurer] Nutzt \texttt{InetAddress.getByName(hostname)} und misst die Zeit
-    der DNS-Aufloesung.
+    der DNS-Auflösung.
   \item[HttpMeasurer] Nutzt \texttt{java.net.http.HttpClient} mit konfigurierbarem
     Timeout (5\,Sekunden). Misst die Gesamtzeit des HTTP-GET-Requests.
 \end{description}
@@ -38,14 +38,14 @@ public class PingMeasurer implements Measurer {
 
 \subsection{IP-Tracking und Host-Identifikation}
 
-Jede Messung speichert zusaetzlich Netzwerk-Informationen:
+Jede Messung speichert zusätzlich Netzwerk-Informationen:
 \begin{itemize}
   \item Lokale IPv4- und IPv6-Adressen
-  \item Externe IPv4- und IPv6-Adressen (ueber ipify.org)
+  \item Externe IPv4- und IPv6-Adressen (über ipify.org)
   \item Eindeutiger Host-Hash (MD5 aus Hostname + OS + MAC-Adresse)
 \end{itemize}
 
-Die IP-Tracking-Logik erkennt automatisch Aenderungen der externen IP und protokolliert
+Die IP-Tracking-Logik erkennt automatisch Änderungen der externen IP und protokolliert
 sie in der \texttt{ip\_changes}-Tabelle:
 
 \begin{lstlisting}[language=Java, caption={IP-Aenderungserkennung}]
@@ -61,26 +61,26 @@ public void trackIpChange(String currentIp, String hostHash)
 \end{lstlisting}
 
 \textbf{Hinweis zu IPv6 (DS-Lite):} Bei Providern mit DS-Lite (z.\,B.\ Magenta Telekom)
-wird die externe IPv6-Adresse als ``unknown'' angezeigt, da diese Provider gemaess
-RFC~8415 keine stabile IPv6-Praefixdelegation anbieten.
+wird die externe IPv6-Adresse als ``unknown'' angezeigt, da diese Provider gemäß
+RFC~8415 keine stabile IPv6-Präfixdelegation anbieten.
 
 \subsection{Statistische Auswertung}
 
-Die statistische Auswertung berechnet vier Kennzahlen fuer jeden Messtyp:
+Die statistische Auswertung berechnet vier Kennzahlen für jeden Messtyp:
 
 \begin{itemize}
   \item \textbf{Durchschnittliche Latenz}: $\mu = \frac{1}{n}\sum_{i=1}^{n}x_i$
   \item \textbf{95th Percentile}: Wert, unter dem 95\,\% der Messungen liegen --
-    ein robusterer Indikator als der Durchschnitt, da er Ausreisser toleriert
+    ein robusterer Indikator als der Durchschnitt, da er Ausreißer toleriert
   \item \textbf{Paketverlust}: $\frac{\text{fehlgeschlagene Messungen}}{\text{gesamte Messungen}} \times 100$
   \item \textbf{Jitter}: Durchschnitt der absoluten Differenzen zwischen
-    aufeinanderfolgenden Messungen -- zeigt die Stabilitaet der Verbindung
+    aufeinanderfolgenden Messungen -- zeigt die Stabilität der Verbindung
 \end{itemize}
 
 \subsection{Web-Interface und Rendering-Architektur}
 
 Das Web-Interface ist mit Javalin 5.6.3 implementiert. Um die Trennung von
-Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenstaendige Klassen
+Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenständige Klassen
 ausgelagert:
 
 \begin{description}
@@ -90,16 +90,16 @@ ausgelagert:
   \item[HtmlPageRenderer] (ca.\ 1100 Zeilen) -- Generiert die Hauptseite mit allen
     UI-Komponenten: Live-Chart (Chart.js), Statistik-Panel, Heatmap, DNS-Benchmark,
     Konfigurations-Tabs und IP-Tracking.
-  \item[SetupPageRenderer] (ca.\ 195 Zeilen) -- Generiert den Setup-Assistenten fuer die
+  \item[SetupPageRenderer] (ca.\ 195 Zeilen) -- Generiert den Setup-Assistenten für die
     Ersteinrichtung.
 \end{description}
 
 \subsubsection{Dark Mode}
 
-Das Theming basiert auf CSS Custom Properties (Variablen), die in zwei Bloecken
+Das Theming basiert auf CSS Custom Properties (Variablen), die in zwei Blöcken
 definiert sind:
 
-\begin{lstlisting}[language=Java, caption={CSS-Variablen fuer Light/Dark Mode}]
+\begin{lstlisting}[language=Java, caption={CSS-Variablen für Light/Dark Mode}]
 :root {
     --bg-body: #f8f9fa;
     --bg-card: #ffffff;
@@ -141,15 +141,15 @@ Der PDF-Export mit OpenPDF und JFreeChart generiert professionelle Berichte mit:
 \begin{itemize}
   \item Kundendaten (Name, Provider, Kundennummer)
   \item Host-Informationen (Hostname, Hash, IPs)
-  \item 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Aenderungen
+  \item 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Änderungen
   \item Chronologische Ziel-Liste unter jedem Chart
   \item Top 10 schlechteste Messungen (sortiert nach Latenz)
-  \item Verbindungsausfaelle mit Gesamtanzahl
-  \item Top 10 laengste Verbindungsausfaelle
+  \item Verbindungsausfälle mit Gesamtanzahl
+  \item Top 10 längste Verbindungsausfälle
 \end{itemize}
 
-Berichte koennen fuer drei Zeitraeume generiert werden: 24 Stunden, 7 Tage und
-12 Monate. Sie sind direkt als Anlage fuer Provider-Beschwerden verwendbar.
+Berichte können für drei Zeiträume generiert werden: 24 Stunden, 7 Tage und
+12 Monate. Sie sind direkt als Anlage für Provider-Beschwerden verwendbar.
 
 \subsection{Konfigurationsmanagement}
 
@@ -172,8 +172,8 @@ public class Config {
 }
 \end{lstlisting}
 
-Die Persistenz erfolgt ueber Jackson JSON-Serialisierung in \texttt{config.json}.
-Aenderungen ueber die Web-UI werden sofort gespeichert.
+Die Persistenz erfolgt über Jackson JSON-Serialisierung in \texttt{config.json}.
+Änderungen über die Web-UI werden sofort gespeichert.
 
 \subsection{Datenbank-Schema}
 
@@ -184,15 +184,15 @@ bilden das Schema:
 \centering
 \begin{tabular}{|l|l|p{6cm}|}
 \hline
-\textbf{Tabelle} & \textbf{Primaerschluessel} & \textbf{Inhalt} \\
+\textbf{Tabelle} & \textbf{Primärschlüssel} & \textbf{Inhalt} \\
 \hline
 \texttt{measurements} & id (BIGINT) & Zeitstempel, Ziel, Latenz, Erfolg, Typ,
   IPv4/v6, Host-Hash \\
 \hline
 \texttt{hosts} & host\_hash (VARCHAR) & Hostname, Betriebssystem, Erstregistrierung,
-  letzte Aktivitaet \\
+  letzte Aktivität \\
 \hline
-\texttt{ip\_changes} & id (BIGINT) & Zeitstempel, alte/neue IP, Aenderungstyp,
+\texttt{ip\_changes} & id (BIGINT) & Zeitstempel, alte/neue IP, Änderungstyp,
   Host-Hash \\
 \hline
 \end{tabular}

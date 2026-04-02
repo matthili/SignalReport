@@ -48,10 +48,26 @@ public class PdfReportGenerator
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
                 .withZone(ZoneId.systemDefault());
 
-        // Titel
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA, 20, Font.BOLD);
-        document.add(new Paragraph("SignalReport – Internet-Qualitätsbericht", titleFont));
-        document.add(Chunk.NEWLINE);
+        // Logo
+        try
+            {
+            java.io.InputStream logoStream = getClass().getResourceAsStream("/web/logo_mit_schriftzug_light.png");
+            if (logoStream != null)
+                {
+                byte[] logoBytes = logoStream.readAllBytes();
+                com.lowagie.text.Image logo = com.lowagie.text.Image.getInstance(logoBytes);
+                logo.scaleToFit(250, 80);
+                logo.setAlignment(com.lowagie.text.Image.ALIGN_CENTER);
+                document.add(logo);
+                document.add(Chunk.NEWLINE);
+                }
+            } catch (Exception e)
+            {
+            // Fallback: Texttitel falls Logo nicht geladen werden kann
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA, 20, Font.BOLD);
+            document.add(new Paragraph("SignalReport – Internet-Qualitätsbericht", titleFont));
+            document.add(Chunk.NEWLINE);
+            }
 
         // Benutzer-Informationen
         Config config = Config.getInstance();

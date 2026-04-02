@@ -5,8 +5,8 @@
 
 SignalReport folgt einer monolithischen Architektur, bei der alle Komponenten in einer
 einzigen JAR-Datei zusammengefasst sind. Diese Entscheidung wurde bewusst getroffen, um
-die Installation so einfach wie moeglich zu halten -- es wird kein separater
-Datenbankserver, kein Application-Server und kein Build-System beim Endbenutzer benoetigt.
+die Installation so einfach wie möglich zu halten -- es wird kein separater
+Datenbankserver, kein Application-Server und kein Build-System beim Endbenutzer benötigt.
 
 Das Deployment-Diagramm in Abbildung \ref{fig:deployment} zeigt die drei Ebenen der
 Architektur: den Client (Browser), das Server-System (JVM mit allen Komponenten) und die
@@ -27,14 +27,14 @@ Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:compone
   \item[measurement] Mess-Engine mit dem \texttt{Measurer}-Interface und drei
     Implementierungen (Ping, DNS, HTTP) sowie dem DNS-Benchmark.
   \item[model] Das \texttt{Measurement}-Datenobjekt als zentrales Transferobjekt.
-  \item[persistence] \texttt{H2MeasurementRepository} fuer die embedded Datenbank
-    (Messungen, Hosts, IP-Aenderungen).
+  \item[persistence] \texttt{H2MeasurementRepository} für die embedded Datenbank
+    (Messungen, Hosts, IP-Änderungen).
   \item[config] Singleton-Konfiguration mit JSON-Persistenz und verschachtelten
     Konfigurations-Klassen (Targets, MaintenanceWindow, Auth, Theme, etc.).
   \item[web] \texttt{WebServer} (Javalin) mit ausgelagertem HTML-Rendering in
     \texttt{HtmlPageRenderer} und \texttt{SetupPageRenderer}.
   \item[export] \texttt{PdfReportGenerator} (OpenPDF + JFreeChart) und
-    \texttt{PushNotificationService} fuer Browser-Benachrichtigungen.
+    \texttt{PushNotificationService} für Browser-Benachrichtigungen.
   \item[network] \texttt{HostIdentifier} (stabiler Host-Hash) und \texttt{NetworkInfo}
     (lokale/externe IP-Ermittlung).
 \end{description}
@@ -42,26 +42,26 @@ Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:compone
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../diagrams/component-diagram.png}
-    \caption{Komponenten-Uebersicht von SignalReport}
+    \caption{Komponenten-Übersicht von SignalReport}
     \label{fig:component}
 \end{figure}
 
 \subsection{Klassen-Design}
 
-Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die vollstaendige Klassenstruktur.
+Das Klassen-Diagramm in Abbildung \ref{fig:class} zeigt die vollständige Klassenstruktur.
 Besonders hervorzuheben sind:
 
 \begin{itemize}
   \item Das \textbf{Measurer-Interface} (Strategy-Pattern): Alle drei Messtypen
     implementieren das gleiche Interface \texttt{Measurer} mit der Methode
-    \texttt{measure(String target)}. Dadurch koennen neue Messtypen hinzugefuegt werden,
-    ohne bestehenden Code zu aendern (Open/Closed Principle).
+    \texttt{measure(String target)}. Dadurch können neue Messtypen hinzugefügt werden,
+    ohne bestehenden Code zu ändern (Open/Closed Principle).
   \item Die \textbf{Renderer-Klassen}: Das HTML-Rendering wurde aus dem WebServer in
-    eigenstaendige Klassen ausgelagert (\texttt{HtmlPageRenderer},
+    eigenständige Klassen ausgelagert (\texttt{HtmlPageRenderer},
     \texttt{SetupPageRenderer}), um die Trennung von Verantwortlichkeiten (Separation of
-    Concerns) zu wahren. Der WebServer schrumpfte dadurch von ueber 2100 auf ca.\ 800
+    Concerns) zu wahren. Der WebServer schrumpfte dadurch von über 2100 auf ca.\ 800
     Zeilen.
-  \item Die \textbf{Config-Hierarchie}: Verschachtelte statische Klassen fuer verschiedene
+  \item Die \textbf{Config-Hierarchie}: Verschachtelte statische Klassen für verschiedene
     Konfigurationsbereiche; zentrale \texttt{hashPassword()}-Methode statt dupliziertem Code.
 \end{itemize}
 
@@ -78,12 +78,12 @@ Besonders hervorzuheben sind:
 \centering
 \begin{tabular}{|l|p{9cm}|}
 \hline
-\textbf{Entscheidung} & \textbf{Begruendung} \\
+\textbf{Entscheidung} & \textbf{Begründung} \\
 \hline
 Monolithische Architektur & Einfachste Installation: eine JAR-Datei, keine externen
-  Abhaengigkeiten \\
+  Abhängigkeiten \\
 \hline
-H2 Embedded Database & Plattformunabhaengig, kein separater DB-Server, portable
+H2 Embedded Database & Plattformunabhängig, kein separater DB-Server, portable
   Datei \\
 \hline
 Javalin statt Spring Boot & Minimaler Overhead (ca.\ 5\,MB vs.\ 30+\,MB), schneller
@@ -92,10 +92,10 @@ Javalin statt Spring Boot & Minimaler Overhead (ca.\ 5\,MB vs.\ 30+\,MB), schnel
 Java 21 & Virtual Threads, Pattern Matching, Text Blocks fuer
   HTML-Templates \\
 \hline
-OpenPDF statt PDFBox & Einfachere API fuer Tabellen und Charts; bessere
-  Schriftarten-Unterstuetzung \\
+OpenPDF statt PDFBox & Einfachere API für Tabellen und Charts; bessere
+  Schriftarten-Unterstützung \\
 \hline
-Inline-HTML statt Templates & Kein Template-Engine-Overhead; Java Text Blocks ermoeglichen
+Inline-HTML statt Templates & Kein Template-Engine-Overhead; Java Text Blocks ermöglichen
   lesbaren HTML-Code; Dark Mode via CSS Custom Properties \\
 \hline
 Apache Commons Daemon & Professioneller Dienst-Betrieb auf allen Plattformen
@@ -111,9 +111,9 @@ Apache Commons Daemon & Professioneller Dienst-Betrieb auf allen Plattformen
 Der Messablauf (Abbildung \ref{fig:sequence-measurement}) zeigt den kontinuierlichen
 Zyklus:
 \begin{enumerate}
-  \item Konfiguration laden und Maintenance-Fenster pruefen
-  \item Externe IP ermitteln und IP-Aenderungen protokollieren
-  \item Drei Messungen ausfuehren (Ping, DNS, HTTP)
+  \item Konfiguration laden und Maintenance-Fenster prüfen
+  \item Externe IP ermitteln und IP-Änderungen protokollieren
+  \item Drei Messungen ausführen (Ping, DNS, HTTP)
   \item Ergebnisse in der Datenbank speichern
   \item Konfigurierbares Intervall abwarten
 \end{enumerate}
@@ -127,8 +127,8 @@ Zyklus:
 
 \subsection{PDF-Export-Prozess}
 
-Der PDF-Bericht (Abbildung \ref{fig:sequence-pdf}) durchlaeuft mehrere Schritte:
-Statistik-Berechnung, Chart-Generierung mit JFreeChart, Zielaenderungs-Erkennung,
+Der PDF-Bericht (Abbildung \ref{fig:sequence-pdf}) durchläuft mehrere Schritte:
+Statistik-Berechnung, Chart-Generierung mit JFreeChart, Zieländerungs-Erkennung,
 Ausfall-Analyse und abschliessende PDF-Zusammenstellung mit OpenPDF.
 
 \begin{figure}[H]
@@ -140,8 +140,8 @@ Ausfall-Analyse und abschliessende PDF-Zusammenstellung mit OpenPDF.
 
 \subsection{Use-Cases}
 
-Das Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zeigt alle 16 Anwendungsfaelle,
-aufgeteilt auf die drei Akteure Benutzer, Administrator und System. Die vollstaendigen
+Das Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zeigt alle 16 Anwendungsfälle,
+aufgeteilt auf die drei Akteure Benutzer, Administrator und System. Die vollständigen
 User Stories zu jedem Use Case finden sich in Abschnitt \ref{sec:userstories}.
 
 \begin{figure}[H]
@@ -151,10 +151,10 @@ User Stories zu jedem Use Case finden sich in Abschnitt \ref{sec:userstories}.
     \label{fig:usecase}
 \end{figure}
 
-\subsection{Authentifizierungs-Zustaende}
+\subsection{Authentifizierungs-Zustände}
 
 Das State-Diagramm (Abbildung \ref{fig:state-auth}) modelliert den Lebenszyklus der
-Authentifizierung: vom initialen Setup ueber den oeffentlichen Zugriff bis zum geschuetzten
+Authentifizierung: vom initialen Setup über den öffentlichen Zugriff bis zum geschützten
 Modus mit Admin- und User-Rollen.
 
 \begin{figure}[H]
