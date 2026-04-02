@@ -1,0 +1,199 @@
+\section{REST-API-Referenz}
+\label{sec:api}
+
+SignalReport stellt eine REST-API auf Port 4567 bereit, die sowohl vom integrierten
+Web-Interface als auch von externen Tools genutzt werden kann. Alle Antworten verwenden
+das JSON-Format.
+
+\subsection{Authentifizierung}
+
+Wenn die Authentifizierung aktiviert ist, muessen alle API-Aufrufe einen
+\texttt{Authorization}-Header mit HTTP Basic Auth enthalten:
+
+\begin{lstlisting}[language=bash, caption={Beispiel: API-Aufruf mit Authentifizierung}]
+curl -u admin:meinpasswort http://localhost:4567/api/measurements?limit=10
+\end{lstlisting}
+
+Schreibende Endpunkte (POST) erfordern Admin-Rechte.
+
+\subsection{Messdaten}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/measurements} & Letzte Messungen abrufen.
+  Parameter: \texttt{limit} (Anzahl, Standard: 50) \\
+\hline
+GET & \texttt{/api/statistics} & Statistiken fuer einen Messtyp.
+  Parameter: \texttt{type} (PING|DNS|HTTP), \texttt{hours} (Zeitraum) \\
+\hline
+GET & \texttt{/api/hourly} & Stuendliche Durchschnittswerte fuer Heatmap.
+  Parameter: \texttt{type}, \texttt{days} \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Messdaten}
+\end{table}
+
+\textbf{Beispiel-Antwort} (\texttt{/api/measurements?limit=1}):
+\begin{lstlisting}[language=json]
+[{
+  "timestamp": "2026-03-15T14:32:05Z",
+  "target": "8.8.8.8",
+  "latencyMs": 23.45,
+  "success": true,
+  "type": "PING",
+  "localIPv4": "192.168.1.100",
+  "externalIPv4": "85.182.xxx.xxx",
+  "hostHash": "a3f8b2c1..."
+}]
+\end{lstlisting}
+
+\subsection{Berichte und Export}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/report} & PDF-Bericht generieren.
+  Parameter: \texttt{hours} (24, 168, 8760).
+  Antwort: PDF-Datei (application/pdf) \\
+\hline
+GET & \texttt{/api/csv/export} & CSV-Export aller Messdaten.
+  Antwort: CSV-Datei (text/csv) \\
+\hline
+GET & \texttt{/api/csv/export/filtered} & CSV-Export mit Zeitfilter.
+  Parameter: \texttt{hours} \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Berichte und Export}
+\end{table}
+
+\subsection{DNS-Benchmark}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/dns-benchmark} & DNS-Benchmark starten.
+  Fragt alle konfigurierten DNS-Server parallel ab.
+  30-Sekunden-Cooldown zwischen Aufrufen. \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: DNS-Benchmark}
+\end{table}
+
+\subsection{IP-Tracking und Host-Info}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/ip-changes} & Letzte IP-Aenderungen.
+  Parameter: \texttt{limit} \\
+\hline
+GET & \texttt{/api/ip-change-stats} & Statistik ueber IP-Aenderungen
+  pro Host \\
+\hline
+GET & \texttt{/api/hosts} & Liste aller registrierten Hosts \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: IP-Tracking}
+\end{table}
+
+\subsection{Konfiguration}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/settings} & Aktuelle Konfiguration abrufen \\
+\hline
+POST & \texttt{/api/settings} & Konfiguration aktualisieren
+  (Admin-Rechte erforderlich) \\
+\hline
+GET & \texttt{/api/theme/settings} & Theme-Einstellungen abrufen \\
+\hline
+POST & \texttt{/api/theme/settings} & Theme aendern.
+  Body: \texttt{\{``darkMode'': true\}} \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Konfiguration}
+\end{table}
+
+\subsection{Authentifizierung und Setup}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+POST & \texttt{/api/setup/complete} & Ersteinrichtung abschliessen.
+  Setzt Admin-Passwort und optionale Authentifizierung. \\
+\hline
+POST & \texttt{/api/auth/enable} & Authentifizierung aktivieren \\
+\hline
+POST & \texttt{/api/auth/disable} & Authentifizierung deaktivieren \\
+\hline
+POST & \texttt{/api/auth/change-password} & Admin-Passwort aendern \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Authentifizierung}
+\end{table}
+
+\subsection{Push-Benachrichtigungen}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/push/settings} & Push-Einstellungen abrufen \\
+\hline
+POST & \texttt{/api/push/settings} & Push-Einstellungen aendern
+  (Schwellwert, Anzahl) \\
+\hline
+POST & \texttt{/api/push/subscribe} & Client fuer Push registrieren \\
+\hline
+GET & \texttt{/api/push/poll} & Ausstehende Benachrichtigungen abrufen
+  (Long Polling) \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Push-Benachrichtigungen}
+\end{table}
+
+\subsection{HTTP-Statuscodes}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|p{9cm}|}
+\hline
+\textbf{Code} & \textbf{Bedeutung} \\
+\hline
+200 & Erfolgreiche Anfrage \\
+302 & Weiterleitung (z.\,B.\ zum Setup) \\
+401 & Authentifizierung erforderlich oder fehlgeschlagen \\
+500 & Interner Serverfehler (Details im Response-Body) \\
+\hline
+\end{tabular}
+\caption{Verwendete HTTP-Statuscodes}
+\end{table}

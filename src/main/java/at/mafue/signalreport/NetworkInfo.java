@@ -1,15 +1,61 @@
 package at.mafue.signalreport;
 
 import java.net.*;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Enumeration;
 
 public class NetworkInfo
 {
+    private static final long CACHE_DURATION_SECONDS = 120;
+
+    private static String cachedExternalIPv4 = null;
+    private static String cachedExternalIPv6 = null;
+    private static String cachedLocalIPv4 = null;
+    private static String cachedLocalIPv6 = null;
+    private static Instant cacheTimestamp = Instant.EPOCH;
+
+    private static synchronized void refreshCacheIfNeeded()
+    {
+        if (Duration.between(cacheTimestamp, Instant.now()).getSeconds() >= CACHE_DURATION_SECONDS)
+            {
+            cachedLocalIPv4 = fetchLocalIPv4();
+            cachedLocalIPv6 = fetchLocalIPv6();
+            cachedExternalIPv4 = fetchExternalIPv4();
+            cachedExternalIPv6 = fetchExternalIPv6();
+            cacheTimestamp = Instant.now();
+            }
+    }
+
+    public static synchronized String getLocalIPv4()
+    {
+        refreshCacheIfNeeded();
+        return cachedLocalIPv4;
+    }
+
+    public static synchronized String getLocalIPv6()
+    {
+        refreshCacheIfNeeded();
+        return cachedLocalIPv6;
+    }
+
+    public static synchronized String getExternalIPv4()
+    {
+        refreshCacheIfNeeded();
+        return cachedExternalIPv4;
+    }
+
+    public static synchronized String getExternalIPv6()
+    {
+        refreshCacheIfNeeded();
+        return cachedExternalIPv6;
+    }
 
     // LAN IPv4-Adresse ermitteln
-    public static String getLocalIPv4()
+    private static String fetchLocalIPv4()
     {
         try
             {
@@ -31,13 +77,13 @@ public class NetworkInfo
                 }
             } catch (SocketException e)
             {
-            e.printStackTrace();
+            // Fehler ignorieren, "unknown" wird zurückgegeben
             }
         return "unknown";
     }
 
     // LAN IPv6-Adresse ermitteln
-    public static String getLocalIPv6()
+    private static String fetchLocalIPv6()
     {
         try
             {
@@ -59,27 +105,27 @@ public class NetworkInfo
                 }
             } catch (SocketException e)
             {
-            e.printStackTrace();
+            // Fehler ignorieren, "unknown" wird zurückgegeben
             }
         return "unknown";
     }
 
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+
     // Externe IPv4-Adresse ermitteln (über HTTP-Request)
-    public static String getExternalIPv4()
+    private static String fetchExternalIPv4()
     {
         try
             {
-            URL url = new URL("https://api.ipify.org");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream())))
-                {
-                return reader.readLine();
-                }
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.ipify.org"))
+                    .timeout(Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.body().trim();
             } catch (Exception e)
             {
             return "unknown";
@@ -87,21 +133,17 @@ public class NetworkInfo
     }
 
     // Externe IPv6-Adresse ermitteln
-    public static String getExternalIPv6()
+    private static String fetchExternalIPv6()
     {
         try
             {
-            URL url = new URL("https://api6.ipify.org");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream())))
-                {
-                return reader.readLine();
-                }
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api6.ipify.org"))
+                    .timeout(Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.body().trim();
             } catch (Exception e)
             {
             return "unknown";

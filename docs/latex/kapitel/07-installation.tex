@@ -1,0 +1,190 @@
+\section{Installation und Betrieb}
+\label{sec:installation}
+
+SignalReport ist als einzelne ausfuehrbare JAR-Datei konzipiert und benoetigt lediglich
+eine Java-21-Laufzeitumgebung. Dieses Kapitel beschreibt die verschiedenen
+Installationswege und den Betrieb als Hintergrund-Dienst.
+
+\subsection{Voraussetzungen}
+
+\begin{itemize}
+  \item \textbf{Java 21+} -- OpenJDK (Temurin) oder Oracle JDK
+  \item \textbf{Betriebssystem:} Windows 10/11, macOS 13+, Linux (systemd), Synology DSM 7+
+  \item \textbf{Arbeitsspeicher:} mind.\ 256\,MB frei (empfohlen: 512\,MB)
+  \item \textbf{Speicherplatz:} ca.\ 50\,MB fuer die Anwendung; Datenbank waechst mit der
+    Laufzeit (ca.\ 1\,MB pro Tag bei 10-Sekunden-Intervall)
+  \item \textbf{Netzwerk:} Port 4567 (TCP) muss frei sein
+\end{itemize}
+
+\subsection{Schnellstart (portabel)}
+
+Der einfachste Weg, SignalReport zu starten:
+
+\begin{lstlisting}[language=bash, caption={Portabler Start}]
+java -jar signalreport.jar
+\end{lstlisting}
+
+Anschliessend ist das Web-Interface unter \texttt{http://localhost:4567} erreichbar.
+Beim ersten Start wird automatisch der Setup-Assistent angezeigt.
+
+\textbf{Hinweis:} Bei dieser Variante laeuft SignalReport nur, solange das Terminal-Fenster
+geoeffnet bleibt. Fuer den Dauerbetrieb empfiehlt sich die Installation als Dienst.
+
+\subsection{Installation als Windows-Dienst}
+\label{subsec:install-windows}
+
+Das Projekt enthaelt ein Installations-Skript unter
+\texttt{deployment/windows/install.bat}, das SignalReport mittels Apache Commons Daemon
+(procrun) als Windows-Dienst einrichtet.
+
+\subsubsection{Ablauf}
+
+\begin{enumerate}
+  \item Skript als Administrator ausfuehren (Rechtsklick $\rightarrow$ ``Als Administrator
+    ausfuehren'')
+  \item Automatische Pruefung: Administrator-Rechte und Java-Installation
+  \item Erstellung der Verzeichnisse:
+    \begin{itemize}
+      \item \texttt{\%ProgramFiles\%\textbackslash SignalReport} -- Programmdateien
+      \item \texttt{\%ProgramData\%\textbackslash SignalReport} -- Daten und Logs
+    \end{itemize}
+  \item Download von Apache Commons Daemon 1.5.1 (\texttt{prunsrv.exe})
+  \item Registrierung des Windows-Dienstes ``SignalReport'' (Autostart, LocalSystem)
+  \item Erstellung einer Desktop-Verknuepfung
+  \item Einrichtung einer Firewall-Regel fuer Port 4567
+\end{enumerate}
+
+\subsubsection{Verwaltung}
+
+\begin{lstlisting}[language=bash, caption={Windows-Dienst verwalten}]
+# Status pruefen
+sc query SignalReport
+
+# Dienst stoppen/starten
+net stop SignalReport
+net start SignalReport
+
+# Service-Manager oeffnen (GUI)
+"%ProgramFiles%\SignalReport\prunmgr.exe"
+\end{lstlisting}
+
+Die Deinstallation erfolgt ueber \texttt{deployment/windows/uninstall.bat} (ebenfalls als
+Administrator).
+
+\subsection{Installation unter Linux (systemd)}
+\label{subsec:install-linux}
+
+Das Skript \texttt{deployment/macos-linux/install.sh} erkennt automatisch die Plattform
+und erstellt unter Linux einen systemd-Service.
+
+\subsubsection{Ablauf}
+
+\begin{enumerate}
+  \item Ausfuehrung mit \texttt{sudo ./install.sh}
+  \item Erstellung eines System-Benutzers \texttt{signalreport} (kein Login)
+  \item Verzeichnisstruktur:
+    \begin{itemize}
+      \item \texttt{/opt/signalreport/} -- Programmdateien
+      \item \texttt{/var/lib/signalreport/} -- Datenbank und Konfiguration
+      \item \texttt{/var/log/signalreport/} -- Log-Dateien
+    \end{itemize}
+  \item Optional: Kompilierung von jsvc (Apache Commons Daemon) fuer professionellen
+    Daemon-Modus; Fallback auf direkten Java-Start
+  \item Erstellung und Aktivierung der systemd-Unit \texttt{signalreport.service}
+\end{enumerate}
+
+\subsubsection{Verwaltung}
+
+\begin{lstlisting}[language=bash, caption={systemd-Dienst verwalten}]
+# Status pruefen
+sudo systemctl status signalreport
+
+# Dienst stoppen/starten/neustarten
+sudo systemctl stop signalreport
+sudo systemctl start signalreport
+sudo systemctl restart signalreport
+
+# Logs anzeigen
+sudo journalctl -u signalreport -f
+\end{lstlisting}
+
+\subsection{Installation unter macOS (launchd)}
+\label{subsec:install-macos}
+
+Das gleiche Skript (\texttt{install.sh}) erkennt macOS und erstellt einen launchd-Service.
+
+\subsubsection{Unterschiede zu Linux}
+
+\begin{itemize}
+  \item Installationsverzeichnis: \texttt{/Applications/SignalReport/}
+  \item Datenverzeichnis: \texttt{\textasciitilde/Library/Application Support/SignalReport/}
+  \item Service-Datei: \texttt{/Library/LaunchDaemons/com.signalreport.service.plist}
+  \item Desktop-Verknuepfung: \texttt{.webloc}-Datei auf dem Schreibtisch
+  \item Laeuft als angemeldeter Benutzer (nicht als separater Systembenutzer)
+\end{itemize}
+
+\subsubsection{Verwaltung}
+
+\begin{lstlisting}[language=bash, caption={launchd-Dienst verwalten}]
+# Dienst stoppen
+sudo launchctl stop com.signalreport.service
+
+# Dienst starten
+sudo launchctl start com.signalreport.service
+
+# Dienst komplett entladen/laden
+sudo launchctl unload /Library/LaunchDaemons/com.signalreport.service.plist
+sudo launchctl load /Library/LaunchDaemons/com.signalreport.service.plist
+\end{lstlisting}
+
+\subsection{Synology NAS (Docker)}
+
+Auf einem Synology NAS mit DSM 7+ und installiertem Container Manager kann SignalReport
+als Docker-Container betrieben werden. Ein Dockerfile ist im Verzeichnis
+\texttt{deployment/docker/} vorbereitet.
+
+\subsection{Konfiguration}
+\label{subsec:konfiguration}
+
+Nach dem ersten Start wird automatisch eine \texttt{config.json} im Arbeitsverzeichnis
+erstellt. Alle Einstellungen koennen ueber das Web-Interface geaendert werden; alternativ
+kann die Datei manuell bearbeitet werden (bei gestopptem Dienst).
+
+\begin{lstlisting}[language=json, caption={Beispiel config.json (Auszug)}]
+{
+  "measurement": {
+    "intervalSeconds": 10,
+    "targets": {
+      "ping": "8.8.8.8",
+      "dns": "google.com",
+      "http": "https://example.com"
+    }
+  },
+  "maintenanceWindow": {
+    "enabled": true,
+    "startHour": 4, "startMinute": 0,
+    "endHour": 4, "endMinute": 10
+  },
+  "userInfo": {
+    "provider": "Magenta",
+    "customerId": "08154711",
+    "userName": "Max Mustermann"
+  },
+  "theme": {
+    "darkMode": false
+  }
+}
+\end{lstlisting}
+
+\subsection{Backup und Migration}
+
+Fuer ein vollstaendiges Backup genuegt es, zwei Dateien/Verzeichnisse zu sichern:
+
+\begin{enumerate}
+  \item \texttt{config.json} -- Alle Einstellungen (Ziele, Passwort-Hashes, Theme)
+  \item \texttt{data/} -- H2-Datenbank mit allen Messdaten
+\end{enumerate}
+
+Zur Migration auf ein anderes System: SignalReport installieren, diese beiden
+Dateien/Verzeichnisse kopieren und den Dienst starten. Die Datenbank und Konfiguration
+werden automatisch erkannt.

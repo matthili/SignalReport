@@ -51,8 +51,6 @@ http://localhost:4567
 | ![Dashboard](docs/screenshots/dashboard.png) | ![PDF Report](docs/screenshots/pdf-report.png) | ![DNS Benchmark](docs/screenshots/dns-benchmark.png) |
 | *Live-Charts, Statistiken, Einstellungen* | *Professioneller Bericht für Provider* | *Vergleich globaler DNS-Server* |
 
-> 💡 **Hinweis**: Screenshots-Ordner `docs/screenshots/` muss manuell mit Bildern befüllt werden (Browser-Screenshots). Platzhalter-Pfade sind bereits korrekt.
-
 ---
 
 ## ⚙️ Konfiguration
@@ -101,7 +99,7 @@ Der 12-Monats-Bericht enthält:
 
 > 📌 **So nutzt du den Bericht**:  
 > 1. PDF mit "📄 PDF-Bericht (12 Monate)" generieren  
-> 2. Als `signalreport-magenta-beschwerde-2026-03-25.pdf` speichern  
+> 2. Als `signalreport-providername-beschwerde-2026-03-25.pdf` speichern  
 > 3. An Support-Mail anhängen mit Text:  
 > *"Anbei der technische Nachweis für wiederholte Verbindungsprobleme im Zeitraum XX bis YY. Bitte prüfen Sie die Leitung zu meinem Anschluss."*
 
@@ -192,7 +190,7 @@ Dieses Projekt nutzt großartige Open-Source-Bibliotheken:
 
 Bei Fragen zur Abschlussarbeit oder technischen Details:  
 📧 **  
-🎓 *Deine Hochschule / Studiengang hier einfügen*
+
 
 ---
 

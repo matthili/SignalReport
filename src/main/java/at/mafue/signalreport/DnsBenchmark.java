@@ -6,14 +6,12 @@ import org.xbill.DNS.Record;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class DnsBenchmark
 {
     private final List<Config.DnsServer> dnsServers;
     private final String hostname;
     private final int timeoutMs;
-    private static final AtomicInteger queryCounter = new AtomicInteger(0);
 
     public DnsBenchmark(List<Config.DnsServer> dnsServers, String hostname, int timeoutMs)
     {
@@ -34,18 +32,22 @@ public class DnsBenchmark
             futures.add(executor.submit(() -> measureDnsServer(server)));
             }
 
-        for (Future<DnsResult> future : futures)
+        try
             {
-            try
+            for (Future<DnsResult> future : futures)
                 {
-                results.add(future.get(timeoutMs * 2L, TimeUnit.MILLISECONDS));
-                } catch (TimeoutException e)
-                {
-                // Timeout – überspringen
+                try
+                    {
+                    results.add(future.get(timeoutMs * 2L, TimeUnit.MILLISECONDS));
+                    } catch (TimeoutException e)
+                    {
+                    // Timeout – überspringen
+                    }
                 }
+            } finally
+            {
+            executor.shutdown();
             }
-
-        executor.shutdown();
         return results;
     }
 

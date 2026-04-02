@@ -365,6 +365,74 @@ public class H2MeasurementRepository
         return results;
     }
 
+    public List<Measurement> findSince(Instant since) throws SQLException
+    {
+        List<Measurement> results = new ArrayList<>();
+        String sql = """
+                SELECT timestamp, target, latency_ms, success, type,
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash
+                FROM measurements
+                WHERE timestamp >= ?
+                ORDER BY timestamp ASC
+                """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, java.sql.Timestamp.from(since));
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                Instant timestamp = rs.getTimestamp(1).toInstant();
+                String target = rs.getString(2);
+                double latency = rs.getDouble(3);
+                boolean success = rs.getBoolean(4);
+                String type = rs.getString(5);
+                String localIPv4 = rs.getString(6);
+                String localIPv6 = rs.getString(7);
+                String externalIPv4 = rs.getString(8);
+                String externalIPv6 = rs.getString(9);
+                String hostHash = rs.getString(10);
+
+                results.add(new Measurement(target, latency, success, type,
+                        timestamp, localIPv4, localIPv6, externalIPv4, externalIPv6, hostHash));
+                }
+            }
+        return results;
+    }
+
+    public List<Measurement> findAll() throws SQLException
+    {
+        List<Measurement> results = new ArrayList<>();
+        String sql = """
+                SELECT timestamp, target, latency_ms, success, type,
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash
+                FROM measurements
+                ORDER BY timestamp ASC
+                """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql))
+            {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                Instant timestamp = rs.getTimestamp(1).toInstant();
+                String target = rs.getString(2);
+                double latency = rs.getDouble(3);
+                boolean success = rs.getBoolean(4);
+                String type = rs.getString(5);
+                String localIPv4 = rs.getString(6);
+                String localIPv6 = rs.getString(7);
+                String externalIPv4 = rs.getString(8);
+                String externalIPv6 = rs.getString(9);
+                String hostHash = rs.getString(10);
+
+                results.add(new Measurement(target, latency, success, type,
+                        timestamp, localIPv4, localIPv6, externalIPv4, externalIPv6, hostHash));
+                }
+            }
+        return results;
+    }
+
     // Host-Informationen abfragen
     public List<HostInfo> getAllHosts() throws SQLException
     {

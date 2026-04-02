@@ -1,0 +1,145 @@
+\section{User Stories}
+\label{sec:userstories}
+
+User Stories beschreiben die Anforderungen aus Sicht der Endbenutzer. Sie folgen dem Format
+\textit{``Als [Rolle] moechte ich [Funktion], damit [Nutzen].''} und helfen dabei, den Fokus
+auf den tatsaechlichen Mehrwert fuer den Anwender zu legen.
+
+\subsection{Uebersicht der Rollen}
+
+\begin{description}
+  \item[Benutzer] Privatperson oder Techniker, der seine Internetqualitaet ueberwachen
+    und bei Problemen fundierte Beschwerden beim Provider einreichen moechte.
+  \item[Administrator] Person, die SignalReport einrichtet und die Sicherheitseinstellungen
+    verwaltet (kann identisch mit dem Benutzer sein).
+  \item[System] SignalReport selbst -- fuehrt automatisierte Hintergrundprozesse aus.
+\end{description}
+
+\subsection{Kernfunktionen (Must-Have)}
+
+\begin{enumerate}
+  \item \textbf{US-01: Kontinuierliche Messung}\\
+    \textit{Als Benutzer moechte ich, dass meine Internetverbindung automatisch alle paar
+    Sekunden gemessen wird, damit ich lueckenlos dokumentieren kann, wann Probleme auftreten.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Ping-, DNS- und HTTP-Messungen laufen im konfigurierbaren
+        Intervall (5\,s -- 1\,h); Ergebnisse werden persistent in der H2-Datenbank gespeichert.
+    \end{itemize}
+
+  \item \textbf{US-02: Live-Dashboard}\\
+    \textit{Als Benutzer moechte ich meine Messergebnisse in Echtzeit im Browser sehen, damit
+    ich sofort erkenne, wenn meine Verbindung schlecht ist.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Web-UI zeigt Tabelle der letzten Messungen, Live-Chart
+        (Chart.js) und Statistik-Panel; Daten aktualisieren sich alle 5 Sekunden.
+    \end{itemize}
+
+  \item \textbf{US-03: PDF-Bericht fuer Provider-Beschwerde}\\
+    \textit{Als Benutzer moechte ich einen professionellen PDF-Bericht generieren koennen, damit
+    ich meinem Provider schwarz auf weiss belegen kann, dass die Verbindung regelmaessig
+    einbricht.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Berichte fuer 24\,h, 7 Tage und 12 Monate; enthalten
+        Kundendaten, Charts mit Zielaenderungsmarkierungen, Top-10 schlechteste Messungen
+        und Verbindungsausfaelle.
+    \end{itemize}
+
+  \item \textbf{US-04: CSV-Export}\\
+    \textit{Als Benutzer moechte ich die Rohdaten als CSV exportieren koennen, damit ich sie in
+    Excel oder anderen Tools weiterverarbeiten kann.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Vollstaendiger und gefilterter Export moeglich; Semikolon
+        als Trennzeichen (fuer deutsche Excel-Versionen).
+    \end{itemize}
+
+  \item \textbf{US-05: Statistiken}\\
+    \textit{Als Benutzer moechte ich Durchschnittslatenz, 95. Perzentil, Jitter und Paketverlust
+    auf einen Blick sehen, damit ich die Qualitaet meiner Verbindung beurteilen kann.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Berechnung fuer alle drei Messtypen (PING/DNS/HTTP) ueber
+        konfigurierbare Zeitraeume.
+    \end{itemize}
+
+  \item \textbf{US-06: Setup-Assistent}\\
+    \textit{Als Administrator moechte ich beim ersten Start durch einen Assistenten gefuehrt
+    werden, damit ich das System ohne Kommandozeile einrichten kann.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Web-basierter Wizard setzt Admin-Passwort und optionale
+        Authentifizierung; laeuft nur beim allerersten Start.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Erweiterte Funktionen (Should-Have)}
+
+\begin{enumerate}[resume]
+  \item \textbf{US-07: DNS-Benchmark}\\
+    \textit{Als Benutzer moechte ich verschiedene DNS-Server weltweit vergleichen koennen, damit
+    ich den schnellsten DNS-Server fuer meinen Standort finde.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Parallele Abfrage von mindestens 10 DNS-Servern aus
+        verschiedenen Regionen; Ergebnisse sortiert nach Latenz; 30-Sekunden-Cooldown
+        zwischen Benchmarks.
+    \end{itemize}
+
+  \item \textbf{US-08: IP-Tracking}\\
+    \textit{Als Benutzer moechte ich sehen, wann sich meine externe IP-Adresse aendert, damit
+    ich nachvollziehen kann, wie oft mein Provider die Verbindung trennt.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Aenderungen werden mit Zeitstempel protokolliert;
+        Anzeige im UI mit alter und neuer IP; Statistik ueber Anzahl der Aenderungen.
+    \end{itemize}
+
+  \item \textbf{US-09: Wartungsfenster}\\
+    \textit{Als Benutzer moechte ich ein Zeitfenster definieren koennen, in dem keine Messungen
+    stattfinden, damit geplante Router-Neustarts die Statistik nicht verfaelschen.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Start- und Endzeit konfigurierbar; funktioniert auch ueber
+        Mitternacht (z.\,B.\ 23:50 -- 00:10); Status im UI sichtbar.
+    \end{itemize}
+
+  \item \textbf{US-10: Dark Mode}\\
+    \textit{Als Benutzer moechte ich zwischen hellem und dunklem Design wechseln koennen, damit
+    die Oberflaeche auch bei naechtlicher Nutzung angenehm ist.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Toggle-Button im Header; Einstellung persistent in
+        config.json; kein Flackern beim Laden (Server-seitige CSS-Klassen-Injection);
+        Chart.js-Farben passen sich an.
+    \end{itemize}
+
+  \item \textbf{US-11: Authentifizierung}\\
+    \textit{Als Administrator moechte ich den Zugriff auf das Web-Interface mit Passwort
+    schuetzen koennen, damit Unbefugte nicht meine Messdaten sehen oder Einstellungen
+    aendern koennen.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: HTTP Basic Auth mit Admin- und User-Rolle; Admin hat
+        Vollzugriff, User nur Leserechte; kann jederzeit aktiviert/deaktiviert werden.
+    \end{itemize}
+
+  \item \textbf{US-12: Push-Benachrichtigungen}\\
+    \textit{Als Benutzer moechte ich bei Verbindungsausfaellen oder hoher Latenz automatisch
+    benachrichtigt werden, damit ich auch ohne offenes Browser-Fenster informiert bin.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Browser Push Notifications; konfigurierbarer
+        Latenz-Schwellwert und Anzahl aufeinanderfolgender schlechter Messungen.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Systemfunktionen (automatisiert)}
+
+\begin{enumerate}[resume]
+  \item \textbf{US-13: Hintergrund-Dienst}\\
+    \textit{Als System moechte ich als Hintergrund-Dienst laufen (auch ohne angemeldeten
+    Benutzer), damit die Messung rund um die Uhr erfolgt.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Installations-Skripte fuer Windows (procrun),
+        Linux (systemd) und macOS (launchd); automatischer Start nach Neustart.
+    \end{itemize}
+
+  \item \textbf{US-14: Plattformunabhaengigkeit}\\
+    \textit{Als System moechte ich auf Windows, macOS, Linux und Synology NAS lauffaehig sein,
+    damit der Benutzer freie Wahl beim Einsatzort hat.}
+    \begin{itemize}
+      \item Akzeptanzkriterien: Einzelne ausfuehrbare JAR-Datei; embedded H2-Datenbank
+        ohne separaten Server; getestet auf allen vier Plattformen.
+    \end{itemize}
+\end{enumerate}

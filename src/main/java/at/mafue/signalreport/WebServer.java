@@ -232,22 +232,20 @@ public class WebServer
             List<Measurement> measurements;
             if (exportAll)
                 {
-                measurements = repository.findLastN(1000000);
+                measurements = repository.findAll();
                 } else
                 {
-                measurements = repository.findLastN(10000);
+                Instant cutoff = Instant.now().minusSeconds(hours * 3600L);
+                measurements = repository.findSince(cutoff);
                 }
 
             StringBuilder csv = new StringBuilder();
             csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
 
-            Instant cutoff = exportAll ? Instant.ofEpochMilli(0) : Instant.now().minusSeconds(hours * 3600L);
             int count = 0;
 
             for (Measurement m : measurements)
                 {
-                if (m.getTimestamp().isBefore(cutoff)) break;
-
                 if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
 
                 csv.append(m.getTimestamp().toString().replace("T", " ").replace("Z", ""))

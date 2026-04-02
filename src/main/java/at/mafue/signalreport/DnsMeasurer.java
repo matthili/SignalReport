@@ -7,9 +7,17 @@ public class DnsMeasurer implements Measurer
     public Measurement measure(String hostname) throws Exception
     {
         long start = System.nanoTime();
-        InetAddress address = InetAddress.getByName(hostname);
-        long end = System.nanoTime();
-        double latency = (end - start) / 1_000_000.0;
-        return new Measurement(hostname, latency, true, "DNS");
+        try
+            {
+            InetAddress address = InetAddress.getByName(hostname);
+            long end = System.nanoTime();
+            double latency = (end - start) / 1_000_000.0;
+            return new Measurement(hostname, latency, true, "DNS");
+            } catch (Exception e)
+            {
+            long end = System.nanoTime();
+            double latency = (end - start) / 1_000_000.0;
+            return new Measurement(hostname, latency, false, "DNS");
+            }
     }
 }

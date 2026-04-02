@@ -7,9 +7,11 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartRenderingInfo;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.plot.PlotRenderingInfo;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
@@ -93,16 +95,8 @@ public class PdfReportGenerator
         document.add(new Paragraph("Externe IPv4: " + NetworkInfo.getExternalIPv4() + " | Externe IPv6: " + NetworkInfo.getExternalIPv6(), smallFont));
         document.add(Chunk.NEWLINE);
 
-        // Alle Messungen holen
-        List<Measurement> allMeasurements = repository.findLastN(100000);
-        List<Measurement> filteredMeasurements = new ArrayList<>();
-        for (Measurement m : allMeasurements)
-            {
-            if (!m.getTimestamp().isBefore(since))
-                {
-                filteredMeasurements.add(m);
-                }
-            }
+        // Alle Messungen im Zeitraum holen (direkt per SQL gefiltert)
+        List<Measurement> filteredMeasurements = repository.findSince(since);
 
         // === PING STATISTIK ===
         document.add(new Paragraph("PING-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
@@ -340,22 +334,27 @@ public class PdfReportGenerator
             return "Keine Messungen im Zeitraum";
             }
 
-        // LinkedHashSet behält Reihenfolge des ersten Auftretens
-        java.util.LinkedHashSet<String> uniqueTargets = new java.util.LinkedHashSet<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+                .withZone(ZoneId.systemDefault());
 
-        // Liste ist absteigend sortiert (neueste zuerst) → rückwärts traversieren für chronologische Reihenfolge
-        for (int i = measurements.size() - 1; i >= 0; i--)
+        // Erstes Ziel mit Zeitstempel der ersten Messung
+        String firstTarget = measurements.get(0).getTarget();
+        String firstTime = fmt.format(measurements.get(0).getTimestamp());
+        List<String> entries = new ArrayList<>();
+        entries.add(firstTarget + " (ab " + firstTime + ")");
+
+        // Ziel-Änderungen mit jeweiligem Zeitstempel
+        List<TargetChange> changes = detectTargetChanges(measurements);
+        for (TargetChange change : changes)
             {
-            uniqueTargets.add(measurements.get(i).getTarget());
+            entries.add(change.getNewTarget() + " (ab " + fmt.format(change.getTimestamp()) + ")");
             }
 
-        // Formatierung mit farblichem Hinweis bei mehreren Zielen
-        String targetsList = String.join(", ", uniqueTargets);
-        String prefix = uniqueTargets.size() > 1
+        String prefix = entries.size() > 1
                 ? "⚠️ Gemessene Ziele (chronologisch): "
                 : "Gemessenes Ziel: ";
 
-        return prefix + targetsList;
+        return prefix + String.join(", ", entries);
     }
 
     private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
@@ -400,13 +399,16 @@ public class PdfReportGenerator
         Graphics2D g2 = image.createGraphics();
         g2.setPaint(Color.WHITE);
         g2.fillRect(0, 0, width, height);
-        chart.draw(g2, new java.awt.geom.Rectangle2D.Double(0, 0, width, height));
+        ChartRenderingInfo chartInfo = new ChartRenderingInfo();
+        java.awt.geom.Rectangle2D chartArea = new java.awt.geom.Rectangle2D.Double(0, 0, width, height);
+        chart.draw(g2, chartArea, chartInfo);
 
         // Ziel-Änderungen markieren
         if (!targetChanges.isEmpty() && !measurements.isEmpty())
             {
             g2.setColor(Color.RED);
             g2.setStroke(new BasicStroke(2.0f));
+            java.awt.geom.Rectangle2D dataArea = chartInfo.getPlotInfo().getDataArea();
 
             for (TargetChange change : targetChanges)
                 {
@@ -415,8 +417,11 @@ public class PdfReportGenerator
                     {
                     if (measurements.get(i).getTimestamp().equals(change.getTimestamp()))
                         {
-                        int x = (int) ((double) i / measurements.size() * width);
-                        g2.drawLine(x, 0, x, height);
+                        double xValue = plot.getDomainAxis().valueToJava2D(i, dataArea, plot.getDomainAxisEdge());
+                        int x = (int) xValue;
+                        int yTop = (int) dataArea.getMinY();
+                        int yBottom = (int) dataArea.getMaxY();
+                        g2.drawLine(x, yTop, x, yBottom);
                         break;
                         }
                     }
