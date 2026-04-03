@@ -185,14 +185,32 @@ MIT License – siehe [LICENSE](LICENSE) Datei.
 
 ## 🙏 Danksagung
 
-Dieses Projekt nutzt großartige Open-Source-Bibliotheken:
-- [Javalin](https://javalin.io/) – Web-Framework
-- [H2 Database](https://www.h2database.com/) – Embedded Datenbank
-- [JFreeChart](https://www.jfree.org/jfreechart/) – Chart-Generierung
+Dieses Projekt nutzt großartige Open-Source-Bibliotheken und Dienste:
+
+**Backend-Bibliotheken (Maven/Java):**
+- [Javalin](https://javalin.io/) – Leichtgewichtiges Web-Framework
+- [H2 Database](https://www.h2database.com/) – Embedded SQL-Datenbank
+- [Jackson](https://github.com/FasterXML/jackson) – JSON-Serialisierung (Config, API)
 - [OpenPDF](https://github.com/LibrePDF/OpenPDF) – PDF-Erstellung
+- [JFreeChart](https://www.jfree.org/jfreechart/) – Chart-Generierung für PDF-Reports
+- [dnsjava](https://dnsjava.org/) – DNS-Queries für Benchmark
+- [SLF4J](https://www.slf4j.org/) + [Logback](https://logback.qos.ch/) – Logging
+- [JUnit 5](https://junit.org/junit5/) – Test-Framework
+
+**Frontend (Browser):**
+- [Chart.js](https://www.chartjs.org/) – Live-Charts im Web-Interface (via CDN)
+
+**Externe Dienste:**
+- [ipify.org](https://www.ipify.org/) – Ermittlung der externen IP-Adresse
+
+**Build & Deployment:**
+- [Apache Maven](https://maven.apache.org/) – Build-System
+- [Apache Commons Daemon](https://commons.apache.org/proper/commons-daemon/) – Service-Installation (procrun/jsvc)
+
+**Dokumentation & Entwicklung:**
 - [PlantUML](https://plantuml.com/) – UML-Diagramme
-- [dnsjava](https://dnsjava.org/) – DNS-Queries
-- [EmojiTerra](https://emojiterra.com/) – Emoji Übersicht
+- [LaTeX](https://www.latex-project.org/) – Projektdokumentation
+- [EmojiTerra](https://emojiterra.com/) – Emoji-Übersicht
 - [StackOverflow](https://stackoverflow.com/) – Fragen/Antworten-Plattform für Softwareentwickler
 - [Hitchhiker’s Guide to PlantUML](https://crashedmind.github.io/PlantUMLHitchhikersGuide/) – Nomen est omen
 
