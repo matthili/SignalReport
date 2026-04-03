@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class H2MeasurementRepository
@@ -72,11 +73,23 @@ public class H2MeasurementRepository
                 )
                 """;
 
+        // Indizes für häufige Abfragen (timestamp, type, host_hash)
+        String indexTimestamp = "CREATE INDEX IF NOT EXISTS idx_measurements_timestamp ON measurements(timestamp)";
+        String indexType = "CREATE INDEX IF NOT EXISTS idx_measurements_type ON measurements(type)";
+        String indexTypeTimestamp = "CREATE INDEX IF NOT EXISTS idx_measurements_type_timestamp ON measurements(type, timestamp)";
+        String indexHostHash = "CREATE INDEX IF NOT EXISTS idx_measurements_host_hash ON measurements(host_hash)";
+        String indexIpChangesTimestamp = "CREATE INDEX IF NOT EXISTS idx_ip_changes_timestamp ON ip_changes(timestamp)";
+
         try (Statement stmt = connection.createStatement())
             {
             stmt.execute(measurementsTable);
             stmt.execute(hostsTable);
-            stmt.execute(ipChangesTable);  // 🔑 Neue Tabelle erstellen
+            stmt.execute(ipChangesTable);
+            stmt.execute(indexTimestamp);
+            stmt.execute(indexType);
+            stmt.execute(indexTypeTimestamp);
+            stmt.execute(indexHostHash);
+            stmt.execute(indexIpChangesTimestamp);
             }
     }
 
@@ -516,7 +529,7 @@ public class H2MeasurementRepository
                 FROM measurements
                 WHERE type = ?
                   AND timestamp >= DATEADD('HOUR', ?, CURRENT_TIMESTAMP)
-                ORDER BY latency_ms
+                ORDER BY timestamp ASC
                 """;
 
         List<Double> latencies = new ArrayList<>();
@@ -552,14 +565,7 @@ public class H2MeasurementRepository
 
         double avgLatency = latencies.stream().mapToDouble(Double::doubleValue).average().orElse(0);
 
-        int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
-        p95Index = Math.max(0, Math.min(p95Index, latencies.size() - 1));
-        double p95Latency = latencies.get(p95Index);
-
-        double maxLatency = latencies.stream().mapToDouble(Double::doubleValue).max().orElse(0);
-
-        double packetLossPercent = total > 0 ? (failed * 100.0) / total : 0;
-
+        // Jitter: mittlere Abweichung aufeinanderfolgender Messungen (chronologisch)
         double jitter = 0;
         if (latencies.size() > 1)
             {
@@ -570,6 +576,17 @@ public class H2MeasurementRepository
                 }
             jitter = sumDiff / (latencies.size() - 1);
             }
+
+        // P95 und Max: benötigen sortierte Werte
+        List<Double> sorted = new ArrayList<>(latencies);
+        Collections.sort(sorted);
+        int p95Index = (int) Math.ceil(sorted.size() * 0.95) - 1;
+        p95Index = Math.max(0, Math.min(p95Index, sorted.size() - 1));
+        double p95Latency = sorted.get(p95Index);
+
+        double maxLatency = sorted.get(sorted.size() - 1);
+
+        double packetLossPercent = total > 0 ? (failed * 100.0) / total : 0;
 
         return new Statistics(avgLatency, p95Latency, maxLatency, packetLossPercent, jitter);
     }

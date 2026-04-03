@@ -119,7 +119,7 @@ public class SignalReportApp
                     logger.info("3 Messungen gespeichert | IP: {}", currentExternalIp);
                     } catch (Exception e)
                     {
-                    logger.error("Fehler bei Messung: {}", e.getMessage());
+                    logger.error("Fehler bei Messung", e);
                     }
                 }
 

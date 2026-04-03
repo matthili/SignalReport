@@ -201,3 +201,7 @@ ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte, währe
 \caption{H2-Datenbank-Schema}
 \label{tab:dbschema}
 \end{table}
+
+Für performante Abfragen bei wachsender Datenmenge werden beim Start automatisch
+Indizes auf den Spalten \texttt{timestamp}, \texttt{type}, \texttt{host\_hash} sowie
+ein kombinierter Index \texttt{(type, timestamp)} angelegt.

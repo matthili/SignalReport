@@ -85,10 +85,9 @@ class StatisticsTest {
 
     @Test
     void testJitterWithVaryingLatency() throws SQLException {
-        // Hinweis: calculateStatistics() sortiert nach latency_ms (fuer P95),
-        // nicht nach Zeitstempel. Jitter wird daher auf der sortierten Liste
-        // berechnet. Wir testen hier, dass Jitter > 0 ist wenn die Werte
-        // unterschiedlich sind (auch nach Sortierung gibt es Differenzen).
+        // Jitter wird auf chronologisch sortierten Messungen berechnet (ORDER BY timestamp).
+        // Die Testdaten werden aufsteigend eingefügt, daher stimmt die zeitliche
+        // Reihenfolge mit der Wert-Reihenfolge überein.
         double[] latencies = {10.0, 50.0, 100.0, 200.0, 500.0};
         for (double lat : latencies) {
             repo.save(new Measurement("8.8.8.8", lat, true, "PING"));
