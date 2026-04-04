@@ -3,7 +3,7 @@
     "targets" : {
       "ping" : "1.1.1.1",
       "dns" : "google.com",
-      "http" : "https://heise.de"
+      "http" : "https://example.com"
     },
     "intervalSeconds" : 10
   },
@@ -102,6 +102,6 @@
     "consecutiveBadMeasurements" : 2
   },
   "theme" : {
-    "darkMode" : false
+    "darkMode" : true
   }
 }
