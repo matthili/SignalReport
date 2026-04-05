@@ -23,7 +23,7 @@ public class DnsBenchmark
     public List<DnsResult> benchmark() throws Exception
     {
         List<DnsResult> results = new ArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(dnsServers.size());
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         List<Future<DnsResult>> futures = new ArrayList<>();
 

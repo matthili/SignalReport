@@ -27,6 +27,7 @@ public class HttpMeasurer implements Measurer
                 .build();
     }
 
+    // To prevent HTTP-measurements from being invalid when SSL-certificates are incorrect.
     private static SSLContext createTrustAllSslContext()
     {
         try

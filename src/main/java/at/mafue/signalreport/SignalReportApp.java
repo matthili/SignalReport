@@ -10,6 +10,7 @@ public class SignalReportApp
 {
     // Logger-Instanz (statisch für die ganze Klasse)
     private static final Logger logger = LoggerFactory.getLogger(SignalReportApp.class);
+    protected static final String CONFIG_JSON = "config.json";
 
     static
         {
@@ -25,12 +26,12 @@ public class SignalReportApp
 
         // Konfiguration laden oder erstellen
         Config config;
-        File configFile = new File("config.json");
+        File configFile = new File(CONFIG_JSON);
         if (configFile.exists())
             {
             try
                 {
-                config = Config.load("config.json");
+                config = Config.load(CONFIG_JSON);
                 logger.info("Konfiguration geladen: {}", configFile.getAbsolutePath());
                 } catch (IOException e)
                 {
@@ -44,7 +45,7 @@ public class SignalReportApp
             config = Config.createDefault();
             try
                 {
-                Config.save("config.json");
+                Config.save(CONFIG_JSON);
                 logger.info("Standard-Konfiguration erstellt: {}", configFile.getAbsolutePath());
                 } catch (IOException e)
                 {
@@ -88,7 +89,7 @@ public class SignalReportApp
             // Wartungsfenster-Prüfung
             if (maintenance.isMaintenanceTime())
                 {
-                logger.info("⏸️ Maintenance-Fenster aktiv ({}:{}–{}:{}) – überspringe Messung",
+                logger.info("Maintenance-Fenster aktiv ({}:{}–{}:{}) – überspringe Messung",
                         String.format("%02d", maintenance.getStartHour()),
                         String.format("%02d", maintenance.getStartMinute()),
                         String.format("%02d", maintenance.getEndHour()),
