@@ -11,7 +11,6 @@ import org.jfree.chart.ChartRenderingInfo;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.PlotRenderingInfo;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
@@ -51,7 +50,7 @@ public class PdfReportGenerator
         // Logo
         try
             {
-            java.io.InputStream logoStream = getClass().getResourceAsStream("/web/logo_mit_schriftzug_light.png");
+            java.io.InputStream logoStream = getClass().getResourceAsStream("/web/logo_mit_schriftzug_light_web.png");
             if (logoStream != null)
                 {
                 byte[] logoBytes = logoStream.readAllBytes();

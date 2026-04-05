@@ -112,7 +112,7 @@ public class HtmlPageRenderer
                 >
                     <div class="header">
                         <button id="theme-toggle" onclick="toggleTheme()" title="Dark Mode umschalten"></button>
-                        <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="header-logo light">
+                        <img src="/logo_mit_schriftzug_light_web.png" alt="SignalReport" class="header-logo light">
                         <img src="/logo_mit_schriftzug_dark.png" alt="SignalReport" class="header-logo dark">
                     </div>
                 

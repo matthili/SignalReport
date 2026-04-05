@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/main/resources/web/logo_mit_schriftzug_dark.png" alt="SignalReport" width="500">
+  <img src="src/main/resources/web/logo_mit_schriftzug_dark_git.png" alt="SignalReport" width="500">
 </p>
 
 <p align="center">
