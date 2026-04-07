@@ -161,7 +161,7 @@ public class HtmlPageRenderer
                                 <div class="stat-value stat-avg" id="stat-avg">-- ms</div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-label">95th Percentile</div>
+                                <div class="stat-label">95. Perzentil</div>
                                 <div class="stat-value stat-p95" id="stat-p95">-- ms</div>
                             </div>
                             <div class="stat-card">
@@ -451,17 +451,17 @@ public class HtmlPageRenderer
                         </div>
                 
                         <div style="background:var(--bg-info-box); padding:20px; border-radius:8px; margin:20px 0; border-left:4px solid var(--color-primary);">
-                            <h3>\uD83D\uDC64 Benutzer-Informationen</h3>
+                            <h3>\uD83D\uDC64 Kundendaten</h3>
                             <p>Diese Informationen werden im PDF-Bericht angezeigt.</p>
                 
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                 <div>
-                                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Provider</label>
-                                    <input type="text" id="config-provider" value="" placeholder="z.B. Telekom, Vodafone" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Provider/Tarif</label>
+                                    <input type="text" id="config-provider" value="" placeholder="z.B. Telekom / Internet L" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                                 </div>
                                 <div>
                                     <label style="display:block; margin-bottom:5px; font-weight:bold;">Kundennummer</label>
-                                    <input type="text" id="config-customer-id" value="" placeholder="z.B. 123456789" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                    <input type="text" id="config-customer-id" value="" placeholder="z.B. 47110815" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                                 </div>
                                 <div>
                                     <label style="display:block; margin-bottom:5px; font-weight:bold;">Name</label>

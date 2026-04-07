@@ -50,7 +50,7 @@ public class PdfReportGenerator
         // Logo
         try
             {
-            java.io.InputStream logoStream = getClass().getResourceAsStream("/web/logo_mit_schriftzug_light_web.png");
+            java.io.InputStream logoStream = getClass().getResourceAsStream("/web/logo_mit_schriftzug_light.png");
             if (logoStream != null)
                 {
                 byte[] logoBytes = logoStream.readAllBytes();
@@ -79,20 +79,20 @@ public class PdfReportGenerator
         if (hasUserInfo)
             {
             Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD);
-            document.add(new Paragraph("Kunde:", sectionFont));
+            document.add(new Paragraph("Kundendaten:", sectionFont));
 
             Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
             if (!userInfo.getUserName().isEmpty())
                 {
-                document.add(new Paragraph("Name:          " + userInfo.getUserName(), regularFont));
+                document.add(new Paragraph("Name: " + userInfo.getUserName(), regularFont));
                 }
             if (!userInfo.getProvider().isEmpty())
                 {
-                document.add(new Paragraph("Provider:      " + userInfo.getProvider(), regularFont));
+                document.add(new Paragraph("Provider/Tarif: " + userInfo.getProvider(), regularFont));
                 }
             if (!userInfo.getCustomerId().isEmpty())
                 {
-                document.add(new Paragraph("Kundennummer:  " + userInfo.getCustomerId(), regularFont));
+                document.add(new Paragraph("Kundennummer: " + userInfo.getCustomerId(), regularFont));
                 }
             document.add(Chunk.NEWLINE);
             }
@@ -115,15 +115,15 @@ public class PdfReportGenerator
 
         // === PING STATISTIK ===
         document.add(new Paragraph("PING-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        document.add(Chunk.NEWLINE);
+        //document.add(Chunk.NEWLINE);
 
         H2MeasurementRepository.Statistics pingStats = repository.calculateStatistics("PING", hours);
         Font statFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
-        document.add(new Paragraph("Durchschnittliche Latenz:       " + String.format("%.1f ms", pingStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95th Percentile:                " + String.format("%.1f ms", pingStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich):  " + String.format("%.1f ms", pingStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust:                   " + String.format("%.1f %%", pingStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter:                         " + String.format("%.1f ms", pingStats.getJitter()), statFont));
+        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", pingStats.getAvgLatency()), statFont));
+        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", pingStats.getP95Latency()), statFont));
+        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", pingStats.getMaxLatency()), statFont));
+        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", pingStats.getPacketLossPercent()), statFont));
+        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", pingStats.getJitter()), statFont));
         document.add(Chunk.NEWLINE);
 
         // PING Chart
@@ -131,24 +131,27 @@ public class PdfReportGenerator
         if (!pingMeasurements.isEmpty())
             {
             BufferedImage pingChart = createLatencyChart(pingMeasurements, "PING", detectTargetChanges(pingMeasurements));
-            addChartToPdf(document, pingChart, "PING Latenz über Zeit");
-            document.add(Chunk.NEWLINE);
+            addChartToPdf(document, pingChart, "Grafische Darstellung:");
+            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
             document.add(new Paragraph(pingTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
-            //document.add(Chunk.NEXTPAGE); //provoziert leere Seite
+            if (!hasUserInfo)
+                {
+                document.add(Chunk.NEXTPAGE); //provoziert leere Seite, wenn keine Kundendaten hinterlegt sind
+                }
             }
 
 
         // === DNS STATISTIK ===
         document.add(new Paragraph("DNS-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        document.add(Chunk.NEWLINE);
+        //document.add(Chunk.NEWLINE);
 
         H2MeasurementRepository.Statistics dnsStats = repository.calculateStatistics("DNS", hours);
-        document.add(new Paragraph("Durchschnittliche Latenz:       " + String.format("%.1f ms", dnsStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95th Percentile:                " + String.format("%.1f ms", dnsStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich):  " + String.format("%.1f ms", dnsStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust:                   " + String.format("%.1f %%", dnsStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter:                         " + String.format("%.1f ms", dnsStats.getJitter()), statFont));
+        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", dnsStats.getAvgLatency()), statFont));
+        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", dnsStats.getP95Latency()), statFont));
+        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", dnsStats.getMaxLatency()), statFont));
+        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", dnsStats.getPacketLossPercent()), statFont));
+        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", dnsStats.getJitter()), statFont));
         document.add(Chunk.NEWLINE);
 
         // DNS Chart
@@ -156,8 +159,8 @@ public class PdfReportGenerator
         if (!dnsMeasurements.isEmpty())
             {
             BufferedImage dnsChart = createLatencyChart(dnsMeasurements, "DNS", detectTargetChanges(dnsMeasurements));
-            addChartToPdf(document, dnsChart, "DNS Latenz über Zeit");
-            document.add(Chunk.NEWLINE);
+            addChartToPdf(document, dnsChart, "Grafische Darstellung:");
+            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
             String dnsTargetsNote = getTargetsChronological(dnsMeasurements);
             document.add(new Paragraph(dnsTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
             //document.add(Chunk.NEWLINE);
@@ -166,14 +169,14 @@ public class PdfReportGenerator
 
         // === HTTP STATISTIK ===
         document.add(new Paragraph("HTTP-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        document.add(Chunk.NEWLINE);
+        //document.add(Chunk.NEWLINE);
 
         H2MeasurementRepository.Statistics httpStats = repository.calculateStatistics("HTTP", hours);
-        document.add(new Paragraph("Durchschnittliche Latenz:       " + String.format("%.1f ms", httpStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95th Percentile:                " + String.format("%.1f ms", httpStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich):  " + String.format("%.1f ms", httpStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust:                   " + String.format("%.1f %%", httpStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter:                         " + String.format("%.1f ms", httpStats.getJitter()), statFont));
+        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", httpStats.getAvgLatency()), statFont));
+        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", httpStats.getP95Latency()), statFont));
+        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", httpStats.getMaxLatency()), statFont));
+        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", httpStats.getPacketLossPercent()), statFont));
+        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", httpStats.getJitter()), statFont));
         document.add(Chunk.NEWLINE);
 
         // HTTP Chart
@@ -181,8 +184,8 @@ public class PdfReportGenerator
         if (!httpMeasurements.isEmpty())
             {
             BufferedImage httpChart = createLatencyChart(httpMeasurements, "HTTP", detectTargetChanges(httpMeasurements));
-            addChartToPdf(document, httpChart, "HTTP Latenz über Zeit");
-            document.add(Chunk.NEWLINE);
+            addChartToPdf(document, httpChart, "Grafische Darstellung:");
+            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
             String httpTargetsNote = getTargetsChronological(httpMeasurements);
             document.add(new Paragraph(httpTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
             //document.add(Chunk.NEWLINE);
