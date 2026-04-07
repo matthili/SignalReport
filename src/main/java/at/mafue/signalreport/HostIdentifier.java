@@ -56,6 +56,29 @@ public class HostIdentifier
 
     private static String getMacAddress()
     {
+        // Ansatz 1: MAC-Adresse über das Interface ermitteln, das tatsächlich nach außen routet
+        try (java.net.DatagramSocket socket = new java.net.DatagramSocket())
+            {
+            socket.connect(InetAddress.getByName("8.8.8.8"), 53);
+            InetAddress localAddr = socket.getLocalAddress();
+            if (localAddr != null && !localAddr.isLoopbackAddress())
+                {
+                NetworkInterface network = NetworkInterface.getByInetAddress(localAddr);
+                if (network != null)
+                    {
+                    byte[] mac = network.getHardwareAddress();
+                    if (mac != null)
+                        {
+                        return formatMac(mac);
+                        }
+                    }
+                }
+            } catch (Exception e)
+            {
+            // Fallback auf getLocalHost()
+            }
+
+        // Ansatz 2: Fallback über getLocalHost()
         try
             {
             InetAddress ip = InetAddress.getLocalHost();
@@ -65,19 +88,24 @@ public class HostIdentifier
                 byte[] mac = network.getHardwareAddress();
                 if (mac != null)
                     {
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < mac.length; i++)
-                        {
-                        sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : ""));
-                        }
-                    return sb.toString();
+                    return formatMac(mac);
                     }
                 }
             } catch (UnknownHostException | SocketException e)
             {
-            e.printStackTrace();
+            // Fehler ignorieren, "unknown" wird zurückgegeben
             }
         return "unknown";
+    }
+
+    private static String formatMac(byte[] mac)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < mac.length; i++)
+            {
+            sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : ""));
+            }
+        return sb.toString();
     }
 
     public static String getHostname()

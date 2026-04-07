@@ -71,8 +71,8 @@ public class WebServer
         String authHeader = ctx.header("Authorization");
         if (authHeader == null || !authHeader.startsWith("Basic "))
             {
-            ctx.status(401).header("WWW-Authenticate", "Basic realm=\"SignalReport\"");
-            throw new RuntimeException("Unauthorized");
+            ctx.header("WWW-Authenticate", "Basic realm=\"SignalReport\"");
+            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
             }
 
         // Decode Basic Auth
@@ -82,8 +82,7 @@ public class WebServer
 
         if (parts.length != 2)
             {
-            ctx.status(401);
-            throw new RuntimeException("Unauthorized");
+            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
             }
 
         String username = parts[0];
@@ -95,8 +94,7 @@ public class WebServer
 
         if (!isAdmin && !isUser)
             {
-            ctx.status(401);
-            throw new RuntimeException("Unauthorized");
+            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
             }
 
         // Admin-Rechte speichern für spätere API-Checks
@@ -202,8 +200,10 @@ public class WebServer
             byte[] pdfBytes = generator.generateReport(hours);
 
             ctx.contentType("application/pdf");
-            ctx.header("Content-Disposition", "attachment; filename=signalreport-" +
-                    java.time.LocalDate.now() + ".pdf");
+            String pdfFilename = "signalreport-" + HostIdentifier.getHostname() + "-"
+                    + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH_mm_ss"))
+                    + ".pdf";
+            ctx.header("Content-Disposition", "attachment; filename=" + pdfFilename);
             ctx.result(pdfBytes);
             } catch (NumberFormatException e)
             {
@@ -251,7 +251,8 @@ public class WebServer
                 {
                 if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
 
-                csv.append(m.getTimestamp().toString().replace("T", " ").replace("Z", ""))
+                csv.append(m.getTimestamp().atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                         .append(";")
                         .append(escapeCsv(m.getType()))
                         .append(";")
@@ -275,11 +276,12 @@ public class WebServer
                 count++;
                 }
 
-            String filenamePrefix = exportAll ? "signalreport-complete" : "signalreport-" + java.time.LocalDate.now();
+            String timestamp = java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HH_mm_ss"));
+            String csvFilename = (exportAll ? "signalreport-complete" : "signalreport") + "-"
+                    + HostIdentifier.getHostname() + "-" + timestamp + ".csv";
             ctx.contentType("text/csv");
-            ctx.header("Content-Disposition",
-                    "attachment; filename=" + filenamePrefix + "-" +
-                            java.time.LocalTime.now().toString().replace(":", "") + ".csv");
+            ctx.header("Content-Disposition", "attachment; filename=" + csvFilename);
 
             ctx.result(csv.toString());
             } catch (NumberFormatException e)

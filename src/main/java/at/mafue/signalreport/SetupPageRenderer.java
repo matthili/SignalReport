@@ -104,7 +104,7 @@ public class SetupPageRenderer
                 
                         <div id="userPasswordGroup" style="display:none; margin-top:15px;">
                             <div class="form-group">
-                                <label for="userPassword">User-Passwort für Web-Zugriff *</label>
+                                <label for="userPassword">User-Passwort für Web-Zugriff (Benutzername: User) *</label>
                                 <input type="password" id="userPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
                             </div>
                             <div class="form-group">

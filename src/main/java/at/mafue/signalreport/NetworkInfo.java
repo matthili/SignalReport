@@ -54,16 +54,32 @@ public class NetworkInfo
         return cachedExternalIPv6;
     }
 
-    // LAN IPv4-Adresse ermitteln
+    // LAN IPv4-Adresse ermitteln (bevorzugt das Interface, das tatsächlich nach außen routet)
     private static String fetchLocalIPv4()
     {
+        // Ansatz 1: UDP-Socket öffnen – das OS wählt automatisch das richtige Interface
+        try (java.net.DatagramSocket socket = new java.net.DatagramSocket())
+            {
+            socket.connect(InetAddress.getByName("8.8.8.8"), 53);
+            InetAddress localAddr = socket.getLocalAddress();
+            if (localAddr != null && !localAddr.isLoopbackAddress() && localAddr instanceof Inet4Address)
+                {
+                return localAddr.getHostAddress();
+                }
+            } catch (Exception e)
+            {
+            // Fallback auf Interface-Enumeration
+            }
+
+        // Ansatz 2: Alle Interfaces durchgehen, virtuelle überspringen
         try
             {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements())
                 {
                 NetworkInterface iface = interfaces.nextElement();
-                if (iface.isLoopback() || !iface.isUp()) continue;
+                if (iface.isLoopback() || !iface.isUp() || iface.isVirtual()) continue;
+                if (isVirtualAdapter(iface)) continue;
 
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements())
@@ -82,16 +98,32 @@ public class NetworkInfo
         return "unknown";
     }
 
-    // LAN IPv6-Adresse ermitteln
+    // LAN IPv6-Adresse ermitteln (bevorzugt das Interface, das tatsächlich nach außen routet)
     private static String fetchLocalIPv6()
     {
+        // Ansatz 1: UDP-Socket mit IPv6-Ziel
+        try (java.net.DatagramSocket socket = new java.net.DatagramSocket())
+            {
+            socket.connect(InetAddress.getByName("2001:4860:4860::8888"), 53);
+            InetAddress localAddr = socket.getLocalAddress();
+            if (localAddr != null && !localAddr.isLoopbackAddress() && localAddr instanceof Inet6Address)
+                {
+                return localAddr.getHostAddress();
+                }
+            } catch (Exception e)
+            {
+            // Fallback auf Interface-Enumeration
+            }
+
+        // Ansatz 2: Alle Interfaces durchgehen, virtuelle überspringen
         try
             {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements())
                 {
                 NetworkInterface iface = interfaces.nextElement();
-                if (iface.isLoopback() || !iface.isUp()) continue;
+                if (iface.isLoopback() || !iface.isUp() || iface.isVirtual()) continue;
+                if (isVirtualAdapter(iface)) continue;
 
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements())
@@ -108,6 +140,21 @@ public class NetworkInfo
             // Fehler ignorieren, "unknown" wird zurückgegeben
             }
         return "unknown";
+    }
+
+    // Erkennt virtuelle Netzwerkadapter (Hyper-V, VMware, VirtualBox, Docker, WSL)
+    private static boolean isVirtualAdapter(NetworkInterface iface)
+    {
+        String name = iface.getDisplayName().toLowerCase();
+        return name.contains("hyper-v")
+                || name.contains("virtual")
+                || name.contains("vmware")
+                || name.contains("vmnet")
+                || name.contains("vboxnet")
+                || name.contains("virtualbox")
+                || name.contains("docker")
+                || name.contains("vethernet")
+                || name.contains("wsl");
     }
 
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()

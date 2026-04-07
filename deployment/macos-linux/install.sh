@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Arbeitsverzeichnis auf den Ordner des Skripts setzen
+cd "$(dirname "$0")"
+
 echo "============================================================"
 echo "SignalReport - Linux/macOS Installations-Tool"
 echo "(Apache Commons Daemon 1.5.1 - jsvc)"
@@ -138,7 +141,8 @@ if [ "$PLATFORM" = "linux" ]; then
         cat > /etc/systemd/system/signalreport.service <<EOF
 [Unit]
 Description=SignalReport Internet Monitoring
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=forking
@@ -170,7 +174,8 @@ EOF
         cat > /etc/systemd/system/signalreport.service <<EOF
 [Unit]
 Description=SignalReport Internet Monitoring
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple

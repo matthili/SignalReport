@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Arbeitsverzeichnis auf den Ordner des Skripts setzen
+cd "$(dirname "$0")"
+
 echo "============================================================"
 echo "SignalReport - Linux/macOS Deinstallations-Tool"
 echo "============================================================"
