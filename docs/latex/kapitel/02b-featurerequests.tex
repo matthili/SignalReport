@@ -34,9 +34,14 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
     die SignalReport-Daten integrieren können.
   \item[Motivation:] Fortgeschrittene Benutzer haben oft bereits ein Grafana-Dashboard und
     möchten die Internetqualität dort einbinden.
-  \item[Technische Überlegungen:] Einfaches Text-Format; keine externe Library nötig;
-    Metriken: \texttt{signalreport\_ping\_latency\_ms}, \texttt{signalreport\_dns\_latency\_ms},
-    \texttt{signalreport\_http\_latency\_ms}, \texttt{signalreport\_packet\_loss\_percent}.
+  \item[Technische Überlegungen:] Einfaches Text-Format; keine externe Library nötig.
+    Metriken:
+    \begin{itemize}[nosep]
+      \item \texttt{signalreport\_ping\_latency\_ms}
+      \item \texttt{signalreport\_dns\_latency\_ms}
+      \item \texttt{signalreport\_http\_latency\_ms}
+      \item \texttt{signalreport\_packet\_loss\_percent}
+    \end{itemize}
 \end{description}
 
 \subsection{FR-03: Multi-Host-Vergleich}
