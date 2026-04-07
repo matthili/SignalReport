@@ -111,8 +111,10 @@ auf den tatsächlichen Mehrwert für den Anwender zu legen.
     schützen können, damit Unbefugte nicht meine Messdaten sehen oder Einstellungen
     ändern können.}
     \begin{itemize}
-      \item Akzeptanzkriterien: HTTP Basic Auth mit Admin- und User-Rolle; Admin hat
-        Vollzugriff, User nur Leserechte; kann jederzeit aktiviert/deaktiviert werden.
+      \item Akzeptanzkriterien: Challenge-Response-Authentifizierung (SHA-256) mit
+        Admin- und User-Rolle; Passwort wird nie im Klartext übertragen;
+        Session-basiert mit 24\,h Timeout; Admin hat Vollzugriff, User nur
+        Leserechte; kann jederzeit aktiviert/deaktiviert werden.
     \end{itemize}
 
   \item \textbf{US-12: Push-Benachrichtigungen}\\
@@ -120,7 +122,7 @@ auf den tatsächlichen Mehrwert für den Anwender zu legen.
     benachrichtigt werden, damit ich auch ohne offenes Browser-Fenster informiert bin.}
     \begin{itemize}
       \item Akzeptanzkriterien: Browser Push Notifications; konfigurierbarer
-        Latenz-Schwellwert und Anzahl aufeinanderfolgender schlechter Messungen.
+        Latenz\-Schwell\-wert und Anzahl aufeinanderfolgender schlechter Messungen.
     \end{itemize}
 \end{enumerate}
 

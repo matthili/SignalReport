@@ -23,7 +23,7 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
     manuell einloggen zu müssen. Besonders für Provider-Beschwerden ist ein monatlicher
     Report hilfreich.
   \item[Technische Überlegungen:] SMTP-Konfiguration in config.json; javax.mail oder
-    Jakarta Mail; Scheduler via ScheduledExecutorService.
+    Jakarta Mail; Scheduler via \texttt{Scheduled\-Executor\-Service}.
 \end{description}
 
 \subsection{FR-02: Prometheus-Exporter für Grafana-Integration}
@@ -89,15 +89,15 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
 \subsection{FR-07: Verbesserte Verschlüsselung}
 \begin{description}
   \item[Priorität:] Could
-  \item[Beschreibung:] Derzeit werden Passwörter mit SHA-256 gehasht. Eine zukünftige
-    Version könnte bcrypt oder Argon2 für stärkeres Passwort-Hashing verwenden, das
-    besseren Schutz gegen Brute-Force-Angriffe bietet. Zusätzlich könnte
-    HTTPS-Unterstützung (über Let's Encrypt oder selbstsignierte Zertifikate) für
-    verschlüsselte Kommunikation ergänzt werden.
-  \item[Motivation:] SHA-256 ist zwar sicher, aber nicht speziell für Passwort-Hashing
-    konzipiert. Moderne Algorithmen wie bcrypt oder Argon2 bieten durch einstellbare
-    Kostenfaktoren deutlich besseren Schutz. HTTPS schützt die Datenübertragung
-    zwischen Browser und Server.
+  \item[Beschreibung:] Derzeit werden Passwörter mit SHA-256 gehasht und über ein
+    Challenge-Response-Verfahren übertragen (kein Klartext). Eine zukünftige
+    Version könnte bcrypt oder Argon2 für stärkeres Passwort-Hashing verwenden.
+    Zusätzlich könnte HTTPS-Unterstützung (über Let's Encrypt oder selbstsignierte
+    Zertifikate) für verschlüsselte Kommunikation ergänzt werden.
+  \item[Motivation:] SHA-256 ist für Challenge-Response geeignet, aber nicht speziell
+    für Passwort-Hashing konzipiert. Moderne Algorithmen wie bcrypt bieten durch
+    einstellbare Kostenfaktoren besseren Brute-Force-Schutz. HTTPS schützt die
+    gesamte Datenübertragung zwischen Browser und Server.
   \item[Technische Überlegungen:] jBCrypt oder Bouncy-Castle-Library für Argon2;
     Javalin-SSL-Plugin oder vorgeschalteter Reverse-Proxy (nginx/Caddy) für HTTPS.
 \end{description}
@@ -133,9 +133,9 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
     gleichzeitiges Laden kann auf ressourcenschwachen Geräten (z.\,B.\ NAS) zu
     Speicherengpässen führen.
   \item[Technische Überlegungen:] H2 unterstützt scrollbare ResultSets;
-    \texttt{Statement.setFetchSize()} für Streaming; Iterator-Pattern um
-    \texttt{ResultSet} als Wrapper; Änderungen in \texttt{H2MeasurementRepository}
-    und \texttt{PdfReportGenerator}.
+    \texttt{Statement.\allowbreak{}set\-Fetch\-Size()} für Streaming; Iterator-Pattern um
+    \texttt{ResultSet} als Wrapper; Änderungen in \texttt{H2Measurement\-Repository}
+    und \texttt{Pdf\-Report\-Generator}.
 \end{description}
 
 \subsection{Zusammenfassung der Feature Requests}

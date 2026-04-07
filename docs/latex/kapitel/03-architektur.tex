@@ -32,7 +32,9 @@ Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:compone
   \item[config] Singleton-Konfiguration mit JSON-Persistenz und verschachtelten
     Konfigurations-Klassen (Targets, MaintenanceWindow, Auth, Theme, etc.).
   \item[web] \texttt{WebServer} (Javalin) mit ausgelagertem HTML-Rendering in
-    \texttt{HtmlPageRenderer} und \texttt{SetupPageRenderer}.
+    \texttt{HtmlPageRenderer}, \texttt{SetupPageRenderer} und
+    \texttt{LoginPageRenderer}. Session-Verwaltung und
+    Challenge-Response-Verifikation über \texttt{SessionManager}.
   \item[export] \texttt{PdfReportGenerator} (OpenPDF + JFreeChart) und
     \texttt{PushNotificationService} für Browser-Benachrichtigungen.
   \item[network] \texttt{HostIdentifier} (stabiler Host-Hash) und \texttt{NetworkInfo}

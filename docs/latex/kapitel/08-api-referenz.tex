@@ -7,14 +7,26 @@ das JSON-Format.
 
 \subsection{Authentifizierung}
 
-Wenn die Authentifizierung aktiviert ist, müssen alle API-Aufrufe einen
-\texttt{Authorization}-Header mit HTTP Basic Auth enthalten:
+Wenn die Authentifizierung aktiviert ist, erfolgt der Login über ein
+Challenge-Response-Verfahren. Alle nachfolgenden API-Aufrufe werden per
+Session-Cookie (\texttt{SR\_SESSION}) authentifiziert.
 
-\begin{lstlisting}[language=bash, caption={Beispiel: API-Aufruf mit Authentifizierung}]
-curl -u admin:meinpasswort http://localhost:4567/api/measurements?limit=10
+\begin{lstlisting}[language=bash, caption={Beispiel: Login via Challenge-Response}]
+# 1. Nonce holen
+curl http://localhost:4567/api/auth/nonce
+# -> {"nonce":"a1b2c3..."}
+
+# 2. Login (challengeResponse = SHA-256(SHA-256(passwort) + nonce))
+curl -X POST http://localhost:4567/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","nonce":"a1b2c3...","challengeResponse":"d4e5f6..."}'
+# -> {"token":"abc123...","role":"admin"}
+
+# 3. Folgende Requests mit Cookie
+curl -b "SR_SESSION=abc123..." http://localhost:4567/api/measurements
 \end{lstlisting}
 
-Schreibende Endpunkte (POST) erfordern Admin-Rechte.
+Schreibende Endpunkte (POST) erfordern Admin-Rechte (Admin-Session).
 
 \subsection{Messdaten}
 
@@ -65,11 +77,10 @@ GET & \texttt{/api/report} & PDF-Bericht generieren.
   Parameter: \texttt{hours} (24, 168, 8760).
   Antwort: PDF-Datei (application/pdf) \\
 \hline
-GET & \texttt{/api/csv/export} & CSV-Export aller Messdaten.
-  Antwort: CSV-Datei (text/csv) \\
-\hline
-GET & \texttt{/api/csv/export/filtered} & CSV-Export mit Zeitfilter.
-  Parameter: \texttt{hours} \\
+GET & \texttt{/api/export/csv} & CSV-Export.
+  Parameter: \texttt{hours} (Zeitfilter), \texttt{all=true} (alle Daten),
+  \texttt{type} (Messtyp-Filter).
+  Antwort: CSV-Datei (text/csv, Semikolon-getrennt) \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: Berichte und Export}
@@ -84,9 +95,14 @@ GET & \texttt{/api/csv/export/filtered} & CSV-Export mit Zeitfilter.
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
-GET & \texttt{/api/dns-benchmark} & DNS-Benchmark starten.
-  Fragt alle konfigurierten DNS-Server parallel ab.
-  30-Sekunden-Cooldown zwischen Aufrufen. \\
+GET & \texttt{/api/dns/servers} & Liste aller konfigurierten DNS-Server abrufen \\
+\hline
+POST & \texttt{/api/dns/benchmark} & DNS-Benchmark starten.
+  Parameter: \texttt{hostname}.
+  Fragt alle DNS-Server parallel ab (Virtual Threads).
+  30-Sekunden-Cooldown. \\
+\hline
+GET & \texttt{/api/dns/statistics} & DNS-Statistik (Anzahl Server, Regionen, Provider) \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: DNS-Benchmark}
@@ -102,12 +118,14 @@ GET & \texttt{/api/dns-benchmark} & DNS-Benchmark starten.
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
 GET & \texttt{/api/ip-changes} & Letzte IP-Änderungen.
-  Parameter: \texttt{limit} \\
+  Parameter: \texttt{limit} (Standard: 50) \\
 \hline
-GET & \texttt{/api/ip-change-stats} & Statistik über IP-Änderungen
-  pro Host \\
+GET & \texttt{/api/ip-statistics} & Statistik über IP-Änderungen
+  pro Host (Anzahl, erster/letzter Wechsel) \\
 \hline
 GET & \texttt{/api/hosts} & Liste aller registrierten Hosts \\
+\hline
+GET & \texttt{/api/host/current} & Aktueller Host: Hostname, Hash, IPv4/IPv6 \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: IP-Tracking}
@@ -122,10 +140,11 @@ GET & \texttt{/api/hosts} & Liste aller registrierten Hosts \\
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
-GET & \texttt{/api/settings} & Aktuelle Konfiguration abrufen \\
+GET & \texttt{/api/config/current} & Aktuelle Konfiguration abrufen
+  (Messziele, Intervall, Maintenance, Benutzer-Info) \\
 \hline
-POST & \texttt{/api/settings} & Konfiguration aktualisieren
-  (Admin-Rechte erforderlich) \\
+POST & \texttt{/api/config/update} & Konfiguration aktualisieren.
+  Body: JSON mit ping, dns, http, intervalSeconds, maintenance, userInfo \\
 \hline
 GET & \texttt{/api/theme/settings} & Theme-Einstellungen abrufen \\
 \hline
@@ -145,14 +164,25 @@ POST & \texttt{/api/theme/settings} & Theme ändern.
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
+GET & \texttt{/api/auth/nonce} & Einmal-Nonce für Challenge-Response
+  generieren (60\,s gültig) \\
+\hline
+POST & \texttt{/api/auth/login} & Login via Challenge-Response.
+  Body: \texttt{\{username, nonce, challengeResponse\}} \\
+\hline
+POST & \texttt{/api/auth/logout} & Session beenden (Cookie wird gelöscht) \\
+\hline
+GET & \texttt{/api/auth/status} & Auth-Status abfragen (aktiviert/deaktiviert) \\
+\hline
 POST & \texttt{/api/setup/complete} & Ersteinrichtung abschließen.
-  Setzt Admin-Passwort und optionale Authentifizierung. \\
+  Body: \texttt{\{adminPasswordHash, enableAuth, userPasswordHash\}} \\
 \hline
-POST & \texttt{/api/auth/enable} & Authentifizierung aktivieren \\
+POST & \texttt{/api/auth/enable} & Auth aktivieren (Challenge-Response + User-Passwort-Hash) \\
 \hline
-POST & \texttt{/api/auth/disable} & Authentifizierung deaktivieren \\
+POST & \texttt{/api/auth/disable} & Auth deaktivieren (Challenge-Response erforderlich) \\
 \hline
-POST & \texttt{/api/auth/change-password} & Admin-Passwort ändern \\
+POST & \texttt{/api/auth/change-admin} & Admin-Passwort ändern
+  (Challenge-Response für altes PW + neuer Hash) \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: Authentifizierung}
@@ -172,11 +202,6 @@ GET & \texttt{/api/push/settings} & Push-Einstellungen abrufen \\
 POST & \texttt{/api/push/settings} & Push-Einstellungen ändern
   (Schwellwert, Anzahl) \\
 \hline
-POST & \texttt{/api/push/subscribe} & Client für Push registrieren \\
-\hline
-GET & \texttt{/api/push/poll} & Ausstehende Benachrichtigungen abrufen
-  (Long Polling) \\
-\hline
 \end{tabular}
 \caption{API-Endpunkte: Push-Benachrichtigungen}
 \end{table}
@@ -192,6 +217,7 @@ GET & \texttt{/api/push/poll} & Ausstehende Benachrichtigungen abrufen
 200 & Erfolgreiche Anfrage \\
 302 & Weiterleitung (z.\,B.\ zum Setup) \\
 401 & Authentifizierung erforderlich oder fehlgeschlagen \\
+403 & Keine Berechtigung (z.\,B.\ User versucht Admin-Aktion) \\
 500 & Interner Serverfehler (Details im Response-Body) \\
 \hline
 \end{tabular}

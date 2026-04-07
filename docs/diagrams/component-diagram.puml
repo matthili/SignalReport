@@ -10,6 +10,8 @@ package "SignalReport Anwendung" {
   [SetupPageRenderer] as SetupRenderer
   [PdfReportGenerator] as PDF
   [PushNotificationService] as Push
+  [LoginPageRenderer] as LoginRenderer
+  [SessionManager] as SessionMgr
 }
 
 package "Mess-Engine" {
@@ -65,6 +67,8 @@ Web --> Repo : liest Messungen für API
 Web --> PDF : generiert Bericht bei Anfrage
 Web --> Push : verwaltet Push-Clients
 Web --> Config : liest/aktualisiert Einstellungen
+Web --> LoginRenderer : delegiert Login-Rendering
+Web --> SessionMgr : verwaltet Sessions/Nonces
 
 HtmlRenderer --> Config : liest Theme-Einstellungen
 HtmlRenderer --> ChartJS : eingebettet im HTML
@@ -86,6 +90,12 @@ Benchmark --> GoogleDNS : DNS-Abfrage
 Benchmark --> CloudflareDNS : DNS-Abfrage
 NetInfo --> Ipify : externe IP ermitteln
 
+note bottom of Benchmark
+  Verwendet Virtual Threads
+  (Executors.newVirtualThreadPerTaskExecutor)
+  fuer parallele DNS-Abfragen
+end note
+
 note bottom of NetInfo
   IP-Adressen werden für 120s gecacht
   (lokal + extern, IPv4 + IPv6)
@@ -105,7 +115,7 @@ note right of Web
   * REST-API (/api/*)
   * HTML-Rendering delegiert
   * Setup-Wizard (/setup)
-  * Authentifizierung (Basic Auth)
+  * Challenge-Response Auth (SHA-256)
   * Theme-API (/api/theme/*)
 end note
 

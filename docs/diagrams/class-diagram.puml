@@ -184,6 +184,8 @@ package "web" {
     -H2MeasurementRepository repository
     -HtmlPageRenderer htmlPageRenderer
     -SetupPageRenderer setupPageRenderer
+    -LoginPageRenderer loginPageRenderer
+    -SessionManager sessionManager
     -Javalin app
     +void start(int port)
     +void stop()
@@ -195,6 +197,30 @@ package "web" {
 
   class SetupPageRenderer {
     +String render()
+  }
+
+  class LoginPageRenderer {
+    +String render()
+  }
+
+  class SessionManager {
+    -ConcurrentHashMap<String, Session> sessions
+    -ConcurrentHashMap<String, Instant> nonces
+    -SecureRandom random
+    +String generateNonce()
+    +boolean validateNonce(String nonce)
+    +String createSession(String role)
+    +Session getSession(String token)
+    +void invalidateSession(String token)
+    +boolean verifyChallengeResponse(String storedHash, String nonce, String response)
+  }
+
+  class "SessionManager.Session" as SMSession {
+    -String role
+    -Instant createdAt
+    -Instant lastAccess
+    +boolean isAdmin()
+    +void touch()
   }
 }
 
@@ -282,6 +308,10 @@ WebServer --> SetupPageRenderer : delegiert Setup-Rendering
 WebServer --> Config
 HtmlPageRenderer --> Config : liest Theme
 SetupPageRenderer --> Config : liest Theme
+WebServer --> LoginPageRenderer : delegiert Login-Rendering
+WebServer --> SessionManager : verwaltet Sessions
+SessionManager --> SMSession
+LoginPageRenderer --> Config : liest Theme
 
 ' --- Export ---
 PdfReportGenerator --> H2MeasurementRepository
@@ -307,7 +337,8 @@ note right of WebServer
   Javalin Web-Framework (Port 4567)
   REST-API + HTML-UI
   HTML-Rendering ausgelagert in
-  HtmlPageRenderer / SetupPageRenderer
+  HtmlPageRenderer / SetupPageRenderer / LoginPageRenderer
+  Challenge-Response Authentifizierung (SHA-256)
 end note
 
 note right of Measurer

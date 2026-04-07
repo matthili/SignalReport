@@ -17,6 +17,8 @@ public class WebServer
     private final H2MeasurementRepository repository;
     private final HtmlPageRenderer htmlPageRenderer = new HtmlPageRenderer();
     private final SetupPageRenderer setupPageRenderer = new SetupPageRenderer();
+    private final LoginPageRenderer loginPageRenderer = new LoginPageRenderer();
+    private final SessionManager sessionManager = new SessionManager();
     private Javalin app;
 
     public WebServer(H2MeasurementRepository repository)
@@ -42,9 +44,12 @@ public class WebServer
         {
         Config config = Config.getInstance();
 
-        // Setup-Seite und Login sind immer erlaubt
+        // Setup-Seite, Login, Auth-Endpoints und statische Ressourcen sind immer erlaubt
         String path = ctx.path();
-        if (path.equals("/setup") || path.equals("/api/setup/complete"))
+        if (path.equals("/setup") || path.equals("/api/setup/complete")
+                || path.equals("/login") || path.startsWith("/api/auth/")
+                || path.endsWith(".png") || path.endsWith(".ico") || path.endsWith(".css")
+                || path.endsWith(".js") || path.endsWith(".jpg") || path.endsWith(".svg"))
             {
             return;
             }
@@ -57,7 +62,7 @@ public class WebServer
             }
         });
 
-        // Auth-Middleware
+        // Auth-Middleware (Session-basiert mit Challenge-Response Login)
         app.before(ctx ->
         {
         Config config = Config.getInstance();
@@ -68,43 +73,45 @@ public class WebServer
             return; // Keine Authentifizierung erforderlich
             }
 
-        String authHeader = ctx.header("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Basic "))
+        // Login-Seite, Auth-Endpoints und statische Ressourcen sind ohne Session erlaubt
+        String path = ctx.path();
+        if (path.equals("/login") || path.startsWith("/api/auth/")
+                || path.equals("/setup") || path.equals("/api/setup/complete")
+                || path.endsWith(".png") || path.endsWith(".ico") || path.endsWith(".css")
+                || path.endsWith(".js") || path.endsWith(".jpg") || path.endsWith(".svg"))
             {
-            ctx.header("WWW-Authenticate", "Basic realm=\"SignalReport\"");
-            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
+            return;
             }
 
-        // Decode Basic Auth
-        String credentials = new String(java.util.Base64.getDecoder()
-                .decode(authHeader.substring(6)));
-        String[] parts = credentials.split(":", 2);
+        // Session-Token aus Cookie lesen
+        String token = ctx.cookie("SR_SESSION");
+        SessionManager.Session session = sessionManager.getSession(token);
 
-        if (parts.length != 2)
+        if (session == null)
             {
-            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
+            // Kein gueltiges Session-Token → zur Login-Seite umleiten
+            if (path.startsWith("/api/"))
+                {
+                throw new io.javalin.http.UnauthorizedResponse("Nicht angemeldet");
+                }
+            ctx.redirect("/login");
+            return;
             }
 
-        String username = parts[0];
-        String password = parts[1];
-
-        // Admin oder User?
-        boolean isAdmin = username.equals("admin") && auth.verifyAdminPassword(password);
-        boolean isUser = username.equals("user") && auth.verifyUserPassword(password);
-
-        if (!isAdmin && !isUser)
-            {
-            throw new io.javalin.http.UnauthorizedResponse("Unauthorized");
-            }
-
-        // Admin-Rechte speichern für spätere API-Checks
-        ctx.attribute("isAdmin", isAdmin);
+        // Admin-Rechte aus Session speichern
+        ctx.attribute("isAdmin", session.isAdmin());
         });
 
         // Statische HTML-Seite (Root)
         app.get("/", ctx ->
         {
         ctx.html(htmlPageRenderer.render());
+        });
+
+        // Login-Seite
+        app.get("/login", ctx ->
+        {
+        ctx.html(loginPageRenderer.render());
         });
 
         // Setup-Seite
@@ -573,25 +580,19 @@ public class WebServer
         ));
         });
 
-        // Setup abschließen (Admin-Passwort setzen)
+        // Setup abschließen (empfängt vorgehashte Passwörter vom Client)
         app.post("/api/setup/complete", ctx ->
         {
         try
             {
             var body = ctx.bodyAsClass(java.util.Map.class);
-            String adminPassword = body.get("adminPassword").toString();
+            String adminPasswordHash = body.get("adminPasswordHash").toString();
             boolean enableAuth = Boolean.parseBoolean(body.get("enableAuth").toString());
-            String userPassword = body.get("userPassword") != null ? body.get("userPassword").toString() : "";
+            String userPasswordHash = body.get("userPasswordHash") != null ? body.get("userPasswordHash").toString() : "";
 
-            if (adminPassword.length() < 6)
+            if (adminPasswordHash.isEmpty())
                 {
-                ctx.status(400).result("Admin-Passwort muss mindestens 6 Zeichen lang sein!");
-                return;
-                }
-
-            if (enableAuth && userPassword.length() < 6)
-                {
-                ctx.status(400).result("User-Passwort muss mindestens 6 Zeichen lang sein!");
+                ctx.status(400).result("Admin-Passwort-Hash fehlt!");
                 return;
                 }
 
@@ -599,12 +600,13 @@ public class WebServer
             Config.SetupConfig setup = config.getSetup();
             Config.AuthConfig auth = config.getAuth();
 
-            setup.setAdminPasswordHash(Config.hashPassword(adminPassword));
+            // Client sendet SHA-256(password) → direkt speichern
+            setup.setAdminPasswordHash(adminPasswordHash);
             setup.setSetupCompleted(true);
 
             if (enableAuth)
                 {
-                auth.setUserPasswordHash(Config.hashPassword(userPassword));
+                auth.setUserPasswordHash(userPasswordHash);
                 auth.setEnabled(true);
                 }
 
@@ -615,6 +617,77 @@ public class WebServer
             ctx.status(500);
             ctx.json(new ErrorResponse("Setup-Fehler: " + e.getMessage()));
             }
+        });
+
+        // Challenge-Response Auth-Endpoints
+        app.get("/api/auth/nonce", ctx ->
+        {
+        String nonce = sessionManager.generateNonce();
+        ctx.json(Map.of("nonce", nonce));
+        });
+
+        app.post("/api/auth/login", ctx ->
+        {
+        try
+            {
+            var body = ctx.bodyAsClass(java.util.Map.class);
+            String username = body.get("username").toString().trim().toLowerCase();
+            String nonce = body.get("nonce").toString();
+            String challengeResponse = body.get("challengeResponse").toString();
+
+            // Nonce validieren (Single-Use, 60s TTL)
+            if (!sessionManager.validateNonce(nonce))
+                {
+                ctx.status(401).result("Ungueltige oder abgelaufene Anmeldung");
+                return;
+                }
+
+            Config config = Config.getInstance();
+            Config.AuthConfig auth = config.getAuth();
+
+            String storedHash = null;
+            String role = null;
+
+            if ("admin".equals(username))
+                {
+                storedHash = config.getSetup().getAdminPasswordHash();
+                role = "admin";
+                }
+            else if ("user".equals(username))
+                {
+                storedHash = auth.getUserPasswordHash();
+                role = "user";
+                }
+
+            if (storedHash == null || storedHash.isEmpty())
+                {
+                ctx.status(401).result("Benutzername oder Passwort falsch");
+                return;
+                }
+
+            // Challenge-Response verifizieren: SHA-256(storedHash + nonce) == challengeResponse
+            if (!sessionManager.verifyChallengeResponse(storedHash, nonce, challengeResponse))
+                {
+                ctx.status(401).result("Benutzername oder Passwort falsch");
+                return;
+                }
+
+            // Session erstellen
+            String token = sessionManager.createSession(role);
+            ctx.json(Map.of("token", token, "role", role));
+            } catch (Exception e)
+            {
+            logger.error("Login-Fehler", e);
+            ctx.status(500).result("Anmeldung fehlgeschlagen");
+            }
+        });
+
+        app.post("/api/auth/logout", ctx ->
+        {
+        String token = ctx.cookie("SR_SESSION");
+        sessionManager.invalidateSession(token);
+        ctx.removeCookie("SR_SESSION", "/");
+        ctx.status(200).result("Abgemeldet");
         });
 
         // Authentifizierungs-Einstellungen
@@ -633,19 +706,30 @@ public class WebServer
         try
             {
             var body = ctx.bodyAsClass(java.util.Map.class);
-            String adminPassword = body.get("adminPassword").toString();
-            String userPassword = body.get("userPassword").toString();
+            String userPasswordHash = body.get("userPasswordHash").toString();
+            String nonce = body.get("nonce").toString();
+            String challengeResponse = body.get("challengeResponse").toString();
+
+            // Admin-Identitaet per Challenge-Response verifizieren
+            if (!sessionManager.validateNonce(nonce))
+                {
+                ctx.status(401).result("Ungueltige Anfrage");
+                return;
+                }
 
             Config config = Config.getInstance();
-            Config.AuthConfig auth = config.getAuth();
+            String storedAdminHash = config.getSetup().getAdminPasswordHash();
 
-            if (!auth.verifyAdminPassword(adminPassword))
+            if (!sessionManager.verifyChallengeResponse(storedAdminHash, nonce, challengeResponse))
                 {
                 ctx.status(403).result("Falsches Admin-Passwort");
                 return;
                 }
 
-            auth.setUserPasswordHash(Config.hashPassword(userPassword));
+            Config.AuthConfig auth = config.getAuth();
+
+            // Client sendet SHA-256(userPassword) → direkt speichern
+            auth.setUserPasswordHash(userPasswordHash);
             auth.setEnabled(true);
 
             Config.save("config.json");
@@ -662,19 +746,29 @@ public class WebServer
         try
             {
             var body = ctx.bodyAsClass(java.util.Map.class);
-            String adminPassword = body.get("adminPassword").toString();
+            String nonce = body.get("nonce").toString();
+            String challengeResponse = body.get("challengeResponse").toString();
+
+            // Admin-Identitaet per Challenge-Response verifizieren
+            if (!sessionManager.validateNonce(nonce))
+                {
+                ctx.status(401).result("Ungueltige Anfrage");
+                return;
+                }
 
             Config config = Config.getInstance();
-            Config.AuthConfig auth = config.getAuth();
+            String storedAdminHash = config.getSetup().getAdminPasswordHash();
 
-            if (!auth.verifyAdminPassword(adminPassword))
+            if (!sessionManager.verifyChallengeResponse(storedAdminHash, nonce, challengeResponse))
                 {
                 ctx.status(403).result("Falsches Admin-Passwort");
                 return;
                 }
 
+            Config.AuthConfig auth = config.getAuth();
             auth.setEnabled(false);
             Config.save("config.json");
+
             ctx.status(200).result("Authentifizierung deaktiviert");
             } catch (Exception e)
             {
@@ -688,25 +782,34 @@ public class WebServer
         try
             {
             var body = ctx.bodyAsClass(java.util.Map.class);
-            String oldPassword = body.get("oldPassword").toString();
-            String newPassword = body.get("newPassword").toString();
+            String nonce = body.get("nonce").toString();
+            String challengeResponse = body.get("challengeResponse").toString();
+            String newPasswordHash = body.get("newPasswordHash").toString();
+
+            // Nonce und altes Passwort per Challenge-Response verifizieren
+            if (!sessionManager.validateNonce(nonce))
+                {
+                ctx.status(401).result("Ungueltige Anfrage");
+                return;
+                }
 
             Config config = Config.getInstance();
-            Config.AuthConfig auth = config.getAuth();
+            String storedHash = config.getSetup().getAdminPasswordHash();
 
-            if (!auth.verifyAdminPassword(oldPassword))
+            if (!sessionManager.verifyChallengeResponse(storedHash, nonce, challengeResponse))
                 {
                 ctx.status(403).result("Falsches aktuelles Admin-Passwort");
                 return;
                 }
 
-            auth.setAdminPasswordHash(Config.hashPassword(newPassword));
+            // Client sendet SHA-256(newPassword) → direkt speichern
+            config.getSetup().setAdminPasswordHash(newPasswordHash);
             Config.save("config.json");
-            ctx.status(200).result("Admin-Passwort geändert");
+            ctx.status(200).result("Admin-Passwort geaendert");
             } catch (Exception e)
             {
             ctx.status(500);
-            ctx.json(new ErrorResponse("Admin-Passwort-Änderungs-Fehler: " + e.getMessage()));
+            ctx.json(new ErrorResponse("Admin-Passwort-Aenderungs-Fehler: " + e.getMessage()));
             }
         });
 

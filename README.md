@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-59%20passing-brightgreen" alt="JUnit Tests"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-75%20passing-brightgreen" alt="JUnit Tests"></a>
 </p>
 
 Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachung deiner Internet-Qualität – mit PDF-Berichten für Provider-Beschwerden, IP-Tracking und DNS-Benchmark.
@@ -22,7 +22,7 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 | **Monitoring** | 🔁 Kontinuierliche Messung (Ping/DNS/HTTP)<br>⏱️ Konfigurierbares Intervall (5s–1h)<br>⏸️ Maintenance-Fenster (Router-Updates)<br>🌐 IP-Tracking (externe IP-Änderungen erkennen) |
 | **Visualisierung** | 📊 Live-Charts mit Chart.js<br>🌡️ Heatmap pro Stunde<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
 | **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export (vollständig oder gefiltert) |
-| **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Optionale Authentifizierung (Basic Auth)<br>👥 Admin/User-Rollen |
+| **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
 | **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark (Server weltweit)<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
 
 ---
@@ -45,6 +45,28 @@ http://localhost:4567
 ```
 
 ✅ **Fertig!** Die Messung beginnt automatisch – alle 10 Sekunden werden Ping, DNS und HTTP getestet.
+
+---
+
+## 📦 Installation als Dienst
+
+Für den Dauerbetrieb (auch ohne angemeldeten Benutzer) kann SignalReport als Hintergrund-Dienst installiert werden.
+
+### Windows
+1. [`signalreport_windows.zip`](deployment/signalreport_windows.zip) herunterladen und entpacken
+2. `install.bat` mit Rechtsklick → *"Als Administrator ausführen"* starten
+3. Das Skript installiert den Dienst, erstellt eine Desktop-Verknüpfung und richtet die Firewall ein
+
+### macOS / Linux
+1. [`signalreport_mac-linux.zip`](deployment/signalreport_mac-linux.zip) herunterladen und entpacken
+2. Terminal öffnen und ausführen: `sudo ./install.sh`
+3. Der Dienst wird als systemd-Service (Linux) bzw. launchd-Service (macOS) eingerichtet
+
+> 💡 Die [`signalreport.jar`](deployment/signalreport.jar) muss sich im selben Verzeichnis wie die Installations-Skripte befinden.
+
+### Deinstallation
+- **Windows**: `uninstall.bat` als Administrator ausführen
+- **macOS/Linux**: `sudo ./uninstall.sh`
 
 ---
 
@@ -125,10 +147,12 @@ signalreport/
 │   ├── WebServer.java                    # Javalin REST-API + Routing
 │   ├── HtmlPageRenderer.java             # HTML-Rendering Hauptseite
 │   ├── SetupPageRenderer.java            # HTML-Rendering Setup-Wizard
+│   ├── LoginPageRenderer.java            # Login-Seite (Challenge-Response)
+│   ├── SessionManager.java               # Session- & Nonce-Verwaltung
 │   ├── PdfReportGenerator.java           # PDF-Export (OpenPDF + JFreeChart)
 │   ├── NetworkInfo.java                  # IP-Adress-Ermittlung (mit Cache)
 │   └── HostIdentifier.java              # Host-Hash (stabile ID)
-├── src/test/java/at/mafue/signalreport/ # 7 Testklassen, 59 Tests
+├── src/test/java/at/mafue/signalreport/ # 8 Testklassen, 75 Tests
 ├── src/main/resources/web/               # Statische Dateien (Logos, Favicons)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
@@ -160,6 +184,8 @@ signalreport/
 
 ## 🔒 Sicherheitshinweise
 
+- **Challenge-Response Auth**: Passwörter werden nie im Klartext übertragen – SHA-256 mit Einmal-Nonces
+- **Session-Management**: 24h Session-Timeout, sichere Cookie-basierte Authentifizierung
 - **Authentifizierung**: Für öffentliche IPs (z.B. NAS mit Port-Weiterleitung) **unbedingt aktivieren** (Tab *🔐 Sicherheit*)
 - **Setup-Passwort**: Admin-Passwort wird beim ersten Start festgelegt – niemals Standardwerte belassen!
 - **Datenbank**: Alle Daten lokal gespeichert – keine Cloud-Abhängigkeit, keine externen APIs (außer ipify.org für externe IP)
@@ -199,6 +225,7 @@ Dieses Projekt nutzt großartige Open-Source-Bibliotheken und Dienste:
 
 **Frontend (Browser):**
 - [Chart.js](https://www.chartjs.org/) – Live-Charts im Web-Interface (via CDN)
+- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) – Client-seitiges SHA-256 Hashing für Challenge-Response Auth
 
 **Externe Dienste:**
 - [ipify.org](https://www.ipify.org/) – Ermittlung der externen IP-Adresse

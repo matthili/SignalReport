@@ -84,14 +84,18 @@ Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenständige Klass
 ausgelagert:
 
 \begin{description}
-  \item[WebServer] (ca.\ 800 Zeilen) -- Verwaltet Javalin-Routen, REST-API-Endpunkte,
-    Authentifizierungs-Middleware und Setup-Logik. Delegiert die HTML-Generierung an die
-    Renderer.
-  \item[HtmlPageRenderer] (ca.\ 1100 Zeilen) -- Generiert die Hauptseite mit allen
+  \item[WebServer] (ca.\ 850 Zeilen) -- Verwaltet Javalin-Routen, REST-API-Endpunkte,
+    Session-basierte Authentifizierungs-Middleware und Setup-Logik. Delegiert die
+    HTML-Generierung an die Renderer.
+  \item[HtmlPageRenderer] (ca.\ 1125 Zeilen) -- Generiert die Hauptseite mit allen
     UI-Komponenten: Live-Chart (Chart.js), Statistik-Panel, Heatmap, DNS-Benchmark,
-    Konfigurations-Tabs und IP-Tracking.
-  \item[SetupPageRenderer] (ca.\ 195 Zeilen) -- Generiert den Setup-Assistenten für die
-    Ersteinrichtung.
+    Konfigurations-Tabs, IP-Tracking und Logout-Funktion.
+  \item[SetupPageRenderer] (ca.\ 200 Zeilen) -- Generiert den Setup-Assistenten für die
+    Ersteinrichtung mit client-seitigem Passwort-Hashing.
+  \item[LoginPageRenderer] (ca.\ 120 Zeilen) -- Generiert die Login-Seite mit eingebettetem
+    JavaScript für die Challenge-Response-Berechnung (Web Crypto API).
+  \item[SessionManager] (ca.\ 140 Zeilen) -- Verwaltet Nonces (Single-Use, 60\,s TTL),
+    Sessions (24\,h Timeout) und verifiziert Challenge-Responses.
 \end{description}
 
 \subsubsection{Dark Mode}
@@ -131,8 +135,34 @@ aktualisiert.
 \subsubsection{DNS-Benchmark}
 
 Der DNS-Benchmark vergleicht konfigurierbare DNS-Server weltweit (Google, Cloudflare,
-Quad9, etc.) per paralleler Abfrage. Ein 30-Sekunden-Cooldown verhindert Missbrauch.
+Quad9, etc.) per paralleler Abfrage. Dabei kommen \textbf{Virtual Threads}
+(Java~21) zum Einsatz: Über \texttt{Executors.newVirtualThreadPerTaskExecutor()}
+wird für jeden DNS-Server ein eigener virtueller Thread erstellt, der die Abfrage
+unabhängig durchführt. Dies ermöglicht echte Parallelität ohne den Overhead
+klassischer Plattform-Threads. Ein 30-Sekunden-Cooldown verhindert Missbrauch.
 Die Ergebnisse werden nach Latenz sortiert und mit regionaler Farbcodierung dargestellt.
+
+\subsubsection{Challenge-Response Authentifizierung}
+
+Anstelle von HTTP Basic Auth, bei dem das Passwort im Klartext übertragen wird,
+verwendet SignalReport ein Challenge-Response-Verfahren auf Basis von SHA-256.
+Der Ablauf:
+
+\begin{enumerate}
+  \item Client fordert eine Einmal-Nonce an (\texttt{GET /api/auth/nonce})
+  \item Client berechnet: \texttt{SHA-256(SHA-256(Passwort) + Nonce)}
+  \item Server berechnet: \texttt{SHA-256(gespeicherterHash + Nonce)}
+  \item Bei Übereinstimmung wird ein Session-Token erstellt (24\,h gültig)
+  \item Alle weiteren Requests werden per Session-Cookie (\texttt{SR\_SESSION}) authentifiziert
+\end{enumerate}
+
+Nonces sind einmalig verwendbar (Single-Use) und verfallen nach 60~Sekunden.
+Die kryptografischen Operationen im Browser werden über die Web Crypto API
+(\texttt{crypto.subtle.digest}) durchgeführt -- damit ist kein Klartext-Passwort
+in der Netzwerkkommunikation enthalten.
+
+Die Session-Verwaltung erfolgt über die Klasse \texttt{SessionManager}, die
+Nonces und Sessions in \texttt{ConcurrentHashMap}-Instanzen verwaltet.
 
 \subsection{PDF-Export}
 

@@ -1,4 +1,4 @@
-@startuml SignalReport - State-Diagramm Authentifizierung
+@startuml SignalReport - State-Diagramm Challenge-Response Authentifizierung (SHA-256)
 !theme plain
 skinparam stateFontSize 13
 skinparam state {
@@ -29,15 +29,15 @@ state AuthEnabled {
   [*] --> LoginRequired : Zugriff auf Web-UI
 
   state LoginRequired {
-    [*] --> Authenticate : HTTP Basic Auth angefordert
-    Authenticate --> UserSession : Erfolgreich (User-Passwort)
-    Authenticate --> AdminSession : Erfolgreich (Admin-Passwort)
-    Authenticate --> LoginRequired : Fehlgeschlagen\n(401 Unauthorized)
+    [*] --> Authenticate : Login-Seite angezeigt
+    Authenticate --> UserSession : Challenge-Response erfolgreich (User)
+    Authenticate --> AdminSession : Challenge-Response erfolgreich (Admin)
+    Authenticate --> LoginRequired : Fehlgeschlagen\n(Falsches Passwort)
   }
 
   state UserSession {
     [*] --> UserAccess : Eingeschränkter Zugriff\n(Nur Lesen)
-    UserAccess --> Logout : Abmelden (Browser-Cache leeren)
+    UserAccess --> Logout : Abmelden (Session invalidieren)
     UserAccess --> LoginRequired : Session abgelaufen
   }
 
@@ -45,7 +45,7 @@ state AuthEnabled {
     [*] --> AdminAccess : Vollzugriff\n(Lesen + Schreiben)
     AdminAccess --> ChangeAdminPassword : Admin-Passwort ändern
     AdminAccess --> DisableAuth : Authentifizierung deaktivieren
-    AdminAccess --> Logout : Abmelden
+    AdminAccess --> Logout : Abmelden (Session invalidieren)
     AdminAccess --> LoginRequired : Session abgelaufen
   }
 
@@ -70,12 +70,12 @@ end note
 
 note right of AuthEnabled
   **AuthEnabled (Geschützter Zugriff)**
-  • HTTP Basic Authentication
+  • Challenge-Response Authentifizierung
   • Zwei Benutzerrollen:
     - User: Nur Lesen (Monitoring, Berichte)
     - Admin: Vollzugriff (Einstellungen, Setup)
-  • Browser speichert Credentials im Cache
-  • Logout durch Löschen des Browser-Cache
+  • Session-Token als Cookie (24h gueltig)
+  • Logout invalidiert Session sofort
 end note
 
 note bottom of ChangeAdminPassword
@@ -84,5 +84,12 @@ note bottom of ChangeAdminPassword
   • Neues Passwort muss mindestens 6 Zeichen lang sein
   • Änderung sofort wirksam
   • Alle aktiven Sessions werden ungültig
+end note
+note left of LoginRequired
+  **Challenge-Response Ablauf**
+  1. Client holt Nonce (GET /api/auth/nonce)
+  2. Client berechnet SHA-256(SHA-256(PW) + Nonce)
+  3. Server verifiziert und erstellt Session
+  4. Passwort wird nie im Klartext uebertragen
 end note
 @enduml

@@ -12,7 +12,7 @@ Die Teststrategie umfasste:
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die 7 Testklassen mit insgesamt 59 Tests decken folgende Bereiche ab:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 8 Testklassen mit insgesamt 75 Tests decken folgende Bereiche ab:
 
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
@@ -22,6 +22,7 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 7 Testklassen mit insgesa
     \item \textbf{H2MeasurementRepositoryTest} (10 Tests): Vollständige Datenbank-Integration mit IP-Tracking, Host-Registrierung
     \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
     \item \textbf{MaintenanceWindowTest} (7 Tests): Deaktiviert, ganztägig, aktuelle Zeit, Mitternachtsübergang, Standardwerte
+    \item \textbf{SessionManagerTest} (16 Tests): Nonce-Generierung und -Validierung (Single-Use, Ablauf), Session-Erstellung und -Timeout (24\,h), Rollen\-unter\-schei\-dung (Admin/User), Challenge-Response-Verifikation, Replay-Schutz
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
@@ -53,13 +54,13 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow) & 39 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, Maintenance\-Window, Session\-Manager) & 55 & 100\% \\
 \hline
 Integrationstests (Statistics, H2MeasurementRepository) & 19 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
-\textbf{Gesamt} & \textbf{59 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{75 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -80,5 +81,5 @@ SignalReport verwendet eine gezielte Test-Strategie:
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 59 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 75 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

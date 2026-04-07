@@ -61,11 +61,17 @@ public class SetupPageRenderer
                         .btn:disabled { background: var(--color-text-secondary); cursor: not-allowed; }
                         .error { color: #dc3545; margin-top: 10px; padding: 10px; background: var(--bg-error); border-radius: 5px; display: none; }
                         .info-box { background: var(--bg-info-box); padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid var(--color-primary); }
+                        .setup-logo { max-width: 280px; height: auto; display: block; margin: 0 auto 10px auto; }
+                        .setup-logo.dark { display: none; }
+                        body.dark-mode .setup-logo.light { display: none; }
+                        body.dark-mode .setup-logo.dark { display: block; margin: 0 auto 10px auto; }
                     </style>
                 </head>
                 <body BODY_CLASS>
                     <div class="setup-container">
-                        <h1>\uD83D\uDCE1 SignalReport Setup</h1>
+                        <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="setup-logo light">
+                        <img src="/logo_mit_schriftzug_dark_login.png" alt="SignalReport" class="setup-logo dark">
+                        <h2 style="text-align:center; color:var(--color-primary); margin-bottom:30px;">Setup</h2>
                 
                         <div class="info-box">
                             <strong>Willkommen!</strong>
@@ -119,70 +125,84 @@ public class SetupPageRenderer
                     </div>
                 
                     <script>
+                        // SHA-256 Hash-Funktion (Web Crypto API)
+                        async function sha256(message) {
+                            const encoder = new TextEncoder();
+                            const data = encoder.encode(message);
+                            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                            const hashArray = Array.from(new Uint8Array(hashBuffer));
+                            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                        }
+
                         // Authentifizierung-Checkbox Toggle
                         document.getElementById('enableAuth').addEventListener('change', function() {
                             document.getElementById('userPasswordGroup').style.display = this.checked ? 'block' : 'none';
                         });
-                
+
                         // Setup abschließen
-                        document.getElementById('completeSetup').addEventListener('click', function() {
+                        document.getElementById('completeSetup').addEventListener('click', async function() {
                             const adminPassword = document.getElementById('adminPassword').value;
                             const adminPasswordConfirm = document.getElementById('adminPasswordConfirm').value;
                             const enableAuth = document.getElementById('enableAuth').checked;
                             const userPassword = document.getElementById('userPassword').value;
                             const userPasswordConfirm = document.getElementById('userPasswordConfirm').value;
-                
+
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.style.display = 'none';
-                
+
                             // Validierung
                             if (adminPassword.length < 6) {
                                 showError('Admin-Passwort muss mindestens 6 Zeichen lang sein!');
                                 return;
                             }
-                
+
                             if (adminPassword !== adminPasswordConfirm) {
-                                showError('Admin-Passwörter stimmen nicht überein!');
+                                showError('Admin-Passwoerter stimmen nicht ueberein!');
                                 return;
                             }
-                
+
                             if (enableAuth) {
                                 if (userPassword.length < 6) {
                                     showError('User-Passwort muss mindestens 6 Zeichen lang sein!');
                                     return;
                                 }
-                
+
                                 if (userPassword !== userPasswordConfirm) {
-                                    showError('User-Passwörter stimmen nicht überein!');
+                                    showError('User-Passwoerter stimmen nicht ueberein!');
                                     return;
                                 }
                             }
-                
-                            // API-Aufruf
+
+                            // Passwoerter client-seitig hashen (SHA-256)
                             this.disabled = true;
                             this.textContent = 'Setup wird abgeschlossen...';
-                
-                            fetch('/api/setup/complete', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    adminPassword: adminPassword,
-                                    enableAuth: enableAuth,
-                                    userPassword: userPassword
-                                })
-                            })
-                            .then(response => response.text())
-                            .then(message => {
+
+                            try {
+                                const adminPasswordHash = await sha256(adminPassword);
+                                const userPasswordHash = enableAuth ? await sha256(userPassword) : '';
+
+                                const response = await fetch('/api/setup/complete', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        adminPasswordHash: adminPasswordHash,
+                                        enableAuth: enableAuth,
+                                        userPasswordHash: userPasswordHash
+                                    })
+                                });
+
+                                const message = await response.text();
                                 alert('\u2705 ' + message);
-                                window.location.href = '/';
-                            })
-                            .catch(error => {
+
+                                // Bei aktivierter Auth zur Login-Seite, sonst zur Hauptseite
+                                window.location.href = enableAuth ? '/login' : '/';
+                            } catch (error) {
                                 showError('Fehler: ' + error.message);
                                 this.disabled = false;
-                                this.textContent = 'Setup abschließen';
-                            });
+                                this.textContent = 'Setup abschliessen';
+                            }
                         });
-                
+
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;

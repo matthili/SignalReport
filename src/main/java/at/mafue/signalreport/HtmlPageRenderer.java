@@ -112,6 +112,7 @@ public class HtmlPageRenderer
                 >
                     <div class="header">
                         <button id="theme-toggle" onclick="toggleTheme()" title="Dark Mode umschalten"></button>
+                        <button id="logout-btn" onclick="logout()" title="Abmelden" style="position:absolute; right:50px; top:10px; background:none; border:2px solid #dc3545; border-radius:5px; padding:5px 12px; font-size:14px; cursor:pointer; color:#dc3545; display:none;">\uD83D\uDEAA Abmelden</button>
                         <img src="/logo_mit_schriftzug_light_web.png" alt="SignalReport" class="header-logo light">
                         <img src="/logo_mit_schriftzug_dark.png" alt="SignalReport" class="header-logo dark">
                     </div>
@@ -308,24 +309,24 @@ public class HtmlPageRenderer
                                 <h4>\uD83D\uDD10 Authentifizierung aktivieren</h4>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                     <div>
-                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort</label>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort (Bestaetigung)</label>
                                         <input type="password" id="auth-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                                     </div>
                                     <div>
-                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">User-Passwort</label>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">User-Passwort (mind. 6 Zeichen)</label>
                                         <input type="password" id="auth-user-password" placeholder="User-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                                     </div>
                                 </div>
                                 <button onclick="enableAuth()" style="margin-top:20px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD10 Aktivieren</button>
                             </div>
-                
+
                             <div id="auth-disable-section" style="display:none;">
                                 <h4>\uD83D\uDD13 Authentifizierung deaktivieren</h4>
                                 <div style="margin-top:15px;">
-                                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort</label>
+                                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Admin-Passwort (Bestaetigung)</label>
                                     <input type="password" id="auth-disable-admin-password" placeholder="Admin-Passwort" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                                 </div>
-                                <button onclick="disableAuth()" style="margin-top:20px; padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD13 Deaktivieren</button>
+                                <button onclick="disableAuth()" style="margin-top:15px; padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD13 Deaktivieren</button>
                             </div>
                 
                             <div style="margin-top:30px; padding-top:20px; border-top:2px solid #e9ecef;">
@@ -988,6 +989,44 @@ public class HtmlPageRenderer
                             });
                         }
                 
+                        // SHA-256 Hash-Funktion (Web Crypto API)
+                        async function sha256(message) {
+                            const encoder = new TextEncoder();
+                            const data = encoder.encode(message);
+                            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                            const hashArray = Array.from(new Uint8Array(hashBuffer));
+                            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                        }
+
+                        // Auth-Fetch Wrapper: bei 401 zur Login-Seite weiterleiten
+                        async function authFetch(url, options) {
+                            const response = await fetch(url, options);
+                            if (response.status === 401) {
+                                window.location.href = '/login';
+                                throw new Error('Session abgelaufen');
+                            }
+                            return response;
+                        }
+
+                        // Logout
+                        async function logout() {
+                            try {
+                                await fetch('/api/auth/logout', { method: 'POST' });
+                            } catch (e) { /* ignorieren */ }
+                            document.cookie = 'SR_SESSION=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                            window.location.href = '/login';
+                        }
+
+                        // Logout-Button anzeigen, wenn Auth aktiv
+                        function checkLogoutButton() {
+                            fetch('/api/auth/status')
+                                .then(r => r.json())
+                                .then(s => {
+                                    document.getElementById('logout-btn').style.display = s.enabled ? 'block' : 'none';
+                                })
+                                .catch(() => {});
+                        }
+
                         // Security-Tab Funktionen
                         function loadAuthStatus() {
                             fetch('/api/auth/status')
@@ -997,34 +1036,81 @@ public class HtmlPageRenderer
                                     const enable = document.getElementById('auth-enable-section');
                                     const disable = document.getElementById('auth-disable-section');
                                     if (s.enabled) {
-                                        div.innerHTML = '<strong>\u2705 Authentifizierung AKTIV</strong><br>Benutzer: user | Admin: admin';
+                                        div.innerHTML = '<strong>\u2705 Authentifizierung AKTIV</strong><br>Benutzer: user | Admin: admin<br><small>Gesichert mit Challenge-Response (SHA-256)</small>';
                                         enable.style.display = 'none'; disable.style.display = 'block';
                                     } else {
-                                        div.innerHTML = '<strong>\u26A0\uFE0F Authentifizierung DEAKTIVIERT</strong><br>Web-Interface ist öffentlich zugänglich';
+                                        div.innerHTML = '<strong>\u26A0\uFE0F Authentifizierung DEAKTIVIERT</strong><br>Web-Interface ist oeffentlich zugaenglich';
                                         enable.style.display = 'block'; disable.style.display = 'none';
                                     }
+                                    checkLogoutButton();
                                 });
                         }
-                        function enableAuth() {
+                        async function enableAuth() {
                             const a = document.getElementById('auth-admin-password').value;
                             const u = document.getElementById('auth-user-password').value;
-                            if (!a || !u) { alert('Bitte beide Passwörter eingeben!'); return; }
-                            fetch('/api/auth/enable', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({adminPassword:a, userPassword:u})})
-                            .then(r => r.text()).then(m => { alert(m); loadAuthStatus(); });
+                            if (!a) { alert('Admin-Passwort eingeben!'); return; }
+                            if (!u || u.length < 6) { alert('User-Passwort eingeben (mind. 6 Zeichen)!'); return; }
+                            try {
+                                const nonceResp = await fetch('/api/auth/nonce');
+                                const nonceData = await nonceResp.json();
+                                const nonce = nonceData.nonce;
+                                const adminHash = await sha256(a);
+                                const challengeResponse = await sha256(adminHash + nonce);
+                                const userPasswordHash = await sha256(u);
+                                const resp = await fetch('/api/auth/enable', {method:'POST', headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({nonce:nonce, challengeResponse:challengeResponse, userPasswordHash:userPasswordHash})});
+                                const msg = await resp.text();
+                                alert(msg);
+                                loadAuthStatus();
+                            } catch (e) { alert('Fehler: ' + e.message); }
                         }
-                        function disableAuth() {
+                        async function disableAuth() {
                             const p = document.getElementById('auth-disable-admin-password').value;
                             if (!p) { alert('Admin-Passwort eingeben!'); return; }
-                            if (!confirm('\u26A0\uFE0F Web-Interface wird öffentlich! Fortfahren?')) return;
-                            fetch('/api/auth/disable', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({adminPassword:p})})
-                            .then(r => r.text()).then(m => { alert(m); loadAuthStatus(); });
+                            if (!confirm('\u26A0\uFE0F Web-Interface wird oeffentlich! Fortfahren?')) return;
+                            try {
+                                const nonceResp = await fetch('/api/auth/nonce');
+                                const nonceData = await nonceResp.json();
+                                const nonce = nonceData.nonce;
+                                const adminHash = await sha256(p);
+                                const challengeResponse = await sha256(adminHash + nonce);
+                                const resp = await fetch('/api/auth/disable', {method:'POST', headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({nonce:nonce, challengeResponse:challengeResponse})});
+                                const msg = await resp.text();
+                                alert(msg);
+                                loadAuthStatus();
+                            } catch (e) { alert('Fehler: ' + e.message); }
                         }
-                        function changeAdminPassword() {
+                        async function changeAdminPassword() {
                             const old = document.getElementById('change-old-admin-password').value;
                             const neu = document.getElementById('change-new-admin-password').value;
-                            if (!old || !neu || neu.length < 6) { alert('Passwörter prüfen (mind. 6 Zeichen)!'); return; }
-                            fetch('/api/auth/change-admin', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oldPassword:old, newPassword:neu})})
-                            .then(r => r.text()).then(m => { alert(m); document.getElementById('change-old-admin-password').value=''; document.getElementById('change-new-admin-password').value=''; });
+                            if (!old || !neu || neu.length < 6) { alert('Passwoerter pruefen (mind. 6 Zeichen)!'); return; }
+
+                            try {
+                                // Nonce holen
+                                const nonceResp = await fetch('/api/auth/nonce');
+                                const nonceData = await nonceResp.json();
+                                const nonce = nonceData.nonce;
+
+                                // Challenge-Response fuer altes Passwort: SHA-256(SHA-256(oldPw) + nonce)
+                                const oldHash = await sha256(old);
+                                const challengeResponse = await sha256(oldHash + nonce);
+
+                                // Neues Passwort hashen
+                                const newPasswordHash = await sha256(neu);
+
+                                const resp = await authFetch('/api/auth/change-admin', {
+                                    method: 'POST',
+                                    headers: {'Content-Type':'application/json'},
+                                    body: JSON.stringify({nonce: nonce, challengeResponse: challengeResponse, newPasswordHash: newPasswordHash})
+                                });
+                                const msg = await resp.text();
+                                alert(msg);
+                                document.getElementById('change-old-admin-password').value = '';
+                                document.getElementById('change-new-admin-password').value = '';
+                            } catch (e) {
+                                alert('Fehler: ' + e.message);
+                            }
                         }
                 
                         // PDF-Download
@@ -1098,6 +1184,7 @@ public class HtmlPageRenderer
                         loadStatistics();
                         loadMeasurements();
                         loadHourlyChart();
+                        checkLogoutButton();
                         // DNS-Benchmark State (MUSS HIER STEHEN, NICHT IN DER FUNKTION!)
                         let isDnsBenchmarkRunning = false;
                         let dnsBenchmarkCooldownTimer = null;

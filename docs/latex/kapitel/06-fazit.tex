@@ -12,7 +12,7 @@ SignalReport ist eine vollständige Internet-Qualitäts-Monitoring-Anwendung, di
     \item CSV-Export für Excel-Analysen
     \item IP-Tracking für dynamische IP-Adressen
     \item Konfigurierbare Messziele und Maintenance-Fenster
-    \item Authentifizierung für sicheren Zugriff
+    \item Challenge-Response-Authentifizierung (SHA-256) für sicheren Zugriff
     \item Setup-Wizard für benutzerfreundliche Ersteinrichtung
 \end{itemize}
 
@@ -20,7 +20,7 @@ SignalReport ist eine vollständige Internet-Qualitäts-Monitoring-Anwendung, di
 Während der Entwicklung von SignalReport wurden folgende Kompetenzen erworben:
 
 \begin{itemize}
-    \item \textbf{Java 21}: Nutzung moderner Features (Virtual Threads, Pattern Matching)
+    \item \textbf{Java 21}: Nutzung moderner Features (Virtual Threads (z.\,B.\ DNS-Benchmark), Pattern Matching, Text Blocks)
     \item \textbf{Web-Entwicklung}: Javalin-Framework, REST-API, Chart.js
     \item \textbf{Datenbank-Programmierung}: H2-Datenbank, SQL, JDBC
     \item \textbf{PDF-Generierung}: OpenPDF und JFreeChart für professionelle Berichte
@@ -42,11 +42,14 @@ Während der Entwicklung von SignalReport wurden folgende Kompetenzen erworben:
 
     \item \textbf{Challenge}: Setup-Wizard ohne Kommandozeilen-Abhängigkeit \\
     \textbf{Lösung}: Web-basierte Setup-Seite mit Middleware-Integration
+
+    \item \textbf{Challenge}: Passwort-Sicherheit ohne HTTPS \\
+    \textbf{Lösung}: Challenge-Response-Authentifizierung mit SHA-256 und Einmal-Nonces -- Passwort wird nie im Klartext übertragen
 \end{itemize}
 
 \subsection{Mögliche Erweiterungen}
 \begin{itemize}
-    \item \textbf{Browser-Push-Benachrichtigungen}: Sofortige Warnung bei Internet-Ausfällen
+    \item \textbf{HTTPS-Unterstützung}: Verschlüsselte Kommunikation über TLS-Zertifikate
     \item \textbf{Automatischer täglicher PDF-Export}: Cron-Job für regelmäßige Berichte
     \item \textbf{Prometheus Exporter}: Integration in bestehende Monitoring-Tools (Grafana)
     \item \textbf{Multi-Host-Vergleich}: Vergleich von Messungen über mehrere Instanzen
