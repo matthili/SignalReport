@@ -3,9 +3,7 @@ package at.mafue.signalreport;
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
 import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import com.lowagie.text.pdf.*;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartRenderingInfo;
 import org.jfree.chart.JFreeChart;
@@ -39,7 +37,12 @@ public class PdfReportGenerator
     {
         Document document = new Document(PageSize.A4);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, baos);
+        PdfWriter writer = PdfWriter.getInstance(document, baos);
+
+        // Seitenzahlen im Format "1 / 4" in der Fußzeile
+        PageNumberFooter pageNumberFooter = new PageNumberFooter();
+        writer.setPageEvent(pageNumberFooter);
+
         document.open();
 
         Instant now = Instant.now();
@@ -590,6 +593,51 @@ public class PdfReportGenerator
             if (seconds < 60) return seconds + "s";
             if (seconds < 3600) return (seconds / 60) + "m " + (seconds % 60) + "s";
             return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
+        }
+    }
+
+    private static class PageNumberFooter extends PdfPageEventHelper
+    {
+        private PdfTemplate totalPages;
+        private BaseFont baseFont;
+
+        @Override
+        public void onOpenDocument(PdfWriter writer, Document document)
+        {
+            totalPages = writer.getDirectContent().createTemplate(30, 16);
+            try
+            {
+                baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            } catch (Exception e)
+            {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document)
+        {
+            int currentPage = writer.getPageNumber();
+            String text = currentPage + " / ";
+            float textWidth = baseFont.getWidthPoint(text, 9);
+            float xCenter = (document.right() + document.left()) / 2;
+
+            PdfContentByte cb = writer.getDirectContent();
+            cb.beginText();
+            cb.setFontAndSize(baseFont, 9);
+            cb.setTextMatrix(xCenter - textWidth / 2, document.bottom() - 20);
+            cb.showText(text);
+            cb.endText();
+            cb.addTemplate(totalPages, xCenter + textWidth / 2, document.bottom() - 20);
+        }
+
+        @Override
+        public void onCloseDocument(PdfWriter writer, Document document)
+        {
+            totalPages.beginText();
+            totalPages.setFontAndSize(baseFont, 9);
+            totalPages.showText(String.valueOf(writer.getPageNumber() - 1));
+            totalPages.endText();
         }
     }
 
