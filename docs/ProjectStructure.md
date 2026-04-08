@@ -8,26 +8,29 @@ SignalReport/
 │   │   ├── Config.java                   # Singleton-Konfiguration (JSON)
 │   │   ├── Measurement.java              # Datenobjekt (POJO)
 │   │   ├── Measurer.java                 # Interface (Strategy-Pattern)
-│   │   ├── PingMeasurer.java             # ICMP-Ping-Messung
+│   │   ├── PingMeasurer.java             # ICMP-Ping (System-Ping auf Linux/macOS)
 │   │   ├── DnsMeasurer.java              # DNS-Auflösungs-Messung
 │   │   ├── HttpMeasurer.java             # HTTP-GET-Messung
-│   │   ├── DnsBenchmark.java             # DNS-Server-Vergleich
+│   │   ├── DnsBenchmark.java             # DNS-Server-Vergleich (Virtual Threads)
 │   │   ├── H2MeasurementRepository.java  # Datenbank-Zugriff (H2)
 │   │   ├── WebServer.java                # Javalin REST-API + Routing
 │   │   ├── HtmlPageRenderer.java         # HTML-Rendering Hauptseite
 │   │   ├── SetupPageRenderer.java        # HTML-Rendering Setup-Wizard
+│   │   ├── LoginPageRenderer.java        # HTML-Rendering Login-Seite
+│   │   ├── SessionManager.java           # Challenge-Response Auth (SHA-256)
 │   │   ├── PdfReportGenerator.java       # PDF-Export (OpenPDF + JFreeChart)
 │   │   ├── PushNotificationService.java  # Browser-Benachrichtigungen
 │   │   ├── NetworkInfo.java              # IP-Adress-Ermittlung (120s Cache)
 │   │   └── HostIdentifier.java           # Host-Hash (stabile ID)
-│   ├── test/java/at/mafue/signalreport/  # 7 Testklassen, 59 Tests
+│   ├── test/java/at/mafue/signalreport/  # 8 Testklassen, 75 Tests
 │   │   ├── MeasurementTest.java          # Unit-Tests Measurement (5)
 │   │   ├── HostIdentifierTest.java       # Unit-Tests Host-Hash (4)
 │   │   ├── StatisticsTest.java           # Integrations-Tests Statistik (9)
 │   │   ├── ConfigTest.java               # Unit-Tests Konfiguration (17)
 │   │   ├── H2MeasurementRepositoryTest.java  # Integration-Tests DB (10)
 │   │   ├── MeasurerInterfaceTest.java    # Unit-Tests Measurer-Interface (6)
-│   │   └── MaintenanceWindowTest.java    # Unit-Tests Wartungsfenster (7)
+│   │   ├── MaintenanceWindowTest.java    # Unit-Tests Wartungsfenster (7)
+│   │   └── SessionManagerTest.java       # Unit-Tests Auth/Sessions (16)
 │   └── main/resources/
 │       └── web/                          # Statische Dateien (Logos, Favicons, Service Worker)
 ├── docs/
