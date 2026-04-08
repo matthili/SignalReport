@@ -1,4 +1,7 @@
 @startuml SignalReport - Komponenten-Diagramm
+!pragma layout smetana
+skinparam dpi 150
+scale max 16384 width
 !theme plain
 skinparam componentFontSize 13
 skinparam componentStyle rectangle

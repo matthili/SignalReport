@@ -151,8 +151,8 @@ signalreport/
 │   ├── SessionManager.java               # Session- & Nonce-Verwaltung
 │   ├── PdfReportGenerator.java           # PDF-Export (OpenPDF + JFreeChart)
 │   ├── NetworkInfo.java                  # IP-Adress-Ermittlung (mit Cache)
-│   └── HostIdentifier.java              # Host-Hash (stabile ID)
-├── src/test/java/at/mafue/signalreport/ # 8 Testklassen, 75 Tests
+│   └── HostIdentifier.java               # Host-Hash (stabile ID)
+├── src/test/java/at/mafue/signalreport/  # 8 Testklassen, 75 Tests
 ├── src/main/resources/web/               # Statische Dateien (Logos, Favicons)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
