@@ -9,10 +9,10 @@ echo "SignalReport - Linux/macOS Deinstallations-Tool"
 echo "============================================================"
 echo
 
-# Root-Rechte prüfen
+# Root-Rechte pruefen
 if [ "$EUID" -ne 0 ]; then
     echo "[FEHLER] Root-Rechte erforderlich!"
-    echo "Bitte mit 'sudo ./uninstall.sh' ausführen."
+    echo "Bitte mit 'sudo ./uninstall.sh' ausfuehren."
     echo
     exit 1
 fi
@@ -32,7 +32,7 @@ elif [ "$OS" = "Darwin" ]; then
     DATA_DIR="/Users/$USER/Library/Application Support/SignalReport"
     LOG_DIR="$DATA_DIR/logs"
 else
-    echo "[FEHLER] Nicht unterstützte Plattform: $OS"
+    echo "[FEHLER] Nicht unterstuetzte Plattform: $OS"
     exit 1
 fi
 
@@ -43,20 +43,22 @@ if [ "$PLATFORM" = "linux" ]; then
     systemctl disable signalreport 2>/dev/null || true
     rm -f /etc/systemd/system/signalreport.service
     systemctl daemon-reload
+    rm -f /var/run/signalreport.pid
 elif [ "$PLATFORM" = "macos" ]; then
-    launchctl stop com.signalreport.service 2>/dev/null || true
-    launchctl unload /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null || true
+    # Neuere macOS-Versionen (10.15+) verwenden bootout, aeltere unload
+    launchctl bootout system/com.signalreport.service 2>/dev/null || \
+        launchctl unload /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null || true
     rm -f /Library/LaunchDaemons/com.signalreport.service.plist
 fi
 
-# Dateien löschen
-echo "[INFO] Lösche Installationsverzeichnis: $INSTALL_DIR"
+# Dateien loeschen
+echo "[INFO] Loesche Installationsverzeichnis: $INSTALL_DIR"
 rm -rf "$INSTALL_DIR" 2>/dev/null || true
 
-echo "[INFO] Lösche Datenverzeichnis: $DATA_DIR"
+echo "[INFO] Loesche Datenverzeichnis: $DATA_DIR"
 rm -rf "$DATA_DIR" 2>/dev/null || true
 
-echo "[INFO] Lösche Log-Verzeichnis: $LOG_DIR"
+echo "[INFO] Loesche Log-Verzeichnis: $LOG_DIR"
 rm -rf "$LOG_DIR" 2>/dev/null || true
 
 # Benutzer entfernen (Linux)
@@ -67,9 +69,9 @@ if [ "$PLATFORM" = "linux" ]; then
     fi
 fi
 
-# Desktop-Verknüpfung entfernen (macOS)
+# Desktop-Verknuepfung entfernen (macOS)
 if [ "$PLATFORM" = "macos" ]; then
-    echo "[INFO] Entferne Desktop-Verknüpfung..."
+    echo "[INFO] Entferne Desktop-Verknuepfung..."
     rm -f "/Users/$USER/Desktop/SignalReport - Verbindungsanalyse.webloc" 2>/dev/null || true
 fi
 
@@ -78,8 +80,8 @@ echo "============================================================"
 echo "✅ Deinstallation abgeschlossen!"
 echo "============================================================"
 echo "• SignalReport-Dienst entfernt"
-echo "• Alle Dateien gelöscht"
+echo "• Alle Dateien geloescht"
 if [ "$PLATFORM" = "macos" ]; then
-    echo "• Desktop-Verknüpfung entfernt"
+    echo "• Desktop-Verknuepfung entfernt"
 fi
 echo
