@@ -24,12 +24,12 @@ Installation:
   macOS/Linux:
   1. signalreport_mac-linux.zip entpacken
   2. signalreport.jar in den entpackten Ordner kopieren
-  3. Terminal oeffnen: sudo ./install.sh
+  3. Terminal oeffnen: sudo bash install.sh
   4. Fertig! Oeffne http://localhost:4567 im Browser
 
 Deinstallation:
   Windows:   uninstall.bat (als Administrator)
-  macOS/Linux: sudo ./uninstall.sh
+  macOS/Linux: sudo bash uninstall.sh
 
 Hinweise:
   Der Dienst laeuft IMMER im Hintergrund – auch ohne Benutzer-Login.

@@ -12,7 +12,7 @@ echo
 # Root-Rechte pruefen
 if [ "$EUID" -ne 0 ]; then
     echo "[FEHLER] Root-Rechte erforderlich!"
-    echo "Bitte mit 'sudo ./uninstall.sh' ausfuehren."
+    echo "Bitte mit 'sudo bash uninstall.sh' ausfuehren."
     echo
     exit 1
 fi
@@ -77,11 +77,11 @@ fi
 
 echo
 echo "============================================================"
-echo "✅ Deinstallation abgeschlossen!"
+echo "Deinstallation abgeschlossen!"
 echo "============================================================"
-echo "• SignalReport-Dienst entfernt"
-echo "• Alle Dateien geloescht"
+echo "- SignalReport-Dienst entfernt"
+echo "- Alle Dateien geloescht"
 if [ "$PLATFORM" = "macos" ]; then
-    echo "• Desktop-Verknuepfung entfernt"
+    echo "- Desktop-Verknuepfung entfernt"
 fi
 echo

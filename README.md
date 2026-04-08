@@ -59,14 +59,14 @@ Für den Dauerbetrieb (auch ohne angemeldeten Benutzer) kann SignalReport als Hi
 
 ### macOS / Linux
 1. [`signalreport_mac-linux.zip`](deployment/signalreport_mac-linux.zip) herunterladen und entpacken
-2. Terminal öffnen und ausführen: `sudo ./install.sh`
+2. Terminal öffnen und ausführen: `sudo bash install.sh`
 3. Der Dienst wird als systemd-Service (Linux) bzw. launchd-Service (macOS) eingerichtet
 
 > 💡 Die [`signalreport.jar`](deployment/signalreport.jar) muss sich im selben Verzeichnis wie die Installations-Skripte befinden.
 
 ### Deinstallation
 - **Windows**: `uninstall.bat` als Administrator ausführen
-- **macOS/Linux**: `sudo ./uninstall.sh`
+- **macOS/Linux**: `sudo bash uninstall.sh`
 
 ---
 
