@@ -169,16 +169,16 @@ signalreport/
 
 ## 📚 Dokumentation
 
-- **Vollständige LaTeX-Dokumentation**: `docs/latex/signalreport-dokumentation.pdf`  
+- **Vollständige LaTeX-Dokumentation als PDF**: [`signalreport-dokumentation.pdf`](docs/latex/signalreport-dokumentation.pdf)
   Enthält UML-Diagramme, Architekturbeschreibung, Implementierungsdetails und Testbericht.
 - **UML-Diagramme**: Alle 7 Diagramme als PNG in `docs/diagrams/`:
-  - `class-diagram.png` – Klassenstruktur
-  - `component-diagram.png` – Komponentenübersicht
-  - `sequence-measurement.png` – Messungsablauf
-  - `sequence-pdf.png` – PDF-Export-Prozess
-  - `usecase-diagram.png` – Use-Cases
-  - `deployment-diagram.png` – Deployment-Szenarien
-  - `state-diagram-auth.png` – Authentifizierungs-Zustände
+  - [`class-diagram.png`](docs/diagrams/class-diagram.png) – Klassenstruktur
+  - [`component-diagram.png`](docs/diagrams/component-diagram.png) – Komponentenübersicht
+  - [`sequence-measurement.png`](docs/diagrams/sequence-measurement.png) – Messungsablauf
+  - [`sequence-pdf.png`](docs/diagrams/sequence-pdf.png) – PDF-Export-Prozess
+  - [`usecase-diagram.png`](docs/diagrams/usecase-diagram.png) – Use-Cases
+  - [`deployment-diagram.png`](docs/diagrams/deployment-diagram.png) – Deployment-Szenarien
+  - [`state-diagram-auth.png`](docs/diagrams/state-diagram-auth.png) – Authentifizierungs-Zustände
 
 ---
 
