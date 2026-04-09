@@ -252,8 +252,6 @@ public class WebServer
             StringBuilder csv = new StringBuilder();
             csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
 
-            int count = 0;
-
             for (Measurement m : measurements)
                 {
                 if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
@@ -279,8 +277,6 @@ public class WebServer
                         .append(";")
                         .append(escapeCsv(m.getHostHash()))
                         .append("\n");
-
-                count++;
                 }
 
             String timestamp = java.time.LocalDateTime.now().format(

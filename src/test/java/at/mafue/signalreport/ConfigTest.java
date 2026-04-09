@@ -192,34 +192,6 @@ class ConfigTest {
         assertEquals(64, hash.length(), "SHA-256 Hash muss 64 Zeichen lang sein (32 Bytes hex)");
     }
 
-    // --- Neue Tests: Auth-Verifizierung ---
-
-    @Test
-    void testAuthConfigVerifyPasswords() {
-        Config.AuthConfig auth = new Config.AuthConfig();
-        String adminPw = "adminGeheim";
-        String userPw = "userGeheim";
-
-        auth.setAdminPasswordHash(Config.hashPassword(adminPw));
-        auth.setUserPasswordHash(Config.hashPassword(userPw));
-
-        assertTrue(auth.verifyAdminPassword(adminPw), "Korrektes Admin-Passwort muss verifiziert werden");
-        assertFalse(auth.verifyAdminPassword("falsch"), "Falsches Admin-Passwort darf nicht verifiziert werden");
-        assertTrue(auth.verifyUserPassword(userPw), "Korrektes User-Passwort muss verifiziert werden");
-        assertFalse(auth.verifyUserPassword("falsch"), "Falsches User-Passwort darf nicht verifiziert werden");
-    }
-
-    @Test
-    void testSetupConfigVerifyAdminPassword() {
-        Config.SetupConfig setup = new Config.SetupConfig();
-        String pw = "setupAdmin123";
-
-        setup.setAdminPasswordHash(Config.hashPassword(pw));
-
-        assertTrue(setup.verifyAdminPassword(pw), "Korrektes Setup-Passwort muss verifiziert werden");
-        assertFalse(setup.verifyAdminPassword("anderes"), "Falsches Setup-Passwort darf nicht verifiziert werden");
-    }
-
     // --- Neue Tests: Theme-Config ---
 
     @Test

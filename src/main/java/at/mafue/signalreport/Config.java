@@ -577,16 +577,6 @@ public class Config
             this.userPasswordHash = hash;
         }
 
-        public boolean verifyAdminPassword(String password)
-        {
-            return adminPasswordHash.equals(Config.hashPassword(password));
-        }
-
-        public boolean verifyUserPassword(String password)
-        {
-            return userPasswordHash.equals(Config.hashPassword(password));
-        }
-
     }
 
     public static class PushConfig
@@ -649,11 +639,6 @@ public class Config
         public void setAdminPasswordHash(String hash)
         {
             this.adminPasswordHash = hash;
-        }
-
-        public boolean verifyAdminPassword(String password)
-        {
-            return adminPasswordHash.equals(Config.hashPassword(password));
         }
     }
 

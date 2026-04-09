@@ -100,7 +100,6 @@ public class SignalReportApp
                 String pingTarget = currentConfig.getMeasurement().getTargets().getPing();
                 String dnsTarget = currentConfig.getMeasurement().getTargets().getDns();
                 String httpTarget = currentConfig.getMeasurement().getTargets().getHttp();
-                int intervalSeconds = currentConfig.getMeasurement().getIntervalSeconds();
 
                 logger.info("Messrunde #{} | Ziele: {}, {}, {}",
                         round, pingTarget, dnsTarget, httpTarget);

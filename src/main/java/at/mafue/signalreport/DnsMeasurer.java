@@ -9,7 +9,7 @@ public class DnsMeasurer implements Measurer
         long start = System.nanoTime();
         try
             {
-            InetAddress address = InetAddress.getByName(hostname);
+            InetAddress.getByName(hostname);
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
             return new Measurement(hostname, latency, true, "DNS");

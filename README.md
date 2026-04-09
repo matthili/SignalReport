@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-75%20passing-brightgreen" alt="JUnit Tests"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-76%20passing-brightgreen" alt="JUnit Tests"></a>
 </p>
 
 Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachung deiner Internet-Qualität – mit PDF-Berichten für Provider-Beschwerden, IP-Tracking und DNS-Benchmark.
@@ -152,7 +152,7 @@ signalreport/
 │   ├── PdfReportGenerator.java           # PDF-Export (OpenPDF + JFreeChart)
 │   ├── NetworkInfo.java                  # IP-Adress-Ermittlung (mit Cache)
 │   └── HostIdentifier.java               # Host-Hash (stabile ID)
-├── src/test/java/at/mafue/signalreport/  # 8 Testklassen, 75 Tests
+├── src/test/java/at/mafue/signalreport/  # 8 Testklassen, 76 Tests
 ├── src/main/resources/web/               # Statische Dateien (Logos, Favicons)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)

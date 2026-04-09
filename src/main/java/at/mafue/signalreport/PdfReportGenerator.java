@@ -381,7 +381,6 @@ public class PdfReportGenerator
     private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
     {
         XYSeries series = new XYSeries(type + " Latenz");
-        Map<Integer, TargetChange> changePoints = new HashMap<>();
 
         for (int i = 0; i < measurements.size(); i++)
             {
