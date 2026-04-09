@@ -143,6 +143,27 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
     und \texttt{Pdf\-Report\-Generator}.
 \end{description}
 
+\subsection{FR-10: Home Assistant Add-on}
+\begin{description}
+  \item[Priorität:] Could
+  \item[Beschreibung:] SignalReport könnte als offizielles Add-on für
+    Home Assistant bereitgestellt werden. Benutzer könnten es direkt über den
+    Add-on Store installieren, ohne sich mit Java, JAR-Dateien oder
+    Installations-Skripten befassen zu müssen.
+  \item[Motivation:] Home Assistant ist die verbreitetste Open-Source-Plattform
+    für Smart-Home-Automatisierung und läuft häufig auf denselben Geräten, die
+    auch für SignalReport geeignet sind (Raspberry Pi, Mini-PCs, NAS). Ein
+    Add-on würde die Installationsschwelle nochmals deutlich senken -- von
+    \enquote{JAR herunterladen und Skript ausführen} zu \enquote{ein Klick im
+    Add-on Store}. Zusätzlich könnten die Messdaten in Home-Assistant-Dashboards
+    und Automatisierungen einfließen (z.\,B.\ Benachrichtigung bei Ausfall).
+  \item[Technische Überlegungen:] Home Assistant Add-ons basieren auf
+    Docker-Containern; der bereits geplante Docker-Container (FR-04) wäre die
+    Grundlage. Ergänzend: \texttt{config.yaml} für die Add-on-Konfiguration,
+    Ingress-Proxy für nahtlose Integration in die Home-Assistant-UI,
+    MQTT- oder REST-Sensor für die Messdaten-Übernahme.
+\end{description}
+
 \subsection{Zusammenfassung der Feature Requests}
 
 \begin{table}[h]
@@ -160,6 +181,7 @@ FR-06 & Speedtest-Integration & Won't (yet) \\
 FR-07 & Verbesserte Verschlüsselung & Could \\
 FR-08 & Messenger-Benachrichtigungen bei Ausfällen & Could \\
 FR-09 & ResultSet-basierte Datenbank-Iteratoren & Should \\
+FR-10 & Home Assistant Add-on & Could \\
 \hline
 \end{tabular}
 \caption{Feature Requests mit MoSCoW-Priorisierung}

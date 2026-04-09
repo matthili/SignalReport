@@ -88,6 +88,10 @@ GET & \texttt{/api/export/csv} & CSV-Export.
 
 \subsection{DNS-Benchmark}
 
+Der DNS-Benchmark vergleicht die Antwortzeiten aller konfigurierten DNS-Server
+(über 30 weltweit) durch parallele Abfragen mittels Virtual Threads. Ein
+30-Sekunden-Cooldown verhindert übermäßige Belastung.
+
 \begin{table}[h]
 \centering
 \small
@@ -109,6 +113,10 @@ GET & \texttt{/api/dns/statistics} & DNS-Statistik (Anzahl Server, Regionen, Pro
 \end{table}
 
 \subsection{IP-Tracking und Host-Info}
+
+SignalReport protokolliert automatisch Änderungen der lokalen und externen
+IP-Adressen. Über das Host-Hash-System können mehrere Installationen
+unterschieden werden, ohne personenbezogene Daten zu speichern.
 
 \begin{table}[h]
 \centering
@@ -133,6 +141,10 @@ GET & \texttt{/api/host/current} & Aktueller Host: Hostname, Hash, IPv4/IPv6 \\
 
 \subsection{Konfiguration}
 
+Alle Einstellungen (Messziele, Intervall, Wartungsfenster, Theme) werden
+über die Konfigurations-Endpunkte verwaltet und in \texttt{config.json}
+persistiert. Änderungen werden sofort wirksam, ohne Neustart.
+
 \begin{table}[h]
 \centering
 \small
@@ -156,6 +168,11 @@ POST & \texttt{/api/theme/settings} & Theme ändern.
 \end{table}
 
 \subsection{Authentifizierung und Setup}
+
+Diese Endpunkte steuern die Ersteinrichtung (Setup-Wizard) sowie das Aktivieren,
+Deaktivieren und Ändern der Authentifizierung. Alle sicherheitsrelevanten Aktionen
+erfordern eine Challenge-Response-Verifikation -- auch das Deaktivieren der
+Authentifizierung.
 
 \begin{table}[h]
 \centering
@@ -189,6 +206,10 @@ POST & \texttt{/api/auth/change-admin} & Admin-Passwort ändern
 \end{table}
 
 \subsection{Push-Benachrichtigungen}
+
+Browser-Push-Benachrichtigungen informieren den Benutzer automatisch, wenn die
+Verbindungsqualität unter einen konfigurierbaren Schwellwert fällt oder wiederholt
+Messungen fehlschlagen.
 
 \begin{table}[h]
 \centering

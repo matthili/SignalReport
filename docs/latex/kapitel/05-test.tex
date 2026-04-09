@@ -17,7 +17,7 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 8 Testklassen mit insgesa
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
     \item \textbf{HostIdentifierTest} (4 Tests): Stabile Host-Identifikation über Neustarts
-    \item \textbf{StatisticsTest} (9 Tests): Mathematisch korrekte Berechnung von 95th Percentile, Jitter und Paketverlust mit realen DB-Abfragen
+    \item \textbf{StatisticsTest} (9 Tests): Mathematisch korrekte Berechnung von 95. Perzentil, Jitter und Paketverlust mit realen DB-Abfragen
     \item \textbf{ConfigTest} (17 Tests): Laden/Speichern von Konfiguration, hashPassword, Auth-Verifikation, Theme, Save+Reload
     \item \textbf{H2MeasurementRepositoryTest} (10 Tests): Vollständige Datenbank-Integration mit IP-Tracking, Host-Registrierung
     \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
@@ -28,22 +28,22 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 8 Testklassen mit insgesa
 Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
 
 \subsection{Beispiel-Test für Statistik-Berechnung}
-\begin{lstlisting}[language=Java, caption=Test für 95th Percentile]
+\begin{lstlisting}[language=Java, caption=Test fuer 95. Perzentil]
 @Test
 void testP95CalculationWithSortedLatencies() {
-    // Arrange: 20 Messungen (95th Percentile = 19. Wert)
+    // Arrange: 20 Messungen (95. Perzentil = 19. Wert)
     List<Double> latencies = new ArrayList<>();
     for (int i = 1; i <= 20; i++) {
         latencies.add((double) i * 10); // 10, 20, 30, ..., 200
     }
 
-    // Act: 95th Percentile = Index 18 (0-basiert) = 190.0
+    // Act: 95. Perzentil = Index 18 (0-basiert) = 190.0
     int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
     double p95Value = latencies.get(p95Index);
 
     // Assert
-    assertEquals(18, p95Index, "Index fuer 95th Percentile muss 18 sein");
-    assertEquals(190.0, p95Value, 0.01, "95th Percentile-Wert muss 190.0 sein");
+    assertEquals(18, p95Index, "Index fuer 95. Perzentil muss 18 sein");
+    assertEquals(190.0, p95Value, 0.01, "95. Perzentil-Wert muss 190.0 sein");
 }
 \end{lstlisting}
 
@@ -70,10 +70,14 @@ E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 
 \subsection{Testumgebung}
 \begin{itemize}
-    \item \textbf{Betriebssystem}: Windows 11, macOS Sonoma, Ubuntu 22.04
+    \item \textbf{Betriebssysteme}: Windows 10 64-Bit, Windows 11, Windows 11 on ARM,
+      Raspberry OS, Debian 13.4, Ubuntu 25.10, macOS Tahoe 26, Synology DSM 7.3.2,
+      Docker Desktop 4.67.0
     \item \textbf{Java-Version}: 21
-    \item \textbf{Browser}: Chrome, Firefox, Safari, Edge
-    \item \textbf{Hardware}: Desktop-PC, Laptop, Synology NAS DS220+
+    \item \textbf{Browser}: Chrome, Chromium, Vivaldi, Firefox, Edge, Opera, Safari
+    \item \textbf{Hardware}: Desktop-PC (Intel Core i7 14.~Gen.), Desktop-PC
+      (AMD Ryzen 5 7040 Series), Notebook (Intel Core Ultra i7 100~Serie),
+      Raspberry Pi 4, Raspberry Pi 5, Synology NAS DS420j, MacBook Air M2
 \end{itemize}
 
 \subsection{Test-Philosophie und -Qualität}

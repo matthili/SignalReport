@@ -11,7 +11,7 @@
 Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachung deiner Internet-Qualität – mit PDF-Berichten für Provider-Beschwerden, IP-Tracking und DNS-Benchmark.
 
 > 💡 **Warum SignalReport?**  
-> *"Mein Internet ist langsam!"* reicht bei Providern nicht. Mit SignalReport lieferst du **nachweisbare, quantifizierte Beweise** – nicht nur Bauchgefühl.
+> *"Mein Internet ist langsam!"* reicht bei Providern nicht. Mit SignalReport lieferst du **nachweisbare, quantifizierte Belege** – nicht nur Bauchgefühl.
 
 ---
 
@@ -65,8 +65,8 @@ Für den Dauerbetrieb (auch ohne angemeldeten Benutzer) kann SignalReport als Hi
 > 💡 Die [`signalreport.jar`](deployment/signalreport.jar) muss sich im selben Verzeichnis wie die Installations-Skripte befinden.
 
 ### Deinstallation
-- **Windows**: `uninstall.bat` als Administrator ausführen
-- **macOS/Linux**: `sudo bash uninstall.sh`
+- **Windows**: `uninstall.bat` Rechtsklick → als Administrator ausführen
+- **macOS/Linux**: `sudo bash uninstall.sh` (im Terminal)
 
 ---
 
@@ -241,6 +241,11 @@ Dieses Projekt nutzt großartige Open-Source-Bibliotheken und Dienste:
 - [StackOverflow](https://stackoverflow.com/) – Fragen/Antworten-Plattform für Softwareentwickler
 - [Hitchhiker’s Guide to PlantUML](https://crashedmind.github.io/PlantUMLHitchhikersGuide/) – Nomen est omen
 
+Außerdem gilt mein Dank:
+
+- [Christian Schäfer](https://github.com/chris-cgsit/) – Java-Lehrgang und Projekt-Coaching
+- [Serap Kadam](https://github.com/serap) – Unterstützung, Freundschaft, alles rund um Java
+- [Angelika Winder] – Unterstützung in allen Lebenslagen (außer bei Java)
 
 
 ---
@@ -254,4 +259,4 @@ Bei Fragen zur Abschlussarbeit oder technischen Details:
 ---
 
 > 🌐 **SignalReport**  
-> *Entwickelt mit ❤️ für alle, die ihre Internet-Qualität nachweisen wollen.*
+> *Entwickelt mit ❤️ für alle, die wissen wollen, wie stabil ihre Internet-Verbindung ist.*

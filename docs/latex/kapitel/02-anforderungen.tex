@@ -9,10 +9,10 @@ SignalReport muss folgende funktionale Anforderungen erfüllen:
     \item \textbf{Web-Interface}: Messungen im Browser anzeigen mit Live-Updates
     \item \textbf{PDF-Export}: Berichte als PDF generieren (24h, 7 Tage, 12 Monate)
     \item \textbf{CSV-Export}: Alle Messdaten als CSV exportieren
-    \item \textbf{Statistische Auswertung}: 95th Percentile, Jitter, Paketverlust berechnen
+    \item \textbf{Statistische Auswertung}: 95. Perzentil, Jitter, Paketverlust berechnen
     \item \textbf{DNS-Benchmark}: Mehrere DNS-Server weltweit vergleichen
     \item \textbf{IP-Tracking}: Externe IP-Änderungen erkennen und dokumentieren
-    \item \textbf{IPv4/IPv6}: SignalReport unterstützt Dual-Stack-Messungen (IPv4 + IPv6). Bei Providern mit DS-Lite (Dual-Stack Lite) wie Magenta kann die externe IPv6-Adresse nicht ermittelt werden, da keine echte IPv6-Route zum Internet existiert. In diesem Fall wird 'unknown' angezeigt – ein technisch korrektes Verhalten gemäß RFC 8415. Die IPv4-Messung bleibt davon unberührt und funktioniert weiterhin zuverlässig.
+    \item \textbf{IPv4/IPv6}: SignalReport unterstützt Dual-Stack-Messungen (IPv4 + IPv6). Bei Providern mit DS-Lite (Dual-Stack Lite) wie Magenta-Austria kann die externe IPv6-Adresse nicht ermittelt werden, da keine echte IPv6-Route zum Internet existiert. In diesem Fall wird 'unknown' angezeigt – ein technisch korrektes Verhalten gemäß RFC 8415. Die IPv4-Messung bleibt davon unberührt und funktioniert weiterhin zuverlässig.
     \item \textbf{Maintenance-Fenster}: Messungen in definiertem Zeitfenster pausieren (um definierte Wartungsfenster/Neustarts zu kompensieren)
     \item \textbf{Konfiguration}: Messziele, Intervall und Benutzer-Info per UI ändern
     \item \textbf{Authentifizierung}: Optionale Passwort-Sicherung des Web-Interface
@@ -25,6 +25,6 @@ SignalReport muss folgende funktionale Anforderungen erfüllen:
     \item \textbf{Einfache Installation}: Kein separater Server nötig, portable JAR-Datei
     \item \textbf{Datensicherheit}: Alle Daten lokal gespeichert, keine Cloud-Abhängigkeit
     \item \textbf{Performance}: Messungen alle 5-60 Sekunden ohne Systemlast
-    \item \textbf{Benutzerfreundlichkeit}: Intuitive Web-Oberfläche ohne technisches Vorwissen
-    \item \textbf{Wartbarkeit}: Sauberer, dokumentierter Code mit JUnit-Tests
+    \item \textbf{Benutzerfreundlichkeit}: Intuitive Web-Oberfläche, ohne technisches Vorwissen bedienbar
+    \item \textbf{Wartbarkeit}: Sauberer, strukturierter, dokumentierter Code mit JUnit-Tests
 \end{itemize}

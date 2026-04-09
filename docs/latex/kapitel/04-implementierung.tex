@@ -60,7 +60,7 @@ public void trackIpChange(String currentIp, String hostHash)
 }
 \end{lstlisting}
 
-\textbf{Hinweis zu IPv6 (DS-Lite):} Bei Providern mit DS-Lite (z.\,B.\ Magenta Telekom)
+\textbf{Hinweis zu IPv6 (DS-Lite):} Bei Providern mit DS-Lite (z.\,B.\ Magenta-Austria)
 wird die externe IPv6-Adresse als ``unknown'' angezeigt, da diese Provider gemäß
 RFC~8415 keine stabile IPv6-Präfixdelegation anbieten.
 
@@ -70,7 +70,7 @@ Die statistische Auswertung berechnet vier Kennzahlen für jeden Messtyp:
 
 \begin{itemize}
   \item \textbf{Durchschnittliche Latenz}: $\mu = \frac{1}{n}\sum_{i=1}^{n}x_i$
-  \item \textbf{95th Percentile}: Wert, unter dem 95\,\% der Messungen liegen --
+  \item \textbf{95. Perzentil}: Wert, unter dem 95\,\% der Messungen liegen --
     ein robusterer Indikator als der Durchschnitt, da er Ausreißer toleriert
   \item \textbf{Paketverlust}: $\frac{\text{fehlgeschlagene Messungen}}{\text{gesamte Messungen}} \times 100$
   \item \textbf{Jitter}: Durchschnitt der absoluten Differenzen zwischen
