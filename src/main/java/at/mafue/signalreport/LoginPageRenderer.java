@@ -63,22 +63,22 @@ public class LoginPageRenderer
                         <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="login-logo light">
                         <img src="/logo_mit_schriftzug_dark_login.png" alt="SignalReport" class="login-logo dark">
                         <p class="subtitle">Anmeldung erforderlich</p>
-
+                
                         <div class="form-group">
                             <label for="username">Benutzername</label>
                             <input type="text" id="username" placeholder="admin oder user" autocomplete="username">
                         </div>
-
+                
                         <div class="form-group">
                             <label for="password">Passwort</label>
                             <input type="password" id="password" placeholder="Passwort eingeben" autocomplete="current-password">
                         </div>
-
+                
                         <div class="error" id="errorMessage"></div>
-
+                
                         <button class="btn" id="loginBtn">Anmelden</button>
                     </div>
-
+                
                     <script>
                         // SHA-256 Hash-Funktion (Web Crypto API)
                         async function sha256(message) {
@@ -88,35 +88,35 @@ public class LoginPageRenderer
                             const hashArray = Array.from(new Uint8Array(hashBuffer));
                             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                         }
-
+                
                         // Challenge-Response Login
                         async function login() {
                             const username = document.getElementById('username').value.trim();
                             const password = document.getElementById('password').value;
                             const errorDiv = document.getElementById('errorMessage');
                             const loginBtn = document.getElementById('loginBtn');
-
+                
                             errorDiv.style.display = 'none';
-
+                
                             if (!username || !password) {
                                 showError('Benutzername und Passwort eingeben!');
                                 return;
                             }
-
+                
                             loginBtn.disabled = true;
                             loginBtn.textContent = 'Anmeldung...';
-
+                
                             try {
                                 // 1. Nonce vom Server holen
                                 const nonceResponse = await fetch('/api/auth/nonce');
                                 if (!nonceResponse.ok) throw new Error('Nonce-Anfrage fehlgeschlagen');
                                 const nonceData = await nonceResponse.json();
                                 const nonce = nonceData.nonce;
-
+                
                                 // 2. Challenge-Response berechnen: SHA-256(SHA-256(password) + nonce)
                                 const passwordHash = await sha256(password);
                                 const challengeResponse = await sha256(passwordHash + nonce);
-
+                
                                 // 3. Login-Anfrage senden
                                 const loginResponse = await fetch('/api/auth/login', {
                                     method: 'POST',
@@ -127,7 +127,7 @@ public class LoginPageRenderer
                                         challengeResponse: challengeResponse
                                     })
                                 });
-
+                
                                 if (loginResponse.ok) {
                                     const result = await loginResponse.json();
                                     // Session-Token als Cookie speichern
@@ -144,13 +144,13 @@ public class LoginPageRenderer
                                 loginBtn.textContent = 'Anmelden';
                             }
                         }
-
+                
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;
                             errorDiv.style.display = 'block';
                         }
-
+                
                         // Login-Button und Enter-Taste
                         document.getElementById('loginBtn').addEventListener('click', login);
                         document.getElementById('password').addEventListener('keypress', function(e) {
@@ -159,7 +159,7 @@ public class LoginPageRenderer
                         document.getElementById('username').addEventListener('keypress', function(e) {
                             if (e.key === 'Enter') document.getElementById('password').focus();
                         });
-
+                
                         // Autofocus auf Benutzername
                         document.getElementById('username').focus();
                     </script>

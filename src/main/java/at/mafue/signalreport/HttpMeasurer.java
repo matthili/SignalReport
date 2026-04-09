@@ -31,28 +31,37 @@ public class HttpMeasurer implements Measurer
     private static SSLContext createTrustAllSslContext()
     {
         try
-        {
+            {
             TrustManager[] trustAll = {new X509TrustManager()
             {
-                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                public X509Certificate[] getAcceptedIssuers()
+                {
+                    return new X509Certificate[0];
+                }
+
+                public void checkClientTrusted(X509Certificate[] certs, String authType)
+                {
+                }
+
+                public void checkServerTrusted(X509Certificate[] certs, String authType)
+                {
+                }
             }};
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustAll, new SecureRandom());
             return sslContext;
-        } catch (Exception e)
-        {
+            } catch (Exception e)
+            {
             logger.warn("Trust-All SSLContext konnte nicht erstellt werden, verwende Standard: {}", e.getMessage());
             try
-            {
+                {
                 return SSLContext.getDefault();
-            } catch (Exception ex)
-            {
+                } catch (Exception ex)
+                {
                 throw new RuntimeException("SSLContext nicht verfügbar", ex);
+                }
             }
-        }
     }
 
     public Measurement measure(String url) throws Exception

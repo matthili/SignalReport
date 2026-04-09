@@ -319,7 +319,7 @@ public class HtmlPageRenderer
                                 </div>
                                 <button onclick="enableAuth()" style="margin-top:20px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold;">\uD83D\uDD10 Aktivieren</button>
                             </div>
-
+                
                             <div id="auth-disable-section" style="display:none;">
                                 <h4>\uD83D\uDD13 Authentifizierung deaktivieren</h4>
                                 <div style="margin-top:15px;">
@@ -997,7 +997,7 @@ public class HtmlPageRenderer
                             const hashArray = Array.from(new Uint8Array(hashBuffer));
                             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                         }
-
+                
                         // Auth-Fetch Wrapper: bei 401 zur Login-Seite weiterleiten
                         async function authFetch(url, options) {
                             const response = await fetch(url, options);
@@ -1007,7 +1007,7 @@ public class HtmlPageRenderer
                             }
                             return response;
                         }
-
+                
                         // Logout
                         async function logout() {
                             try {
@@ -1016,7 +1016,7 @@ public class HtmlPageRenderer
                             document.cookie = 'SR_SESSION=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                             window.location.href = '/login';
                         }
-
+                
                         // Logout-Button anzeigen, wenn Auth aktiv
                         function checkLogoutButton() {
                             fetch('/api/auth/status')
@@ -1026,7 +1026,7 @@ public class HtmlPageRenderer
                                 })
                                 .catch(() => {});
                         }
-
+                
                         // Security-Tab Funktionen
                         function loadAuthStatus() {
                             fetch('/api/auth/status')
@@ -1085,20 +1085,20 @@ public class HtmlPageRenderer
                             const old = document.getElementById('change-old-admin-password').value;
                             const neu = document.getElementById('change-new-admin-password').value;
                             if (!old || !neu || neu.length < 6) { alert('Passwoerter pruefen (mind. 6 Zeichen)!'); return; }
-
+                
                             try {
                                 // Nonce holen
                                 const nonceResp = await fetch('/api/auth/nonce');
                                 const nonceData = await nonceResp.json();
                                 const nonce = nonceData.nonce;
-
+                
                                 // Challenge-Response fuer altes Passwort: SHA-256(SHA-256(oldPw) + nonce)
                                 const oldHash = await sha256(old);
                                 const challengeResponse = await sha256(oldHash + nonce);
-
+                
                                 // Neues Passwort hashen
                                 const newPasswordHash = await sha256(neu);
-
+                
                                 const resp = await authFetch('/api/auth/change-admin', {
                                     method: 'POST',
                                     headers: {'Content-Type':'application/json'},

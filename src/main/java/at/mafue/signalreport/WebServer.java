@@ -257,7 +257,7 @@ public class WebServer
                 if (typeFilter != null && !typeFilter.equals(m.getType())) continue;
 
                 csv.append(m.getTimestamp().atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                         .append(";")
                         .append(escapeCsv(m.getType()))
                         .append(";")
@@ -648,8 +648,7 @@ public class WebServer
                 {
                 storedHash = config.getSetup().getAdminPasswordHash();
                 role = "admin";
-                }
-            else if ("user".equals(username))
+                } else if ("user".equals(username))
                 {
                 storedHash = auth.getUserPasswordHash();
                 role = "user";
@@ -868,7 +867,7 @@ public class WebServer
             }
         });
 
-        logger.info("🌍 Web-Interface läuft unter: http://localhost:{}", port);
+        logger.info("Web-Interface läuft unter: http://localhost:{}", port);
     }
 
     // Hilfsklasse für JSON-Fehler

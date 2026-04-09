@@ -1,106 +1,119 @@
 package at.mafue.signalreport;
 
 import org.junit.jupiter.api.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class ConfigTest {
+class ConfigTest
+{
 
     private static final String TEST_CONFIG_PATH = "test-config.json";
     private Config config;
 
     @BeforeAll
-    void setUp() throws IOException {
+    void setUp() throws IOException
+    {
         // Test-Konfiguration erstellen
         String testConfig = """
-            {
-              "measurement": {
-                "intervalSeconds": 15,
-                "targets": {
-                  "ping": "1.1.1.1",
-                  "dns": "example.com",
-                  "http": "https://heise.de"
-                }
-              },
-              "database": {
-                "path": "./data/test-signalreport"
-              },
-              "webserver": {
-                "port": 8080
-              },
-              "dnsServers": [
                 {
-                  "name": "Cloudflare",
-                  "address": "1.1.1.1",
-                  "region": "Nordamerika",
-                  "provider": "Cloudflare"
+                  "measurement": {
+                    "intervalSeconds": 15,
+                    "targets": {
+                      "ping": "1.1.1.1",
+                      "dns": "example.com",
+                      "http": "https://heise.de"
+                    }
+                  },
+                  "database": {
+                    "path": "./data/test-signalreport"
+                  },
+                  "webserver": {
+                    "port": 8080
+                  },
+                  "dnsServers": [
+                    {
+                      "name": "Cloudflare",
+                      "address": "1.1.1.1",
+                      "region": "Nordamerika",
+                      "provider": "Cloudflare"
+                    }
+                  ],
+                  "maintenanceWindow": {
+                    "enabled": true,
+                    "startHour": 4,
+                    "startMinute": 0,
+                    "endHour": 4,
+                    "endMinute": 10
+                  },
+                  "userInfo": {
+                    "provider": "Vodafone",
+                    "customerId": "987654321",
+                    "userName": "Erika Musterfrau"
+                  }
                 }
-              ],
-              "maintenanceWindow": {
-                "enabled": true,
-                "startHour": 4,
-                "startMinute": 0,
-                "endHour": 4,
-                "endMinute": 10
-              },
-              "userInfo": {
-                "provider": "Vodafone",
-                "customerId": "987654321",
-                "userName": "Erika Musterfrau"
-              }
-            }
-            """;
+                """;
 
         Files.writeString(Path.of(TEST_CONFIG_PATH), testConfig);
     }
 
     @BeforeEach
-    void loadConfig() throws IOException {
+    void loadConfig() throws IOException
+    {
         config = Config.load(TEST_CONFIG_PATH);
     }
 
     @AfterAll
-    void tearDown() {
+    void tearDown()
+    {
         // Test-Datei bereinigen
         File testFile = new File(TEST_CONFIG_PATH);
-        if (testFile.exists()) {
+        if (testFile.exists())
+            {
             testFile.delete();
-        }
+            }
     }
 
     @Test
-    void testConfigLoading() {
+    void testConfigLoading()
+    {
         assertNotNull(config, "Konfiguration darf nicht null sein");
     }
 
     @Test
-    void testMeasurementTargets() {
+    void testMeasurementTargets()
+    {
         assertEquals("1.1.1.1", config.getMeasurement().getTargets().getPing());
         assertEquals("example.com", config.getMeasurement().getTargets().getDns());
         assertEquals("https://heise.de", config.getMeasurement().getTargets().getHttp());
     }
 
     @Test
-    void testIntervalSeconds() {
+    void testIntervalSeconds()
+    {
         assertEquals(15, config.getMeasurement().getIntervalSeconds());
     }
 
     @Test
-    void testDatabasePath() {
+    void testDatabasePath()
+    {
         assertEquals("./data/test-signalreport", config.getDatabase().getPath());
     }
 
     @Test
-    void testWebserverPort() {
+    void testWebserverPort()
+    {
         assertEquals(8080, config.getWebserver().getPort());
     }
 
     @Test
-    void testDnsServers() {
+    void testDnsServers()
+    {
         assertNotNull(config.getDnsServers());
         assertFalse(config.getDnsServers().isEmpty());
         assertEquals("Cloudflare", config.getDnsServers().get(0).getName());
@@ -110,7 +123,8 @@ class ConfigTest {
     }
 
     @Test
-    void testMaintenanceWindow() {
+    void testMaintenanceWindow()
+    {
         assertNotNull(config.getMaintenanceWindow());
         assertTrue(config.getMaintenanceWindow().isEnabled());
         assertEquals(4, config.getMaintenanceWindow().getStartHour());
@@ -120,7 +134,8 @@ class ConfigTest {
     }
 
     @Test
-    void testUserInfo() {
+    void testUserInfo()
+    {
         assertNotNull(config.getUserInfo());
         assertEquals("Vodafone", config.getUserInfo().getProvider());
         assertEquals("987654321", config.getUserInfo().getCustomerId());
@@ -128,7 +143,8 @@ class ConfigTest {
     }
 
     @Test
-    void testConfigUpdateTargets() {
+    void testConfigUpdateTargets()
+    {
         // Act
         config.updateTargets("8.8.8.8", "google.com", "https://example.com", 30);
 
@@ -140,7 +156,8 @@ class ConfigTest {
     }
 
     @Test
-    void testConfigUpdateMaintenanceWindow() {
+    void testConfigUpdateMaintenanceWindow()
+    {
         // Act
         config.updateMaintenanceWindow(false, 2, 30, 3, 30);
 
@@ -153,7 +170,8 @@ class ConfigTest {
     }
 
     @Test
-    void testConfigUpdateUserInfo() {
+    void testConfigUpdateUserInfo()
+    {
         // Act
         config.updateUserInfo("Vodafone", "987654321", "Erika Musterfrau");
 
@@ -166,7 +184,8 @@ class ConfigTest {
     // --- Neue Tests: hashPassword ---
 
     @Test
-    void testHashPasswordProducesConsistentResult() {
+    void testHashPasswordProducesConsistentResult()
+    {
         // Gleicher Input muss immer gleichen Hash ergeben
         String hash1 = Config.hashPassword("testPasswort123");
         String hash2 = Config.hashPassword("testPasswort123");
@@ -177,7 +196,8 @@ class ConfigTest {
     }
 
     @Test
-    void testHashPasswordDifferentInputs() {
+    void testHashPasswordDifferentInputs()
+    {
         // Verschiedene Passwoerter muessen verschiedene Hashes erzeugen
         String hash1 = Config.hashPassword("passwort1");
         String hash2 = Config.hashPassword("passwort2");
@@ -186,7 +206,8 @@ class ConfigTest {
     }
 
     @Test
-    void testHashPasswordIsSHA256Length() {
+    void testHashPasswordIsSHA256Length()
+    {
         // SHA-256 erzeugt immer 64 Hex-Zeichen
         String hash = Config.hashPassword("meinPasswort");
         assertEquals(64, hash.length(), "SHA-256 Hash muss 64 Zeichen lang sein (32 Bytes hex)");
@@ -195,13 +216,15 @@ class ConfigTest {
     // --- Neue Tests: Theme-Config ---
 
     @Test
-    void testThemeConfigDefault() {
+    void testThemeConfigDefault()
+    {
         Config.ThemeConfig theme = new Config.ThemeConfig();
         assertFalse(theme.isDarkMode(), "Dark Mode muss standardmaessig deaktiviert sein");
     }
 
     @Test
-    void testThemeConfigToggle() {
+    void testThemeConfigToggle()
+    {
         Config.ThemeConfig theme = new Config.ThemeConfig();
 
         theme.setDarkMode(true);
@@ -214,9 +237,11 @@ class ConfigTest {
     // --- Neuer Test: Save und Reload ---
 
     @Test
-    void testConfigSaveAndReload() throws IOException {
+    void testConfigSaveAndReload() throws IOException
+    {
         String savePath = "test-config-save.json";
-        try {
+        try
+            {
             // Aendern
             config.updateTargets("9.9.9.9", "heise.de", "https://orf.at", 60);
             config.getTheme().setDarkMode(true);
@@ -233,8 +258,9 @@ class ConfigTest {
             assertEquals("heise.de", reloaded.getMeasurement().getTargets().getDns());
             assertEquals("https://orf.at", reloaded.getMeasurement().getTargets().getHttp());
             assertEquals(60, reloaded.getMeasurement().getIntervalSeconds());
-        } finally {
+            } finally
+            {
             new java.io.File(savePath).delete();
-        }
+            }
     }
 }

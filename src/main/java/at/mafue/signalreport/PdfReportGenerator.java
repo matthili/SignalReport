@@ -605,12 +605,12 @@ public class PdfReportGenerator
         {
             totalPages = writer.getDirectContent().createTemplate(30, 16);
             try
-            {
+                {
                 baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-            } catch (Exception e)
-            {
+                } catch (Exception e)
+                {
                 throw new RuntimeException(e);
-            }
+                }
         }
 
         @Override

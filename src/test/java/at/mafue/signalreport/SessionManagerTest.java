@@ -1,9 +1,11 @@
 package at.mafue.signalreport;
 
 import org.junit.jupiter.api.*;
+
 import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SessionManagerTest

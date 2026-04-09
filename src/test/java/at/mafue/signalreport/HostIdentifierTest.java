@@ -1,12 +1,15 @@
 package at.mafue.signalreport;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-class HostIdentifierTest {
+class HostIdentifierTest
+{
 
     @Test
-    void testHostHashConsistency() {
+    void testHostHashConsistency()
+    {
         // Arrange & Act
         String hash1 = HostIdentifier.getHostHash();
         String hash2 = HostIdentifier.getHostHash();
@@ -19,7 +22,8 @@ class HostIdentifierTest {
     }
 
     @Test
-    void testHostnameNotEmpty() {
+    void testHostnameNotEmpty()
+    {
         // Act
         String hostname = HostIdentifier.getHostname();
 
@@ -30,7 +34,8 @@ class HostIdentifierTest {
     }
 
     @Test
-    void testOperatingSystemNotEmpty() {
+    void testOperatingSystemNotEmpty()
+    {
         // Act
         String os = HostIdentifier.getOperatingSystem();
 
@@ -41,7 +46,8 @@ class HostIdentifierTest {
     }
 
     @Test
-    void testFullHostInfoFormat() {
+    void testFullHostInfoFormat()
+    {
         // Act
         String info = HostIdentifier.getFullHostInfo();
 

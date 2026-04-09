@@ -133,12 +133,12 @@ public class SetupPageRenderer
                             const hashArray = Array.from(new Uint8Array(hashBuffer));
                             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                         }
-
+                
                         // Authentifizierung-Checkbox Toggle
                         document.getElementById('enableAuth').addEventListener('change', function() {
                             document.getElementById('userPasswordGroup').style.display = this.checked ? 'block' : 'none';
                         });
-
+                
                         // Setup abschließen
                         document.getElementById('completeSetup').addEventListener('click', async function() {
                             const adminPassword = document.getElementById('adminPassword').value;
@@ -146,41 +146,41 @@ public class SetupPageRenderer
                             const enableAuth = document.getElementById('enableAuth').checked;
                             const userPassword = document.getElementById('userPassword').value;
                             const userPasswordConfirm = document.getElementById('userPasswordConfirm').value;
-
+                
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.style.display = 'none';
-
+                
                             // Validierung
                             if (adminPassword.length < 6) {
                                 showError('Admin-Passwort muss mindestens 6 Zeichen lang sein!');
                                 return;
                             }
-
+                
                             if (adminPassword !== adminPasswordConfirm) {
                                 showError('Admin-Passwoerter stimmen nicht ueberein!');
                                 return;
                             }
-
+                
                             if (enableAuth) {
                                 if (userPassword.length < 6) {
                                     showError('User-Passwort muss mindestens 6 Zeichen lang sein!');
                                     return;
                                 }
-
+                
                                 if (userPassword !== userPasswordConfirm) {
                                     showError('User-Passwoerter stimmen nicht ueberein!');
                                     return;
                                 }
                             }
-
+                
                             // Passwoerter client-seitig hashen (SHA-256)
                             this.disabled = true;
                             this.textContent = 'Setup wird abgeschlossen...';
-
+                
                             try {
                                 const adminPasswordHash = await sha256(adminPassword);
                                 const userPasswordHash = enableAuth ? await sha256(userPassword) : '';
-
+                
                                 const response = await fetch('/api/setup/complete', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -190,10 +190,10 @@ public class SetupPageRenderer
                                         userPasswordHash: userPasswordHash
                                     })
                                 });
-
+                
                                 const message = await response.text();
                                 alert('\u2705 ' + message);
-
+                
                                 // Bei aktivierter Auth zur Login-Seite, sonst zur Hauptseite
                                 window.location.href = enableAuth ? '/login' : '/';
                             } catch (error) {
@@ -202,7 +202,7 @@ public class SetupPageRenderer
                                 this.textContent = 'Setup abschliessen';
                             }
                         });
-
+                
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;

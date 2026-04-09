@@ -61,7 +61,7 @@ public class H2MeasurementRepository
                 )
                 """;
 
-        // 🔑 NEU: Tabelle für IP-Änderungen (Tracking)
+        // NEU: Tabelle für IP-Änderungen (Tracking)
         String ipChangesTable = """
                 CREATE TABLE IF NOT EXISTS ip_changes (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY,

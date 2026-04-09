@@ -1,10 +1,13 @@
 package at.mafue.signalreport;
 
 import org.junit.jupiter.api.Test;
+
 import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-class MeasurementTest {
+class MeasurementTest
+{
 
     // Dummy-Werte für IP-Adressen und Host-Hash (für Tests)
     private static final String DUMMY_LOCAL_IPV4 = "192.168.1.100";
@@ -14,18 +17,19 @@ class MeasurementTest {
     private static final String DUMMY_HOST_HASH = "testhash12345678";
 
     @Test
-    void testMeasurementCreation() {
+    void testMeasurementCreation()
+    {
         // Arrange & Act (mit vollem Konstruktor inkl. IPs und Hash)
         Measurement m = new Measurement(
-            "8.8.8.8",
-            23.5,
-            true,
-            "PING",
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "8.8.8.8",
+                23.5,
+                true,
+                "PING",
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
 
         // Assert
@@ -39,29 +43,30 @@ class MeasurementTest {
     }
 
     @Test
-    void testTargetTrimming() {
+    void testTargetTrimming()
+    {
         // Arrange & Act
         Measurement m1 = new Measurement(
-            "  8.8.8.8  ",
-            10.0,
-            true,
-            "PING",
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "  8.8.8.8  ",
+                10.0,
+                true,
+                "PING",
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
         Measurement m2 = new Measurement(
-            "google.com",
-            15.0,
-            true,
-            "DNS",
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "google.com",
+                15.0,
+                true,
+                "DNS",
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
 
         // Assert
@@ -70,22 +75,23 @@ class MeasurementTest {
     }
 
     @Test
-    void testMeasurementWithTimestamp() {
+    void testMeasurementWithTimestamp()
+    {
         // Arrange
         Instant fixedTime = Instant.parse("2026-03-16T14:30:00Z");
 
         // Act (mit Timestamp + allen IPs/Hash)
         Measurement m = new Measurement(
-            "example.com",
-            45.6,
-            false,
-            "HTTP",
-            fixedTime,
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "example.com",
+                45.6,
+                false,
+                "HTTP",
+                fixedTime,
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
 
         // Assert
@@ -94,20 +100,21 @@ class MeasurementTest {
     }
 
     @Test
-    void testToStringFormat() {
+    void testToStringFormat()
+    {
         // Arrange
         Instant fixedTime = Instant.parse("2026-03-16T14:30:00Z");
         Measurement m = new Measurement(
-            "8.8.8.8",
-            23.5,
-            true,
-            "PING",
-            fixedTime,
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "8.8.8.8",
+                23.5,
+                true,
+                "PING",
+                fixedTime,
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
 
         // Act
@@ -121,18 +128,19 @@ class MeasurementTest {
     }
 
     @Test
-    void testIpAddressesAndHostHash() {
+    void testIpAddressesAndHostHash()
+    {
         // Arrange & Act
         Measurement m = new Measurement(
-            "test.target",
-            10.0,
-            true,
-            "TEST",
-            DUMMY_LOCAL_IPV4,
-            DUMMY_LOCAL_IPV6,
-            DUMMY_EXTERNAL_IPV4,
-            DUMMY_EXTERNAL_IPV6,
-            DUMMY_HOST_HASH
+                "test.target",
+                10.0,
+                true,
+                "TEST",
+                DUMMY_LOCAL_IPV4,
+                DUMMY_LOCAL_IPV6,
+                DUMMY_EXTERNAL_IPV4,
+                DUMMY_EXTERNAL_IPV6,
+                DUMMY_HOST_HASH
         );
 
         // Assert

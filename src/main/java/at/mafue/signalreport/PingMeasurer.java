@@ -8,10 +8,10 @@ import java.util.regex.Pattern;
 
 /**
  * Fuehrt ICMP-Ping-Messungen durch.
- *
+ * <p>
  * Auf Windows wird InetAddress.isReachable() verwendet, da Windows auch ohne
  * Admin-Rechte echte ICMP-Pakete senden kann und Nachkommastellen liefert.
- *
+ * <p>
  * Auf Linux/macOS wird der System-Ping-Befehl (/bin/ping) verwendet, da
  * Java's InetAddress.isReachable() ohne Root-Rechte auf einen TCP-Fallback
  * (Port 7) zurueckfaellt, der bei den meisten Zielen in den Timeout laeuft.
@@ -36,8 +36,7 @@ public class PingMeasurer implements Measurer
         if (IS_WINDOWS)
             {
             return measureWithJava(target);
-            }
-        else
+            } else
             {
             return measureWithSystemPing(target);
             }
@@ -57,8 +56,7 @@ public class PingMeasurer implements Measurer
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
             return new Measurement(target, latency, reachable, "PING");
-            }
-        catch (Exception e)
+            } catch (Exception e)
             {
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
@@ -112,14 +110,12 @@ public class PingMeasurer implements Measurer
             if (success)
                 {
                 return new Measurement(target, latency, true, "PING");
-                }
-            else
+                } else
                 {
                 long end = System.nanoTime();
                 return new Measurement(target, (end - start) / 1_000_000.0, false, "PING");
                 }
-            }
-        catch (Exception e)
+            } catch (Exception e)
             {
             long end = System.nanoTime();
             return new Measurement(target, (end - start) / 1_000_000.0, false, "PING");
@@ -128,7 +124,7 @@ public class PingMeasurer implements Measurer
 
     /**
      * Erstellt den plattformspezifischen Ping-Befehl.
-     *
+     * <p>
      * Linux:  ping -c 1 -W 3 <target>        (-W in Sekunden)
      * macOS:  ping -c 1 -W 3000 <target>     (-W in Millisekunden)
      */
@@ -137,8 +133,7 @@ public class PingMeasurer implements Measurer
         if (IS_MAC)
             {
             return new ProcessBuilder("ping", "-c", "1", "-W", "3000", target);
-            }
-        else
+            } else
             {
             // Linux, NAS (Synology, QNAP), Raspberry Pi OS
             return new ProcessBuilder("ping", "-c", "1", "-W", "3", target);
