@@ -171,7 +171,7 @@ signalreport/
 
 - **Vollständige LaTeX-Dokumentation als PDF**: [`signalreport-dokumentation.pdf`](docs/latex/signalreport-dokumentation.pdf)
   Enthält UML-Diagramme, Architekturbeschreibung, Implementierungsdetails und Testbericht.
-- **UML-Diagramme**: Alle 7 Diagramme als PNG in `docs/diagrams/`:
+- **UML-Diagramme**: Alle 7 Diagramme als PNG und PlantUML in `docs/diagrams/`:
   - [`class-diagram.png`](docs/diagrams/class-diagram.png) – Klassenstruktur
   - [`component-diagram.png`](docs/diagrams/component-diagram.png) – Komponentenübersicht
   - [`sequence-measurement.png`](docs/diagrams/sequence-measurement.png) – Messungsablauf
