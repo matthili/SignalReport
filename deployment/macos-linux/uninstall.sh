@@ -45,6 +45,7 @@ if [ "$PLATFORM" = "linux" ]; then
     systemctl daemon-reload
     rm -f /var/run/signalreport.pid
 elif [ "$PLATFORM" = "macos" ]; then
+    rm -f "$DATA_DIR/signalreport.pid"
     # Neuere macOS-Versionen (10.15+) verwenden bootout, aeltere unload
     launchctl bootout system/com.signalreport.service 2>/dev/null || \
         launchctl unload /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null || true

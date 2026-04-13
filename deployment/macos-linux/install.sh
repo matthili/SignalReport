@@ -49,6 +49,12 @@ else
     exit 1
 fi
 
+PID_DIR="/var/run"
+if [ "$PLATFORM" = "macos" ]; then
+    PID_DIR="$DATA_DIR"
+fi
+PID_FILE="$PID_DIR/signalreport.pid"
+
 echo "[INFO] Plattform: $OS ($(uname -m))"
 echo "[INFO] Installationsverzeichnis: $INSTALL_DIR"
 echo "[INFO] Datenverzeichnis: $DATA_DIR"
@@ -181,13 +187,13 @@ ExecStart=$JSVC_BIN \
     -cwd $DATA_DIR \
     -outfile $LOG_DIR/stdout.log \
     -errfile $LOG_DIR/stderr.log \
-    -pidfile /var/run/signalreport.pid \
+    -pidfile $PID_FILE \
     -cp $INSTALL_DIR/signalreport.jar \
     at.mafue.signalreport.SignalReportApp
 ExecStop=$JSVC_BIN -stop \
     -home $JAVA_HOME \
     -cwd $DATA_DIR \
-    -pidfile /var/run/signalreport.pid \
+    -pidfile $PID_FILE \
     -cp $INSTALL_DIR/signalreport.jar \
     at.mafue.signalreport.SignalReportApp
 Restart=on-failure
@@ -256,7 +262,7 @@ if [ "$PLATFORM" = "macos" ]; then
         <string>-errfile</string>
         <string>$LOG_DIR/stderr.log</string>
         <string>-pidfile</string>
-        <string>/var/run/signalreport.pid</string>
+        <string>$PID_FILE</string>
         <string>-cp</string>
         <string>$INSTALL_DIR/signalreport.jar</string>
         <string>at.mafue.signalreport.SignalReportApp</string>
