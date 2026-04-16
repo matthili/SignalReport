@@ -2,6 +2,8 @@
   <img src="src/main/resources/web/logo_mit_schriftzug_dark_git.png" alt="SignalReport" width="500">
 </p>
 
+<meta name="google-site-verification" content="bbHCDXahWxCHt4bZI87EYtZqC-kluYPucw_pMy9CnX0" />
+
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
