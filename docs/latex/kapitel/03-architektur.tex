@@ -28,7 +28,8 @@ Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:compone
     Implementierungen (Ping, DNS, HTTP) sowie dem DNS-Benchmark.
   \item[model] Das \texttt{Measurement}-Datenobjekt als zentrales Transferobjekt.
   \item[persistence] \texttt{H2MeasurementRepository} für die embedded Datenbank
-    (Messungen, Hosts, IP-Änderungen).
+    in Twin-Architektur (Primary + Shadow). Tabellen: Messungen, Hosts, IP-Änderungen.
+    Siehe Abschnitt \ref{subsec:twindb}.
   \item[config] Singleton-Konfiguration mit JSON-Persistenz und verschachtelten
     Konfigurations-Klassen (Targets, MaintenanceWindow, Auth, Theme, etc.).
   \item[web] \texttt{WebServer} (Javalin) mit ausgelagertem HTML-Rendering in
@@ -88,6 +89,9 @@ Monolithische Architektur & Einfachste Installation: eine JAR-Datei, keine exter
 H2 Embedded Database & Plattformunabhängig, kein separater DB-Server, portable
   Datei \\
 \hline
+Twin-DB-Architektur & Synchrone Spiegelung in zweite H2-Datei; bei Korruption
+  wird die intakte Kopie automatisch zur Reparatur verwendet (vgl.\ Abschnitt \ref{subsec:twindb}) \\
+\hline
 Javalin statt Spring Boot & Minimaler Overhead (ca.\ 5\,MB vs.\ 30+\,MB), schneller
   Startup \\
 \hline
@@ -107,6 +111,79 @@ Apache Commons Daemon & Professioneller Dienst-Betrieb auf allen Plattformen
 \caption{Architektur-Entscheidungen (Architecture Decision Records)}
 \label{tab:adr}
 \end{table}
+
+\subsection{Twin-Datenbank-Architektur}
+\label{subsec:twindb}
+
+Nach der Diplomprüfung trat im Produktivbetrieb ein Korruptionsfall der H2-Datenbank
+auf, ausgelöst durch einen unvermittelten Windows-Update-Neustart genau während eines
+Schreibvorgangs. Die \texttt{.mv.db}-Datei war anschließend nicht mehr lesbar, und auch
+das offizielle H2-Recovery-Tool konnte keinen einzigen konsistenten Chunk mehr finden.
+Die historischen Messdaten waren damit unwiederbringlich verloren.
+
+Daraufhin wurde die Persistenzschicht von einer einzelnen H2-Datenbank auf eine
+\textbf{Twin-Architektur} mit zwei parallel geführten H2-Dateien umgestellt:
+
+\begin{itemize}
+  \item \textbf{Primary} (\texttt{signalreport.mv.db}): autoritative Quelle für alle
+    Lese-Operationen.
+  \item \textbf{Shadow} (\texttt{signalreport-shadow.mv.db}): synchrone Spiegelung
+    aller Schreiboperationen.
+\end{itemize}
+
+Jede Schreiboperation (\texttt{save}, \texttt{registerHost}, \texttt{recordIpChange})
+wird über einen zentralen \texttt{writeOnBoth(\dots)}-Helper sequenziell auf beide
+Connections angewendet -- zuerst auf die Primary, danach auf die Shadow. Lese-Operationen
+gehen ausschließlich auf die Primary, was den Performance-Overhead minimiert.
+
+\paragraph{Schutz-Stufen.} Drei zusammenwirkende Mechanismen sorgen für Robustheit
+gegen abrupte Prozess-Terminierungen (Stromausfall, Update-Neustart, kill -9):
+
+\begin{enumerate}
+  \item \texttt{WRITE\_DELAY=0} im JDBC-URL: Jede Transaktion wird synchron auf die
+    Platte geflusht (statt Default 500\,ms). Damit verkleinert sich das Korruptions-Fenster
+    von Hunderten von Millisekunden auf wenige Mikrosekunden.
+  \item \textbf{Twin-Spiegelung}: Selbst wenn eine der beiden Dateien während eines
+    Schreibvorgangs zerstört wird, bleibt die jeweils andere konsistent.
+  \item \textbf{Auto-Recovery beim Start}: Erkennt der Konstruktor von
+    \texttt{H2MeasurementRepository} eine Korruption (H2-Fehlercode 90030), wird die
+    defekte Datei in ein \texttt{quarantine/}-Unterverzeichnis verschoben und per
+    \texttt{Files.copy()} aus der intakten DB rekonstruiert. Anschließend werden beide
+    Connections normal geöffnet -- der Betrieb läuft unterbrechungsfrei weiter.
+\end{enumerate}
+
+\paragraph{Fehlerszenarien.} Die Tabelle \ref{tab:twindb-szenarien} dokumentiert das
+Verhalten bei den verschiedenen Krisenfällen:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{5cm}|p{9cm}|}
+\hline
+\textbf{Szenario} & \textbf{Verhalten} \\
+\hline
+Crash während Primary-Write & Primary korrupt, Shadow intakt $\to$
+  Beim Neustart wird die Primary aus der Shadow rekonstruiert; maximaler Datenverlust:
+  die Schreibvorgänge der letzten Sekunden auf die Shadow \\
+\hline
+Crash während Shadow-Write & Shadow korrupt, Primary intakt $\to$
+  Beim Neustart wird die Shadow aus der Primary rekonstruiert; kein Datenverlust \\
+\hline
+Beide DBs korrupt & Extrem unwahrscheinlich (erfordert Filesystem-Schaden) $\to$
+  Beide Dateien werden in Quarantäne verschoben, Betrieb startet mit leeren
+  Datenbanken neu, Anwendung bleibt funktional \\
+\hline
+Shadow-Korruption zur Laufzeit & Sehr selten; Shadow wird deaktiviert, Primary
+  läuft weiter, beim nächsten Neustart wird die Shadow automatisch repariert \\
+\hline
+\end{tabular}
+\caption{Twin-DB-Verhalten bei Korruptionsfällen}
+\label{tab:twindb-szenarien}
+\end{table}
+
+\paragraph{Migration bestehender Installationen.} Existiert beim Update auf die neue
+Version bereits eine alte Single-DB ohne Shadow, wird im ersten Konstruktor-Aufruf
+die Shadow als exakte Kopie der Primary angelegt. Damit greift die Twin-Redundanz
+sofort -- ohne Datenverlust und ohne manuelle Migrationsschritte.
 
 \subsection{Datenfluss bei der Messung}
 

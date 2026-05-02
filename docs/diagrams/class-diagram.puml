@@ -57,8 +57,12 @@ package "model" {
 
 package "persistence" {
   class H2MeasurementRepository {
-    -String jdbcUrl
-    -Connection connection
+    -String primaryDbPath
+    -String shadowDbPath
+    -String primaryJdbcUrl
+    -String shadowJdbcUrl
+    -Connection primary
+    -Connection shadow
     +void save(Measurement m)
     +List<Measurement> findLastN(int n)
     +List<Measurement> findSince(Instant since)
@@ -70,6 +74,10 @@ package "persistence" {
     +List<IpChangeStats> getIpChangeStatistics()
     +void registerHost(String hostHash, String hostname, String os)
     +List<HostInfo> getAllHosts()
+    +void close()
+    -void openTwins()
+    -void writeOnBoth(ConnectionAction action)
+    -void quarantineFile(Path file)
   }
 
   class "H2MeasurementRepository.Statistics" as RepoStats {
@@ -331,9 +339,14 @@ SignalReportApp --> NetworkInfo
 SignalReportApp --> Config
 
 note top of H2MeasurementRepository
-  Embedded H2-Datenbank
-  Datenbank-Datei: ./data/signalreport.mv.db
+  Embedded H2-Datenbank (Twin-DB-Architektur)
+  Primary: ./data/signalreport.mv.db
+  Shadow:  ./data/signalreport-shadow.mv.db
   Tabellen: measurements, hosts, ip_changes
+  Schreiboperationen --> beide DBs
+  Lese-Operationen   --> nur Primary
+  Auto-Recovery beim Start: korrupte DB
+  wird aus der intakten rekonstruiert
 end note
 
 note right of WebServer

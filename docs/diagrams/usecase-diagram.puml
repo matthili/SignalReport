@@ -110,6 +110,7 @@ note right of UC14
   * Automatisch alle X Sekunden
   * IP-Tracking bei jeder Messung
   * Überspringt Maintenance-Fenster
-  * Speichert in H2-Datenbank
+  * Speichert in H2-Twin-Datenbank
+    (Primary + Shadow, crash-resistent)
 end note
 @enduml

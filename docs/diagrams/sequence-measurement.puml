@@ -16,19 +16,26 @@ participant HttpMeasurer
 participant HostIdentifier
 participant NetworkInfo
 participant H2MeasurementRepository
-database H2_Database as DB
+database "H2 Primary" as Primary
+database "H2 Shadow"  as Shadow
 
 Benutzer -> SignalReportApp : Starte Anwendung
 SignalReportApp -> Config : load("config.json")
 Config --> SignalReportApp : Config-Objekt
 SignalReportApp -> H2MeasurementRepository : new H2MeasurementRepository()
-H2MeasurementRepository -> DB : Verbinde / Erstelle Tabellen
-DB --> H2MeasurementRepository : Verbindung hergestellt
+H2MeasurementRepository -> Primary : Verbinde / Erstelle Tabellen
+H2MeasurementRepository -> Shadow  : Verbinde / Erstelle Tabellen
+note right of H2MeasurementRepository
+  Beim Start: Korruptions-Check.
+  Defekte DB wird per File-Copy
+  aus der intakten rekonstruiert.
+end note
 SignalReportApp -> WebServer : start(port)
 SignalReportApp -> HostIdentifier : getHostHash()
 HostIdentifier --> SignalReportApp : "a3f8b2c1..."
 SignalReportApp -> H2MeasurementRepository : registerHost(hash, hostname, os)
-H2MeasurementRepository -> DB : INSERT INTO hosts
+H2MeasurementRepository -> Primary : MERGE INTO hosts
+H2MeasurementRepository -> Shadow  : MERGE INTO hosts
 
 SignalReportApp -> SignalReportApp : Starte Mess-Schleife (alle X Sekunden)
 
@@ -54,32 +61,35 @@ loop Alle X Sekunden (konfigurierbar)
 
     SignalReportApp -> H2MeasurementRepository : trackIpChange("85.182.xxx.xxx", "a3f8b2c1...")
     H2MeasurementRepository -> H2MeasurementRepository : getLastKnownIp("a3f8b2c1...")
-    H2MeasurementRepository -> DB : SELECT new_ip FROM ip_changes WHERE host_hash = ?
-    DB --> H2MeasurementRepository : "85.182.yyy.yyy"
+    H2MeasurementRepository -> Primary : SELECT new_ip FROM ip_changes WHERE host_hash = ?
+    Primary --> H2MeasurementRepository : "85.182.yyy.yyy"
 
     alt IP hat sich geändert
       H2MeasurementRepository -> H2MeasurementRepository : recordIpChange("85.182.yyy.yyy", "85.182.xxx.xxx", "CHANGE")
-      H2MeasurementRepository -> DB : INSERT INTO ip_changes
-      DB --> H2MeasurementRepository : Erfolg
+      H2MeasurementRepository -> Primary : INSERT INTO ip_changes
+      H2MeasurementRepository -> Shadow  : INSERT INTO ip_changes
     end
 
     SignalReportApp -> PingMeasurer : measure("8.8.8.8")
     PingMeasurer -> PingMeasurer : InetAddress.isReachable()
     PingMeasurer --> SignalReportApp : Measurement(latency=23.5, success=true)
     SignalReportApp -> H2MeasurementRepository : save(measurement)
-    H2MeasurementRepository -> DB : INSERT INTO measurements
+    H2MeasurementRepository -> Primary : INSERT INTO measurements
+    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
 
     SignalReportApp -> DnsMeasurer : measure("google.com")
     DnsMeasurer -> DnsMeasurer : InetAddress.getByName()
     DnsMeasurer --> SignalReportApp : Measurement(latency=12.3, success=true)
     SignalReportApp -> H2MeasurementRepository : save(measurement)
-    H2MeasurementRepository -> DB : INSERT INTO measurements
+    H2MeasurementRepository -> Primary : INSERT INTO measurements
+    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
 
     SignalReportApp -> HttpMeasurer : measure("https://example.com")
     HttpMeasurer -> HttpMeasurer : HttpClient.send()
     HttpMeasurer --> SignalReportApp : Measurement(latency=145.2, success=true)
     SignalReportApp -> H2MeasurementRepository : save(measurement)
-    H2MeasurementRepository -> DB : INSERT INTO measurements
+    H2MeasurementRepository -> Primary : INSERT INTO measurements
+    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
 
     SignalReportApp --> Benutzer : "✅ 3 Messungen gespeichert | IP: 85.182.xxx.xxx"
   end
@@ -87,9 +97,11 @@ loop Alle X Sekunden (konfigurierbar)
   SignalReportApp -> SignalReportApp : Warte X Sekunden
 end
 
-note over SignalReportApp, DB
+note over SignalReportApp, Shadow
   Parallel dazu: Webserver läuft und
   beantwortet API-Anfragen von der UI
-  (Live-Updates alle 5 Sekunden)
+  (Live-Updates alle 5 Sekunden).
+  Lese-Operationen aus der UI gehen
+  immer auf die Primary-DB.
 end note
 @enduml

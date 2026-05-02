@@ -29,9 +29,10 @@ package "Mess-Engine" {
   IMeasurer <|.. HTTP
 }
 
-package "Persistenz" {
+package "Persistenz (Twin-DB)" {
   [H2MeasurementRepository] as Repo
-  database "H2 Database\n./data/signalreport.mv.db" as DB
+  database "H2 Primary\n./data/signalreport.mv.db" as PrimaryDB
+  database "H2 Shadow\n./data/signalreport-shadow.mv.db" as ShadowDB
 }
 
 package "Konfiguration" {
@@ -104,7 +105,8 @@ note bottom of NetInfo
   (lokal + extern, IPv4 + IPv6)
 end note
 
-Repo --> DB : speichert/liest Daten
+Repo --> PrimaryDB : Schreibt + liest
+Repo --> ShadowDB  : Schreibt (Spiegelung)
 
 note top of App
   Hauptklasse mit main()-Methode
@@ -122,13 +124,21 @@ note right of Web
   * Theme-API (/api/theme/*)
 end note
 
-note bottom of DB
-  Embedded H2-Datenbank
-  Kein separater Server nötig
+note bottom of PrimaryDB
+  Embedded H2-Datenbank (Primary)
+  Lese- und Schreibziel
   Tabellen:
   * measurements
   * hosts
   * ip_changes
+end note
+
+note bottom of ShadowDB
+  Embedded H2-Datenbank (Shadow)
+  Synchrone Spiegelung der Primary
+  Bei Korruption einer der beiden:
+  Auto-Rekonstruktion aus der intakten
+  Datei beim naechsten Start
 end note
 
 note left of Config

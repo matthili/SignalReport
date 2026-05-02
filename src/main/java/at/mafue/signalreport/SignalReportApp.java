@@ -58,8 +58,26 @@ public class SignalReportApp
         DnsMeasurer dnsMeasurer = new DnsMeasurer();
         HttpMeasurer httpMeasurer = new HttpMeasurer();
 
-        // Datenbank initialisieren
+        // Datenbank initialisieren (Twin-DB: Primary + Shadow mit Auto-Recovery)
         H2MeasurementRepository repo = new H2MeasurementRepository(config.getDatabase().getPath());
+
+        // Shutdown-Hook: schliesst beide DBs sauber bei normaler Terminierung
+        // (Service-Stop, STRG+C, SIGTERM). Bei abrupten Terminierungen
+        // (kill -9, Stromausfall, Windows-Update-Reboot) sorgt die Twin-DB-
+        // Architektur dafuer, dass die intakte DB beim Neustart die korrupte
+        // automatisch rekonstruiert.
+        Runtime.getRuntime().addShutdownHook(new Thread(() ->
+        {
+        logger.info("Shutdown-Hook: schliesse Datenbanken...");
+        try
+            {
+            repo.close();
+            logger.info("Datenbanken sauber geschlossen.");
+            } catch (Exception e)
+            {
+            logger.error("Fehler beim Schliessen der Datenbanken: {}", e.getMessage());
+            }
+        }, "signalreport-shutdown"));
 
         // Webserver starten
         WebServer webServer = new WebServer(repo);

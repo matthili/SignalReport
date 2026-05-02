@@ -6,7 +6,7 @@
 
     <groupId>at.mafue.uebungen</groupId>
     <artifactId>SignalReport</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -19,7 +19,7 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.2.224</version>
+            <version>2.4.240</version>
         </dependency>
 
         <!-- Javalin -->
@@ -132,15 +132,24 @@
                                 <!-- Services-Dateien automatisch mergen -->
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Apache LICENSE-Dateien zusammenfuehren -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <!-- Apache NOTICE-Dateien zusammenfuehren (Attribution-Pflicht) -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
                             </transformers>
                             <filters>
-                                <!-- Nur Signaturen entfernen -->
+                                <!-- Signaturen, Modul-Definitionen und uebrige Lizenz-Varianten entfernen -->
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <!-- SignalReport nutzt das Java-Modulsystem nicht -->
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
                                     </excludes>
                                 </filter>
                                 <!-- dnsjava SPI ausschließen: Verhindert, dass dnsjava

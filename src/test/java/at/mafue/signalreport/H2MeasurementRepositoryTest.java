@@ -29,11 +29,11 @@ class H2MeasurementRepositoryTest
             {
             repo.close();
             }
-        // Test-Datenbank-Dateien bereinigen
-        java.io.File dbFile = new java.io.File(TEST_DB_PATH + ".mv.db");
-        java.io.File traceFile = new java.io.File(TEST_DB_PATH + ".trace.db");
-        dbFile.delete();
-        traceFile.delete();
+        // Test-Datenbank-Dateien bereinigen (Primary + Shadow)
+        new java.io.File(TEST_DB_PATH + ".mv.db").delete();
+        new java.io.File(TEST_DB_PATH + ".trace.db").delete();
+        new java.io.File(TEST_DB_PATH + "-shadow.mv.db").delete();
+        new java.io.File(TEST_DB_PATH + "-shadow.trace.db").delete();
     }
 
     @BeforeEach

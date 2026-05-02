@@ -207,10 +207,15 @@ Die Persistenz erfolgt über Jackson JSON-Serialisierung in \texttt{config.json}
 
 \subsection{Datenbank-Schema}
 
-H2 wird im FILE-Modus betrieben (\texttt{jdbc:h2:./data/signalreport}). Drei Tabellen
-bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und \texttt{findAll()}
-ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte, während
-\texttt{findLastN(int)} für die Live-Anzeige im Web-Interface verwendet wird:
+H2 wird im FILE-Modus mit Twin-Architektur betrieben: zwei parallele Datenbanken
+\texttt{signalreport.mv.db} (Primary) und \texttt{signalreport-shadow.mv.db} (Shadow).
+Beide nutzen das identische Schema. Die JDBC-URL enthält \texttt{WRITE\_DELAY=0}, um
+synchrone OS-Flushes nach jedem Commit zu erzwingen (siehe Abschnitt \ref{subsec:twindb}).
+
+Drei Tabellen bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und
+\texttt{findAll()} ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte,
+während \texttt{findLastN(int)} für die Live-Anzeige im Web-Interface verwendet wird.
+Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
 
 \begin{table}[h]
 \centering

@@ -78,3 +78,11 @@ data/
 /docs/latex/signalreport-dokumentation.log
 /docs/latex/signalreport-dokumentation.out
 /docs/latex/signalreport-dokumentation.synctex(busy)
+
+# Node.js (fuer docx/pptx Generierung)
+node_modules/
+package-lock.json
+/config.json
+/docs/package.json
+# weitere Projektpflege mit Claude-Code Unterstuetzung
+/.claude/

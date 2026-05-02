@@ -22,8 +22,8 @@ node "Server-System" as Server {
       interface "HTTP/HTTPS Server (Port 4567)"
     }
 
-    artifact "H2 Database" as DB {
-      interface "Embedded Database"
+    artifact "H2 Database (Twin)" as DB {
+      interface "Embedded Twin-Database"
     }
   }
 
@@ -32,7 +32,7 @@ node "Server-System" as Server {
   }
 
   artifact "data/" as DataDir {
-    interface "Database Files"
+    interface "signalreport.mv.db (Primary)\nsignalreport-shadow.mv.db (Shadow)\nquarantine/ (defekte DBs)"
   }
 }
 
@@ -74,9 +74,10 @@ note right of Server
   • Windows, macOS, Linux, Synology NAS
   • Java 21+ erforderlich
   • Einzelne JAR-Datei (keine Installation)
-  • Portable Datenbank (H2)
+  • Portable Twin-Datenbank (H2)
   • Konfiguration in config.json
   • Daten in ./data/ Verzeichnis
+  • Crash-resistent durch Spiegelung
 end note
 
 note bottom of External

@@ -14,6 +14,7 @@ SignalReport ist eine vollständige Internet-Qualitäts-Monitoring-Anwendung, di
     \item Konfigurierbare Messziele und Maintenance-Fenster
     \item Challenge-Response-Authentifizierung (SHA-256) für sicheren Zugriff
     \item Setup-Wizard für benutzerfreundliche Ersteinrichtung
+    \item Crash-resistente Datenpersistenz durch Twin-Datenbank-Architektur
 \end{itemize}
 
 \subsection{Gelerntes}
@@ -45,6 +46,9 @@ Während der Entwicklung von SignalReport wurden folgende Kompetenzen erworben:
 
     \item \textbf{Challenge}: Passwort-Sicherheit ohne HTTPS \\
     \textbf{Lösung}: Challenge-Response-Authentifizierung mit SHA-256 und Einmal-Nonces -- Passwort wird nie im Klartext übertragen
+
+    \item \textbf{Challenge (nach Diplomprüfung)}: Datenbank-Korruption durch Windows-Update-Neustart mitten im Schreibvorgang -- Recovery-Tool fand keinen einzigen konsistenten Chunk \\
+    \textbf{Lösung}: Twin-Datenbank-Architektur mit synchroner Spiegelung und automatischer Rekonstruktion aus der intakten Datei beim Neustart (siehe Abschnitt \ref{subsec:twindb})
 \end{itemize}
 
 \subsection{Mögliche Erweiterungen}
@@ -65,4 +69,15 @@ SignalReport demonstriert, dass eine professionelle Monitoring-Lösung nicht teu
     \item \textbf{Erweiterbar} bleibt für zukünftige Anforderungen
     \item \textbf{Lehrreich} war für die persönliche Weiterentwicklung
 \end{itemize}
+
+\subsection{Weiterentwicklung nach der Diplomprüfung}
+Mit der erfolgreichen Präsentation im April 2026 endete der Diplomlehrgang -- nicht aber das Projekt. SignalReport wird seither als persönliches Open-Source-Vorhaben aktiv weiterentwickelt. Bereits umgesetzte Verbesserungen über den Diplomstand hinaus:
+
+\begin{itemize}
+    \item \textbf{Twin-Datenbank-Architektur}: Synchrone Spiegelung und Auto-Recovery (motiviert durch einen realen Korruptionsfall im Produktivbetrieb)
+    \item \textbf{H2-Upgrade auf 2.4.240}: Aktuellere DB-Engine mit verbessertem Error-Handling
+    \item \textbf{Aufgeräumter Build}: Konsolidierte Maven-Shade-Konfiguration mit korrektem License/Notice-Handling
+\end{itemize}
+
+Wer den exakten Stand zum Zeitpunkt der Diplomprüfung begutachten möchte, findet diesen unter dem Git-Tag \texttt{v1.0-diploma} im GitHub-Repository unter \href{https://github.com/matthili/SignalReport/releases/tag/v1.0-diploma}{https://github.com/matthili/SignalReport/releases/tag/v1.0-diploma}.
 

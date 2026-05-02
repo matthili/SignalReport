@@ -32,8 +32,11 @@ class StatisticsTest
             {
             repo.close();
             }
+        // Test-Datenbank-Dateien bereinigen (Primary + Shadow)
         new java.io.File(TEST_DB_PATH + ".mv.db").delete();
         new java.io.File(TEST_DB_PATH + ".trace.db").delete();
+        new java.io.File(TEST_DB_PATH + "-shadow.mv.db").delete();
+        new java.io.File(TEST_DB_PATH + "-shadow.trace.db").delete();
     }
 
     @BeforeEach

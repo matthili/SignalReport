@@ -13,6 +13,9 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 > 💡 **Warum SignalReport?**  
 > *"Mein Internet ist langsam!"* reicht bei Providern nicht. Mit SignalReport lieferst du **nachweisbare, quantifizierte Belege** – nicht nur Bauchgefühl.
 
+> 📜 **Projektgeschichte**  
+> SignalReport entstand zwischen Jänner und April 2026 als Abschlussprojekt des Diplomlehrgangs *"Software Developer:in"* am WIFI Wien (Kurs 18195015) und wird seither als persönliches Open-Source-Projekt aktiv weiterentwickelt. Wer den exakten Stand zum Zeitpunkt der Diplomprüfung begutachten möchte, findet diesen als Release [`V1`](https://github.com/matthili/SignalReport/releases/tag/V1).
+
 ---
 
 ## 🌟 Features
@@ -23,6 +26,7 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 | **Visualisierung** | 📊 Live-Charts mit Chart.js<br>🌡️ Heatmap pro Stunde<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
 | **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export (vollständig oder gefiltert) |
 | **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
+| **Datensicherheit** | 🛟 Twin-Datenbank (synchrone Spiegelung)<br>🔄 Auto-Recovery beim Start (Korruption → Rekonstruktion aus intakter Kopie)<br>⚡ Synchrone Schreibvorgänge (`WRITE_DELAY=0`)<br>🛡️ Schutz vor Crash durch Update-Reboots / Stromausfälle |
 | **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark (Server weltweit)<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
 
 ---
@@ -160,7 +164,8 @@ signalreport/
 │   └── screenshots/                      # UI-Screenshots
 ├── deployment/                           # Installations-Skripte (Win/Linux/macOS)
 ├── config.json                           # Auto-generierte Konfiguration
-├── data/                                 # H2-Datenbank (gitignored)
+├── data/                                 # H2-Twin-Datenbank: Primary + Shadow (gitignored)
+│   └── quarantine/                       # Defekte DB-Dateien zur Nachanalyse
 ├── pom.xml                               # Maven-Build-Konfiguration
 └── README.md                             # Diese Datei
 ```
@@ -188,7 +193,7 @@ signalreport/
 - **Session-Management**: 24h Session-Timeout, sichere Cookie-basierte Authentifizierung
 - **Authentifizierung**: Für öffentliche IPs (z.B. NAS mit Port-Weiterleitung) **unbedingt aktivieren** (Tab *🔐 Sicherheit*)
 - **Setup-Passwort**: Admin-Passwort wird beim ersten Start festgelegt – niemals Standardwerte belassen!
-- **Datenbank**: Alle Daten lokal gespeichert – keine Cloud-Abhängigkeit, keine externen APIs (außer ipify.org für externe IP)
+- **Datenbank**: Alle Daten lokal gespeichert in einer crash-resistenten Twin-Datenbank (Primary + Shadow). Keine Cloud-Abhängigkeit, keine externen APIs (außer ipify.org für externe IP)
 
 ---
 

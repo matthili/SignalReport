@@ -21,16 +21,22 @@ Internetprobleme werden oft erst wahrgenommen, wenn sie bereits existieren. Sign
     \item Langfristige Dokumentation für Provider-Beschwerden
 \end{itemize}
 
+\subsection{Projektgeschichte}
+SignalReport entstand zwischen Jänner und April 2026 als Abschlussprojekt des Diplomlehrgangs \enquote{Software Developer:in} (Kurs 18195015) am WIFI Wien. Die ursprüngliche Version wurde im April 2026 erfolgreich präsentiert und bewertet. Seither wird das Projekt als persönliches Open-Source-Vorhaben aktiv weiterentwickelt -- mit zusätzlichen Funktionen, robusteren Architekturentscheidungen und kontinuierlicher Pflege.
+
+Diese Dokumentation beschreibt den \textbf{aktuellen Entwicklungsstand}, nicht den exakten Stand zum Zeitpunkt der Diplomprüfung. Wer den ursprünglichen, geprüften Stand begutachten möchte, findet ihn als Release \texttt{V1} im GitHub-Repository unter \newline\href{https://github.com/matthili/SignalReport/releases}{https://github.com/matthili/SignalReport/releases}.
+
 \subsection{Projektumfang}
-Dieses Abschlussprojekt umfasst:
+Der aktuelle Stand umfasst:
 \begin{itemize}
-    \item Entwicklung einer Java-Anwendung mit Javalin (Web-UI)
-    \item Implementierung von Mess-Engines für Ping, DNS und HTTP
-    \item Persistenz mit H2-Datenbank
+    \item Java-Anwendung mit Javalin (Web-UI) und embedded H2-Twin-Datenbank
+    \item Mess-Engines für Ping, DNS und HTTP (plattformspezifisches Ping)
     \item Statistische Auswertung (95. Perzentil, Jitter, Paketverlust)
-    \item Visualisierung mit Charts und Heatmap
-    \item PDF- und CSV-Export für Berichte
+    \item Live-Visualisierung mit Chart.js und Stunden-Heatmap
+    \item PDF-Export (24h / 7\,Tage / 12\,Monate) und CSV-Export
     \item IP-Tracking für dynamische IP-Adressen
     \item Konfigurierbare Messziele und Maintenance-Fenster
-    \item Authentifizierung für sicheren Zugriff
+    \item Challenge-Response-Authentifizierung (SHA-256, ohne HTTPS-Pflicht)
+    \item Web-basierter Setup-Wizard (keine CLI nötig)
+    \item Crash-resistente Datenpersistenz durch Twin-Datenbank-Architektur (eingeführt nach Diplomprüfung)
 \end{itemize}

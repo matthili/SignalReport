@@ -13,7 +13,7 @@ participant WebServer
 participant PdfReportGenerator
 participant Config
 participant H2MeasurementRepository
-database H2_Database as DB
+database "H2 Primary" as DB
 participant JFreeChart
 participant OpenPDF
 
@@ -134,5 +134,11 @@ note over PdfReportGenerator, OpenPDF
   • Top 10 schlechteste Messungen
   • Top 10 längste Verbindungsausfälle
   • Gesamtanzahl der Ausfälle
+end note
+
+note right of DB
+  Lese-Operationen gehen
+  immer auf die Primary-DB
+  der Twin-Architektur.
 end note
 @enduml
