@@ -167,6 +167,51 @@
                 </executions>
             </plugin>
 
+            <!-- Maven AntRun Plugin: erzeugt die Deployment-Artefakte automatisch
+                 im 'package'-Lauf, direkt nach dem Shade-Plugin. Damit entfaellt
+                 jedes manuelle Kopieren/Zippen:
+                   1. kopiert die fertige signalreport.jar nach deployment/
+                   2. baut deployment/signalreport_windows.zip
+                      (JAR + alle Dateien aus deployment/windows/)
+                   3. baut deployment/signalreport_mac-linux.zip
+                      (JAR + alle Dateien aus deployment/macos-linux/)
+                 Die ZIPs haben eine flache Struktur (JAR und Skripte auf
+                 oberster Ebene), passend zu den Installations-Skripten. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>build-deployment-archives</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <!-- 1. Standalone-JAR ins deployment/ kopieren -->
+                                <copy file="${project.build.directory}/signalreport.jar"
+                                      todir="${project.basedir}/deployment"
+                                      overwrite="true"/>
+
+                                <!-- 2. Windows-Distribution -->
+                                <zip destfile="${project.basedir}/deployment/signalreport_windows.zip">
+                                    <fileset file="${project.build.directory}/signalreport.jar"/>
+                                    <fileset dir="${project.basedir}/deployment/windows"/>
+                                </zip>
+
+                                <!-- 3. macOS/Linux-Distribution -->
+                                <zip destfile="${project.basedir}/deployment/signalreport_mac-linux.zip">
+                                    <fileset file="${project.build.directory}/signalreport.jar"/>
+                                    <fileset dir="${project.basedir}/deployment/macos-linux"/>
+                                </zip>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
 
     </build>

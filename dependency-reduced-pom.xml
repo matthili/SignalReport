@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>at.mafue.uebungen</groupId>
   <artifactId>SignalReport</artifactId>
-  <version>1.1</version>
+  <version>1.2</version>
   <build>
     <plugins>
       <plugin>
@@ -47,6 +47,32 @@
                 </filter>
               </filters>
               <finalName>signalreport</finalName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>build-deployment-archives</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy />
+                <zip>
+                  <fileset />
+                  <fileset />
+                </zip>
+                <zip>
+                  <fileset />
+                  <fileset />
+                </zip>
+              </target>
             </configuration>
           </execution>
         </executions>
