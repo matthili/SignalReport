@@ -244,5 +244,27 @@
   "api.adminHashMissing": "¡Falta el hash de la contraseña de admin!",
   "api.pushSaved": "Ajustes push guardados",
   "api.themeSaved": "Tema guardado",
-  "api.languageSaved": "Idioma guardado"
+  "api.languageSaved": "Idioma guardado",
+
+  "gateway.near": "Router",
+  "gateway.far": "Puerta de enlace a Internet",
+  "connectivity.title": "Localización de la avería",
+  "connectivity.you": "Tu dispositivo",
+  "connectivity.internet": "Internet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "degradado",
+  "connectivity.noData": "sin datos",
+  "connectivity.verdict.allGood": "Todo correcto – sin anomalías.",
+  "connectivity.verdict.localNetwork": "Problema en la red local (router/wifi).",
+  "connectivity.verdict.localEdge": "Problema en la salida a Internet (módem/router del proveedor).",
+  "connectivity.verdict.ispOrBeyond": "Problema en el proveedor o más allá – tu red local está bien.",
+  "connectivity.verdict.noData": "Aún no hay datos de localización.",
+
+  "reliability.title": "Disponibilidad y fiabilidad",
+  "reliability.uptime": "Disponibilidad",
+  "reliability.coverage": "Cobertura",
+  "reliability.outages": "Cortes",
+  "reliability.longestOutage": "Corte más largo",
+  "reliability.mtbf": "Tiempo medio entre cortes",
+  "reliability.mttr": "Tiempo medio de recuperación"
 }

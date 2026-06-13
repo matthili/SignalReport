@@ -93,6 +93,37 @@ public class SignalReportApp
                 HostIdentifier.getOperatingSystem()
         );
 
+        // Lokale Gateways ermitteln (naechster Router + Pforte ins Internet).
+        // Per Traceroute beim Start; das Ergebnis wird in config.json hinterlegt.
+        Config.GatewayConfig gwCfg = config.getGateway();
+        if (gwCfg.isAutoDiscover())
+            {
+            logger.info("Ermittle lokale Gateways (Traceroute)...");
+            java.util.List<String> chain = GatewayDiscovery.discoverLocalChain();
+            if (!chain.isEmpty())
+                {
+                gwCfg.setNear(chain.get(0));
+                gwCfg.setFar(chain.get(chain.size() - 1));
+                try
+                    {
+                    Config.save(CONFIG_JSON);
+                    } catch (IOException e)
+                    {
+                    logger.warn("Gateway-Konfiguration konnte nicht gespeichert werden: {}", e.getMessage());
+                    }
+                if (gwCfg.getFar().equals(gwCfg.getNear()))
+                    {
+                    logger.info("Lokaler Gateway erkannt: {}", gwCfg.getNear());
+                    } else
+                    {
+                    logger.info("Lokale Gateways erkannt: nah={}, fern={}", gwCfg.getNear(), gwCfg.getFar());
+                    }
+                } else
+                {
+                logger.info("Keine lokalen Gateways erkannt (evtl. direkte oeffentliche IP).");
+                }
+            }
+
         // Kontinuierliche Messung
         logger.info("Starte kontinuierliche Messung...\n");
 
@@ -115,6 +146,15 @@ public class SignalReportApp
                         String.format("%02d", maintenance.getStartMinute()),
                         String.format("%02d", maintenance.getEndHour()),
                         String.format("%02d", maintenance.getEndMinute()));
+                // Marker schreiben: kennzeichnet diese Luecke als GEPLANT (Wartung),
+                // damit die Abdeckungs-Berechnung sie nicht als fehlende Daten wertet.
+                try
+                    {
+                    repo.save(new Measurement("maintenance", 0.0, true, ReliabilityReport.TYPE_MAINTENANCE));
+                    } catch (Exception e)
+                    {
+                    logger.error("Maintenance-Marker konnte nicht gespeichert werden: {}", e.getMessage());
+                    }
                 } else
                 {
                 // Normale Messung durchführen
@@ -137,7 +177,25 @@ public class SignalReportApp
                     repo.save(dnsMeasurer.measure(dnsTarget));
                     repo.save(httpMeasurer.measure(httpTarget));
 
-                    logger.info("3 Messungen gespeichert | IP: {}", currentExternalIp);
+                    // Lokale Gateways messen (eigene Typen, fliessen NICHT in die
+                    // Internet-PING-Statistik ein). Lokalisiert eine Stoerung:
+                    // ist der eigene Router/das Modem schuld oder der Provider?
+                    Config.GatewayConfig gw = currentConfig.getGateway();
+                    String nearGw = gw.getNear();
+                    String farGw = gw.getFar();
+                    int gwCount = 0;
+                    if (nearGw != null && !nearGw.isBlank())
+                        {
+                        repo.save(pingMeasurer.measure(nearGw, GatewayDiscovery.TYPE_NEAR));
+                        gwCount++;
+                        }
+                    if (farGw != null && !farGw.isBlank() && !farGw.equals(nearGw))
+                        {
+                        repo.save(pingMeasurer.measure(farGw, GatewayDiscovery.TYPE_FAR));
+                        gwCount++;
+                        }
+
+                    logger.info("{} Messungen gespeichert | IP: {}", 3 + gwCount, currentExternalIp);
                     } catch (Exception e)
                     {
                     logger.error("Fehler bei Messung", e);

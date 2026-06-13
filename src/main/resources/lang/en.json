@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Admin password hash is missing!",
   "api.pushSaved": "Push settings saved",
   "api.themeSaved": "Theme saved",
-  "api.languageSaved": "Language saved"
+  "api.languageSaved": "Language saved",
+
+  "gateway.near": "Router",
+  "gateway.far": "Internet gateway",
+  "connectivity.title": "Fault localisation",
+  "connectivity.you": "Your device",
+  "connectivity.internet": "Internet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "degraded",
+  "connectivity.noData": "no data",
+  "connectivity.verdict.allGood": "Everything is fine – no anomalies.",
+  "connectivity.verdict.localNetwork": "Problem in the local network (router/Wi-Fi).",
+  "connectivity.verdict.localEdge": "Problem at the edge to the internet (modem/ISP box).",
+  "connectivity.verdict.ispOrBeyond": "Problem at the ISP or beyond – your local network is fine.",
+  "connectivity.verdict.noData": "No localisation data yet.",
+
+  "reliability.title": "Availability & reliability",
+  "reliability.uptime": "Uptime",
+  "reliability.coverage": "Coverage",
+  "reliability.outages": "Outages",
+  "reliability.longestOutage": "Longest outage",
+  "reliability.mtbf": "Avg. time between outages",
+  "reliability.mttr": "Avg. recovery time"
 }

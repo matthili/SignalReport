@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Yönetici parola hash'i eksik!",
   "api.pushSaved": "Bildirim ayarları kaydedildi",
   "api.themeSaved": "Tema kaydedildi",
-  "api.languageSaved": "Dil kaydedildi"
+  "api.languageSaved": "Dil kaydedildi",
+
+  "gateway.near": "Yönlendirici",
+  "gateway.far": "İnternet ağ geçidi",
+  "connectivity.title": "Arıza konumlandırma",
+  "connectivity.you": "Cihazınız",
+  "connectivity.internet": "İnternet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "bozuk",
+  "connectivity.noData": "veri yok",
+  "connectivity.verdict.allGood": "Her şey yolunda – sorun yok.",
+  "connectivity.verdict.localNetwork": "Yerel ağda sorun (yönlendirici/Wi-Fi).",
+  "connectivity.verdict.localEdge": "İnternet çıkışında sorun (modem/sağlayıcı cihazı).",
+  "connectivity.verdict.ispOrBeyond": "Sağlayıcıda veya ötesinde sorun – yerel ağınız sorunsuz.",
+  "connectivity.verdict.noData": "Henüz konumlandırma verisi yok.",
+
+  "reliability.title": "Kullanılabilirlik ve güvenilirlik",
+  "reliability.uptime": "Çalışma süresi",
+  "reliability.coverage": "Kapsam",
+  "reliability.outages": "Kesintiler",
+  "reliability.longestOutage": "En uzun kesinti",
+  "reliability.mtbf": "Kesintiler arası ort. süre",
+  "reliability.mttr": "Ort. kurtarma süresi"
 }

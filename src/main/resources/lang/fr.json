@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Le hash du mot de passe admin est manquant !",
   "api.pushSaved": "Paramètres push enregistrés",
   "api.themeSaved": "Thème enregistré",
-  "api.languageSaved": "Langue enregistrée"
+  "api.languageSaved": "Langue enregistrée",
+
+  "gateway.near": "Routeur",
+  "gateway.far": "Passerelle Internet",
+  "connectivity.title": "Localisation de la panne",
+  "connectivity.you": "Votre appareil",
+  "connectivity.internet": "Internet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "dégradé",
+  "connectivity.noData": "pas de données",
+  "connectivity.verdict.allGood": "Tout va bien – aucune anomalie.",
+  "connectivity.verdict.localNetwork": "Problème sur le réseau local (routeur/Wi-Fi).",
+  "connectivity.verdict.localEdge": "Problème à la sortie vers Internet (modem/box du fournisseur).",
+  "connectivity.verdict.ispOrBeyond": "Problème chez le fournisseur ou au-delà – votre réseau local est sain.",
+  "connectivity.verdict.noData": "Pas encore de données de localisation.",
+
+  "reliability.title": "Disponibilité et fiabilité",
+  "reliability.uptime": "Disponibilité",
+  "reliability.coverage": "Couverture",
+  "reliability.outages": "Pannes",
+  "reliability.longestOutage": "Panne la plus longue",
+  "reliability.mtbf": "Temps moyen entre pannes",
+  "reliability.mttr": "Temps moyen de rétablissement"
 }

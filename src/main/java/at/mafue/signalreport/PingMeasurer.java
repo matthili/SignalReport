@@ -33,12 +33,22 @@ public class PingMeasurer implements Measurer
 
     public Measurement measure(String target) throws Exception
     {
+        return measure(target, "PING");
+    }
+
+    /**
+     * Wie {@link #measure(String)}, taggt die Messung aber mit einem frei
+     * waehlbaren Typ. Wird fuer die Gateway-Messungen verwendet, damit deren
+     * Latenzen nicht in die Internet-PING-Statistik einfliessen.
+     */
+    public Measurement measure(String target, String type) throws Exception
+    {
         if (IS_WINDOWS)
             {
-            return measureWithJava(target);
+            return measureWithJava(target, type);
             } else
             {
-            return measureWithSystemPing(target);
+            return measureWithSystemPing(target, type);
             }
     }
 
@@ -47,7 +57,7 @@ public class PingMeasurer implements Measurer
      * da Windows auch ohne Admin-Rechte echte ICMP-Pakete senden kann.
      * Liefert praezise Nachkommastellen (z.B. 11.72ms).
      */
-    private Measurement measureWithJava(String target) throws Exception
+    private Measurement measureWithJava(String target, String type) throws Exception
     {
         long start = System.nanoTime();
         try
@@ -55,12 +65,12 @@ public class PingMeasurer implements Measurer
             boolean reachable = InetAddress.getByName(target).isReachable(3000);
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
-            return new Measurement(target, latency, reachable, "PING");
+            return new Measurement(target, latency, reachable, type);
             } catch (Exception e)
             {
             long end = System.nanoTime();
             double latency = (end - start) / 1_000_000.0;
-            return new Measurement(target, latency, false, "PING");
+            return new Measurement(target, latency, false, type);
             }
     }
 
@@ -69,7 +79,7 @@ public class PingMeasurer implements Measurer
      * ohne Root-Rechte keinen echten ICMP-Ping senden kann.
      * /bin/ping hat die noetigen Rechte ueber SUID-Bit oder CAP_NET_RAW.
      */
-    private Measurement measureWithSystemPing(String target) throws Exception
+    private Measurement measureWithSystemPing(String target, String type) throws Exception
     {
         long start = System.nanoTime();
         try
@@ -101,7 +111,7 @@ public class PingMeasurer implements Measurer
                 {
                 process.destroyForcibly();
                 long end = System.nanoTime();
-                return new Measurement(target, (end - start) / 1_000_000.0, false, "PING");
+                return new Measurement(target, (end - start) / 1_000_000.0, false, type);
                 }
 
             int exitCode = process.exitValue();
@@ -109,16 +119,16 @@ public class PingMeasurer implements Measurer
 
             if (success)
                 {
-                return new Measurement(target, latency, true, "PING");
+                return new Measurement(target, latency, true, type);
                 } else
                 {
                 long end = System.nanoTime();
-                return new Measurement(target, (end - start) / 1_000_000.0, false, "PING");
+                return new Measurement(target, (end - start) / 1_000_000.0, false, type);
                 }
             } catch (Exception e)
             {
             long end = System.nanoTime();
-            return new Measurement(target, (end - start) / 1_000_000.0, false, "PING");
+            return new Measurement(target, (end - start) / 1_000_000.0, false, type);
             }
     }
 

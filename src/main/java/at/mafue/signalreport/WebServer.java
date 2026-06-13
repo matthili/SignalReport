@@ -182,6 +182,95 @@ public class WebServer
             }
         });
 
+        // Stoerungs-Lokalisierung: vergleicht lokale Gateways mit dem Internet-Ping
+        app.get("/api/connectivity", ctx ->
+        {
+        try
+            {
+            int hours = ctx.queryParam("hours") != null
+                    ? Integer.parseInt(ctx.queryParam("hours"))
+                    : 24;
+
+            Config cfg = Config.getInstance();
+            Config.GatewayConfig gw = cfg.getGateway();
+
+            H2MeasurementRepository.Statistics nearStats = repository.calculateStatistics(GatewayDiscovery.TYPE_NEAR, hours);
+            H2MeasurementRepository.Statistics farStats = repository.calculateStatistics(GatewayDiscovery.TYPE_FAR, hours);
+            H2MeasurementRepository.Statistics netStats = repository.calculateStatistics("PING", hours);
+
+            String nearIp = gw.getNear();
+            String farIp = gw.getFar();
+            boolean hasNearGw = nearIp != null && !nearIp.isBlank();
+            boolean hasFarGw = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp);
+
+            ConnectivityAssessment.Verdict verdict = ConnectivityAssessment.assess(
+                    hasNearGw ? nearStats : null,
+                    hasFarGw ? farStats : null,
+                    netStats);
+
+            String nearLabel = !gw.getNearLabel().isBlank() ? gw.getNearLabel() : I18n.get("gateway.near");
+            String farLabel = !gw.getFarLabel().isBlank() ? gw.getFarLabel() : I18n.get("gateway.far");
+
+            java.util.List<java.util.Map<String, Object>> segments = new java.util.ArrayList<>();
+            if (hasNearGw) segments.add(segment("near", nearLabel, nearIp, nearStats));
+            if (hasFarGw) segments.add(segment("far", farLabel, farIp, farStats));
+            segments.add(segment("internet", I18n.get("connectivity.internet"),
+                    cfg.getMeasurement().getTargets().getPing(), netStats));
+
+            ctx.json(Map.of(
+                    "verdict", verdict.name(),
+                    "verdictText", I18n.get(ConnectivityAssessment.verdictKey(verdict)),
+                    "localChainKnown", hasNearGw,
+                    "segments", segments
+            ));
+            } catch (Exception e)
+            {
+            ctx.status(500);
+            ctx.json(new ErrorResponse("Connectivity-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Zuverlaessigkeit: Verfuegbarkeit, Abdeckung, Ausfaelle, MTBF, MTTR (lücken-sauber)
+        app.get("/api/reliability", ctx ->
+        {
+        try
+            {
+            int hours = ctx.queryParam("hours") != null
+                    ? Integer.parseInt(ctx.queryParam("hours"))
+                    : 24;
+
+            Config cfg = Config.getInstance();
+            int interval = cfg.getMeasurement().getIntervalSeconds();
+            long windowSeconds = hours * 3600L;
+            Instant since = Instant.now().minusSeconds(windowSeconds);
+
+            List<Measurement> all = repository.findSince(since);
+            List<Measurement> ping = new java.util.ArrayList<>();
+            int maintenanceSamples = 0;
+            for (Measurement m : all)
+                {
+                if ("PING".equals(m.getType())) ping.add(m);
+                else if (ReliabilityReport.TYPE_MAINTENANCE.equals(m.getType())) maintenanceSamples++;
+                }
+
+            ReliabilityReport r = ReliabilityReport.compute(ping, interval, windowSeconds, maintenanceSamples);
+            ctx.json(Map.of(
+                    "hasData", r.hasData(),
+                    "uptimePercent", r.getUptimePercent(),
+                    "coveragePercent", r.getCoveragePercent(),
+                    "outageCount", r.getOutageCount(),
+                    "longestOutageSeconds", r.getLongestOutageSeconds(),
+                    "mtbfSeconds", r.getMtbfSeconds(),
+                    "mttrSeconds", r.getMttrSeconds(),
+                    "periodHours", hours
+            ));
+            } catch (Exception e)
+            {
+            ctx.status(500);
+            ctx.json(new ErrorResponse("Reliability-Fehler: " + e.getMessage()));
+            }
+        });
+
         // Stunden-basierte Durchschnittswerte (für Heatmap)
         app.get("/api/hourly-averages", ctx ->
         {
@@ -928,6 +1017,21 @@ public class WebServer
         {
             this.error = error;
         }
+    }
+
+    // Baut einen Segment-Eintrag fuer die Connectivity-API
+    private static java.util.Map<String, Object> segment(String key, String label, String ip,
+                                                         H2MeasurementRepository.Statistics s)
+    {
+        return Map.of(
+                "key", key,
+                "label", label,
+                "ip", ip != null ? ip : "",
+                "avgLatency", s.getAvgLatency(),
+                "packetLoss", s.getPacketLossPercent(),
+                "hasData", ConnectivityAssessment.hasData(s),
+                "healthy", ConnectivityAssessment.isHealthy(s)
+        );
     }
 
     // CSV-Escaping-Hilfsfunktion

@@ -211,6 +211,23 @@ public class Config
         this.userInfo.userName = userName;
     }
 
+    // Lokale Gateway-Ueberwachung (naechster Router + Pforte ins Internet)
+    private GatewayConfig gateway = new GatewayConfig();
+
+    public GatewayConfig getGateway()
+    {
+        if (this.gateway == null)
+            {
+            this.gateway = new GatewayConfig();
+            }
+        return this.gateway;
+    }
+
+    public void setGateway(GatewayConfig gateway)
+    {
+        this.gateway = gateway;
+    }
+
     public static class MeasurementConfig
     {
         @JsonProperty("intervalSeconds")
@@ -262,6 +279,74 @@ public class Config
         public void setHttp(String http)
         {
             this.http = http;
+        }
+    }
+
+    /**
+     * Konfiguration der lokalen Gateway-Ueberwachung.
+     * <p>
+     * Bei {@code autoDiscover=true} ermittelt SignalReport beim Start per
+     * Traceroute den naechsten ({@code near}) und den weitesten lokalen
+     * ({@code far}) Gateway. Beide Felder lassen sich auch manuell setzen
+     * (dann {@code autoDiscover=false}), z. B. fuer ungewoehnliche Netze.
+     * Bei nur einem Gateway ist {@code far} leer oder gleich {@code near}.
+     */
+    public static class GatewayConfig
+    {
+        private boolean autoDiscover = true;
+        private String near = "";
+        private String far = "";
+        private String nearLabel = "";
+        private String farLabel = "";
+
+        public boolean isAutoDiscover()
+        {
+            return autoDiscover;
+        }
+
+        public void setAutoDiscover(boolean autoDiscover)
+        {
+            this.autoDiscover = autoDiscover;
+        }
+
+        public String getNear()
+        {
+            return near;
+        }
+
+        public void setNear(String near)
+        {
+            this.near = near != null ? near : "";
+        }
+
+        public String getFar()
+        {
+            return far;
+        }
+
+        public void setFar(String far)
+        {
+            this.far = far != null ? far : "";
+        }
+
+        public String getNearLabel()
+        {
+            return nearLabel;
+        }
+
+        public void setNearLabel(String nearLabel)
+        {
+            this.nearLabel = nearLabel != null ? nearLabel : "";
+        }
+
+        public String getFarLabel()
+        {
+            return farLabel;
+        }
+
+        public void setFarLabel(String farLabel)
+        {
+            this.farLabel = farLabel != null ? farLabel : "";
         }
     }
 

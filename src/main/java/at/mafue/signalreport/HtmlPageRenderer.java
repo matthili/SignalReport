@@ -175,6 +175,17 @@ public class HtmlPageRenderer
                             </div>
                         </div>
 
+                        <div id="connectivity-card" style="display:none; background:var(--bg-card); padding:15px 20px; border-radius:8px; margin-bottom:25px; box-shadow:0 2px 4px var(--color-shadow); border-left:5px solid var(--color-primary);">
+                            <h3 style="margin:0 0 10px 0;">🧭 {{connectivity.title}}</h3>
+                            <div id="connectivity-verdict" style="font-weight:bold; margin-bottom:14px;"></div>
+                            <div id="connectivity-segments" style="display:flex; flex-wrap:wrap; gap:10px; align-items:stretch;"></div>
+                        </div>
+
+                        <div id="reliability-card" style="display:none; background:var(--bg-card); padding:15px 20px; border-radius:8px; margin-bottom:25px; box-shadow:0 2px 4px var(--color-shadow);">
+                            <h3 style="margin:0 0 12px 0;">📈 {{reliability.title}}</h3>
+                            <div id="reliability-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;"></div>
+                        </div>
+
                         <div class="chart-container">
                             <canvas id="latencyChart"></canvas>
                         </div>
@@ -489,10 +500,15 @@ public class HtmlPageRenderer
                         <p>SignalReport • {{footer.autoRefresh}}</p>
                     </div>
 
+                    """;
+        html += """
                     <script>
                         // Uebersetzungen und Locale (vom Server eingebettet)
                         const I18N = __I18N_JSON__;
                         const LOCALE = '__LOCALE__';
+                        // Anzeige-Labels fuer die Gateway-Messtypen (Config-Override oder i18n-Default)
+                        const GW_LABELS = __GW_LABELS_JSON__;
+                        function typeLabel(type) { return GW_LABELS[type] || type; }
 
                         // Stunden-Dropdowns befüllen (0-23)
                         function populateHourDropdowns() {
@@ -557,6 +573,99 @@ public class HtmlPageRenderer
                                 .catch(error => console.error('Statistik-Fehler:', error));
                         }
 
+                        // Stoerungs-Lokalisierung laden (wessen Schuld?)
+                        function loadConnectivity() {
+                            fetch('/api/connectivity?hours=24')
+                                .then(response => response.json())
+                                .then(data => {
+                                    const card = document.getElementById('connectivity-card');
+                                    const verdictDiv = document.getElementById('connectivity-verdict');
+                                    const segDiv = document.getElementById('connectivity-segments');
+
+                                    const colors = {
+                                        ALL_GOOD: '#198754', LOCAL_NETWORK: '#dc3545',
+                                        LOCAL_EDGE: '#fd7e14', ISP_OR_BEYOND: '#fd7e14', NO_DATA: '#6c757d'
+                                    };
+                                    const icons = {
+                                        ALL_GOOD: '✅', LOCAL_NETWORK: '🏠',
+                                        LOCAL_EDGE: '📡', ISP_OR_BEYOND: '🌐', NO_DATA: 'ℹ️'
+                                    };
+                                    const color = colors[data.verdict] || '#6c757d';
+                                    card.style.borderLeftColor = color;
+                                    verdictDiv.textContent = (icons[data.verdict] || '') + ' ' + data.verdictText;
+                                    verdictDiv.style.color = color;
+
+                                    segDiv.innerHTML = '';
+                                    data.segments.forEach((seg, i) => {
+                                        if (i > 0) {
+                                            const arrow = document.createElement('div');
+                                            arrow.textContent = '→';
+                                            arrow.style.cssText = 'align-self:center; font-size:1.4em; color:var(--color-text-secondary);';
+                                            segDiv.appendChild(arrow);
+                                        }
+                                        const status = !seg.hasData
+                                            ? I18N['connectivity.noData']
+                                            : (seg.healthy ? I18N['connectivity.healthy'] : I18N['connectivity.degraded']);
+                                        const segColor = !seg.hasData ? '#6c757d' : (seg.healthy ? '#198754' : '#dc3545');
+                                        const metric = seg.hasData
+                                            ? seg.avgLatency.toFixed(1) + ' ms · ' + seg.packetLoss.toFixed(0) + ' %'
+                                            : '';
+                                        const box = document.createElement('div');
+                                        box.style.cssText = 'flex:1; min-width:150px; background:var(--bg-body); padding:10px; border-radius:6px; text-align:center;';
+                                        box.innerHTML =
+                                            '<div style="font-weight:bold;">' + seg.label + '</div>' +
+                                            '<div style="font-family:monospace; font-size:0.8em; color:var(--color-text-secondary);">' + seg.ip + '</div>' +
+                                            '<div style="font-size:1.1em; color:' + segColor + '; font-weight:bold; margin-top:4px;">' + status + '</div>' +
+                                            '<div style="font-size:0.85em; color:var(--color-text-secondary);">' + metric + '</div>';
+                                        segDiv.appendChild(box);
+                                    });
+                                    card.style.display = 'block';
+                                })
+                                .catch(error => console.error('Connectivity-Fehler:', error));
+                        }
+
+                        // Dauer menschenlesbar formatieren
+                        function fmtDuration(sec) {
+                            sec = Math.round(sec);
+                            if (sec <= 0) return '0 s';
+                            if (sec < 60) return sec + ' s';
+                            if (sec < 3600) return Math.floor(sec / 60) + ' min ' + (sec % 60) + ' s';
+                            return Math.floor(sec / 3600) + ' h ' + Math.floor((sec % 3600) / 60) + ' min';
+                        }
+
+                        // Zuverlaessigkeit laden (Verfuegbarkeit, MTBF, MTTR)
+                        function loadReliability() {
+                            fetch('/api/reliability?hours=24')
+                                .then(response => response.json())
+                                .then(d => {
+                                    const card = document.getElementById('reliability-card');
+                                    const grid = document.getElementById('reliability-grid');
+                                    if (!d.hasData) { card.style.display = 'none'; return; }
+
+                                    const upColor = d.uptimePercent >= 99 ? '#198754'
+                                        : (d.uptimePercent >= 95 ? '#fd7e14' : '#dc3545');
+                                    const cells = [
+                                        { label: I18N['reliability.uptime'], value: d.uptimePercent.toFixed(2) + ' %', color: upColor },
+                                        { label: I18N['reliability.coverage'], value: d.coveragePercent.toFixed(0) + ' %', color: 'var(--color-text-secondary)' },
+                                        { label: I18N['reliability.outages'], value: d.outageCount, color: d.outageCount > 0 ? '#dc3545' : '#198754' },
+                                        { label: I18N['reliability.longestOutage'], value: fmtDuration(d.longestOutageSeconds), color: 'var(--color-text)' },
+                                        { label: I18N['reliability.mtbf'], value: fmtDuration(d.mtbfSeconds), color: 'var(--color-text)' },
+                                        { label: I18N['reliability.mttr'], value: fmtDuration(d.mttrSeconds), color: 'var(--color-text)' }
+                                    ];
+                                    grid.innerHTML = '';
+                                    cells.forEach(c => {
+                                        const box = document.createElement('div');
+                                        box.style.cssText = 'background:var(--bg-body); padding:10px; border-radius:6px; text-align:center;';
+                                        box.innerHTML =
+                                            '<div style="font-size:0.85em; color:var(--color-text-secondary);">' + c.label + '</div>' +
+                                            '<div style="font-size:1.4em; font-weight:bold; color:' + c.color + '; margin-top:4px;">' + c.value + '</div>';
+                                        grid.appendChild(box);
+                                    });
+                                    card.style.display = 'block';
+                                })
+                                .catch(error => console.error('Reliability-Fehler:', error));
+                        }
+
                         // Haupt-Chart laden
                         function loadMeasurements() {
                             fetch('/api/measurements?limit=20')
@@ -572,7 +681,7 @@ public class HtmlPageRenderer
                                         const statusText = m.success ? '✅' : '❌';
                                         row.innerHTML = `
                                             <td>${new Date(m.timestamp * 1000).toLocaleTimeString(LOCALE)}</td>
-                                            <td><strong>${m.type}</strong></td>
+                                            <td><strong>${typeLabel(m.type)}</strong></td>
                                             <td>${m.target}</td>
                                             <td class="${latencyClass}"><strong>${m.latencyMs.toFixed(2)}</strong> ms</td>
                                             <td>${statusText}</td>
@@ -1207,6 +1316,8 @@ public class HtmlPageRenderer
                         loadStatistics();
                         loadMeasurements();
                         loadHourlyChart();
+                        loadConnectivity();
+                        loadReliability();
                         checkLogoutButton();
                         // DNS-Benchmark State (MUSS HIER STEHEN, NICHT IN DER FUNKTION!)
                         let isDnsBenchmarkRunning = false;
@@ -1216,6 +1327,8 @@ public class HtmlPageRenderer
                         // Alle 5 Sekunden aktualisieren
                         setInterval(loadMeasurements, 5000);
                         setInterval(loadStatistics, 30000);
+                        setInterval(loadConnectivity, 30000);
+                        setInterval(loadReliability, 300000);
                         setInterval(loadHourlyChart, 300000);
                         setInterval(loadNetworkInfo, 60000);
 
@@ -1234,7 +1347,26 @@ public class HtmlPageRenderer
 
         html = html.replace("__I18N_JSON__", I18n.activeAsJson())
                 .replace("__LANG_OPTIONS__", I18n.languageOptionsHtml())
-                .replace("__LOCALE__", I18n.current());
+                .replace("__LOCALE__", I18n.current())
+                .replace("__GW_LABELS_JSON__", gatewayLabelsJson());
         return I18n.resolve(html);
+    }
+
+    /**
+     * Liefert die Anzeige-Labels der Gateway-Messtypen als JSON-Objekt fuer das
+     * Frontend. Effektives Label = Config-Override, sonst i18n-Standard.
+     */
+    private String gatewayLabelsJson()
+    {
+        Config.GatewayConfig gw = Config.getInstance().getGateway();
+        String near = !gw.getNearLabel().isBlank() ? gw.getNearLabel() : I18n.get("gateway.near");
+        String far = !gw.getFarLabel().isBlank() ? gw.getFarLabel() : I18n.get("gateway.far");
+        return "{\"" + GatewayDiscovery.TYPE_NEAR + "\":\"" + jsonEscape(near) + "\",\""
+                + GatewayDiscovery.TYPE_FAR + "\":\"" + jsonEscape(far) + "\"}";
+    }
+
+    private static String jsonEscape(String s)
+    {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

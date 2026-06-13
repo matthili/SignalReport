@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Відсутній хеш пароля адміністратора!",
   "api.pushSaved": "Налаштування сповіщень збережено",
   "api.themeSaved": "Тему збережено",
-  "api.languageSaved": "Мову збережено"
+  "api.languageSaved": "Мову збережено",
+
+  "gateway.near": "Маршрутизатор",
+  "gateway.far": "Інтернет-шлюз",
+  "connectivity.title": "Локалізація несправності",
+  "connectivity.you": "Ваш пристрій",
+  "connectivity.internet": "Інтернет",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "збій",
+  "connectivity.noData": "немає даних",
+  "connectivity.verdict.allGood": "Усе гаразд – без відхилень.",
+  "connectivity.verdict.localNetwork": "Проблема в локальній мережі (маршрутизатор/Wi-Fi).",
+  "connectivity.verdict.localEdge": "Проблема на виході в Інтернет (модем/пристрій провайдера).",
+  "connectivity.verdict.ispOrBeyond": "Проблема у провайдера або далі – ваша локальна мережа справна.",
+  "connectivity.verdict.noData": "Поки немає даних для локалізації.",
+
+  "reliability.title": "Доступність і надійність",
+  "reliability.uptime": "Час безвідмовної роботи",
+  "reliability.coverage": "Покриття",
+  "reliability.outages": "Збої",
+  "reliability.longestOutage": "Найдовший збій",
+  "reliability.mtbf": "Сер. час між збоями",
+  "reliability.mttr": "Сер. час відновлення"
 }

@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Brak hasha hasła administratora!",
   "api.pushSaved": "Ustawienia powiadomień zapisane",
   "api.themeSaved": "Motyw zapisany",
-  "api.languageSaved": "Język zapisany"
+  "api.languageSaved": "Język zapisany",
+
+  "gateway.near": "Router",
+  "gateway.far": "Brama internetowa",
+  "connectivity.title": "Lokalizacja usterki",
+  "connectivity.you": "Twoje urządzenie",
+  "connectivity.internet": "Internet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "zakłócony",
+  "connectivity.noData": "brak danych",
+  "connectivity.verdict.allGood": "Wszystko w porządku – brak nieprawidłowości.",
+  "connectivity.verdict.localNetwork": "Problem w sieci lokalnej (router/Wi-Fi).",
+  "connectivity.verdict.localEdge": "Problem na styku z internetem (modem/urządzenie dostawcy).",
+  "connectivity.verdict.ispOrBeyond": "Problem u dostawcy lub dalej – Twoja sieć lokalna jest sprawna.",
+  "connectivity.verdict.noData": "Brak danych do lokalizacji.",
+
+  "reliability.title": "Dostępność i niezawodność",
+  "reliability.uptime": "Dostępność",
+  "reliability.coverage": "Pokrycie",
+  "reliability.outages": "Awarie",
+  "reliability.longestOutage": "Najdłuższa awaria",
+  "reliability.mtbf": "Śr. czas między awariami",
+  "reliability.mttr": "Śr. czas przywracania"
 }

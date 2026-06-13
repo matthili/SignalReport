@@ -244,5 +244,27 @@
   "api.adminHashMissing": "Admin-Passwort-Hash fehlt!",
   "api.pushSaved": "Push-Einstellungen gespeichert",
   "api.themeSaved": "Theme gespeichert",
-  "api.languageSaved": "Sprache gespeichert"
+  "api.languageSaved": "Sprache gespeichert",
+
+  "gateway.near": "Router",
+  "gateway.far": "Internet-Gateway",
+  "connectivity.title": "Störungs-Lokalisierung",
+  "connectivity.you": "Dein Gerät",
+  "connectivity.internet": "Internet",
+  "connectivity.healthy": "OK",
+  "connectivity.degraded": "gestört",
+  "connectivity.noData": "keine Daten",
+  "connectivity.verdict.allGood": "Alles in Ordnung – keine Auffälligkeiten.",
+  "connectivity.verdict.localNetwork": "Problem im lokalen Netz (Router/WLAN).",
+  "connectivity.verdict.localEdge": "Problem am Übergang ins Internet (Modem/Provider-Box).",
+  "connectivity.verdict.ispOrBeyond": "Problem beim Provider oder dahinter – dein lokales Netz ist unauffällig.",
+  "connectivity.verdict.noData": "Noch keine Daten zur Lokalisierung.",
+
+  "reliability.title": "Verfügbarkeit & Zuverlässigkeit",
+  "reliability.uptime": "Verfügbarkeit",
+  "reliability.coverage": "Abdeckung",
+  "reliability.outages": "Ausfälle",
+  "reliability.longestOutage": "Längster Ausfall",
+  "reliability.mtbf": "Ø Zeit zwischen Ausfällen",
+  "reliability.mttr": "Ø Wiederherstellzeit"
 }

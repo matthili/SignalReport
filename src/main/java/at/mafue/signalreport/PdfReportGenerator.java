@@ -242,6 +242,12 @@ public class PdfReportGenerator
             document.add(Chunk.NEXTPAGE);
             }
 
+        // === STOERUNGS-LOKALISIERUNG ===
+        addConnectivitySection(document, hours, pingStats, statFont, locale);
+
+        // === VERFUEGBARKEIT & ZUVERLAESSIGKEIT ===
+        addReliabilitySection(document, filteredMeasurements, hours, statFont, locale);
+
         // === TOP 10 SCHLECHTESTE MESSUNGEN ===
         document.add(new Paragraph(I18n.get("pdf.worstTitle"), fontBold(14)));
         document.add(Chunk.NEWLINE);
@@ -289,6 +295,116 @@ public class PdfReportGenerator
         document.add(new Paragraph(I18n.get("pdf.maxLatency") + ": " + String.format(locale, "%.1f ms", stats.getMaxLatency()), statFont));
         document.add(new Paragraph(I18n.get("stats.packetLoss") + ": " + String.format(locale, "%.1f %%", stats.getPacketLossPercent()), statFont));
         document.add(new Paragraph(I18n.get("stats.jitter") + ": " + String.format(locale, "%.1f ms", stats.getJitter()), statFont));
+    }
+
+    /**
+     * Stoerungs-Lokalisierung im PDF: Verdikt in Klartext plus eine Zeile pro
+     * Segment (Router, Pforte ins Internet, Internet). Wird weggelassen, wenn
+     * keine lokalen Gateways konfiguriert/entdeckt sind.
+     */
+    private void addConnectivitySection(Document document, int hours,
+                                        H2MeasurementRepository.Statistics internetStats,
+                                        Font statFont, Locale locale) throws Exception
+    {
+        Config cfg = Config.getInstance();
+        Config.GatewayConfig gw = cfg.getGateway();
+
+        String nearIp = gw.getNear();
+        String farIp = gw.getFar();
+        boolean hasNear = nearIp != null && !nearIp.isBlank();
+        boolean hasFar = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp);
+        if (!hasNear && !hasFar)
+            {
+            return; // keine Gateway-Daten -> Abschnitt entfaellt
+            }
+
+        H2MeasurementRepository.Statistics nearStats = repository.calculateStatistics(GatewayDiscovery.TYPE_NEAR, hours);
+        H2MeasurementRepository.Statistics farStats = repository.calculateStatistics(GatewayDiscovery.TYPE_FAR, hours);
+
+        ConnectivityAssessment.Verdict verdict = ConnectivityAssessment.assess(
+                hasNear ? nearStats : null,
+                hasFar ? farStats : null,
+                internetStats);
+
+        document.add(new Paragraph(I18n.get("connectivity.title"), fontBold(14)));
+        document.add(Chunk.NEWLINE);
+        document.add(new Paragraph(I18n.get(ConnectivityAssessment.verdictKey(verdict)), fontBold(11)));
+        document.add(Chunk.NEWLINE);
+
+        String nearLabel = !gw.getNearLabel().isBlank() ? gw.getNearLabel() : I18n.get("gateway.near");
+        String farLabel = !gw.getFarLabel().isBlank() ? gw.getFarLabel() : I18n.get("gateway.far");
+
+        if (hasNear) document.add(connectivityLine(nearLabel, nearIp, nearStats, statFont, locale));
+        if (hasFar) document.add(connectivityLine(farLabel, farIp, farStats, statFont, locale));
+        document.add(connectivityLine(I18n.get("connectivity.internet"),
+                cfg.getMeasurement().getTargets().getPing(), internetStats, statFont, locale));
+
+        document.add(Chunk.NEWLINE);
+    }
+
+    /**
+     * Verfuegbarkeits-Abschnitt: lücken-saubere Kennzahlen fuer die Internet-
+     * Verbindung (PING). Nutzt die bereits geladene Messliste, kein Extra-DB-Zugriff.
+     */
+    private void addReliabilitySection(Document document, List<Measurement> allMeasurements,
+                                       int hours, Font statFont, Locale locale) throws DocumentException
+    {
+        List<Measurement> ping = filterByType(allMeasurements, "PING");
+        int maintenanceSamples = 0;
+        for (Measurement m : allMeasurements)
+            {
+            if (ReliabilityReport.TYPE_MAINTENANCE.equals(m.getType())) maintenanceSamples++;
+            }
+        if (ping.isEmpty())
+            {
+            return;
+            }
+
+        int interval = Config.getInstance().getMeasurement().getIntervalSeconds();
+        ReliabilityReport r = ReliabilityReport.compute(ping, interval, hours * 3600L, maintenanceSamples);
+
+        document.add(new Paragraph(I18n.get("reliability.title"), fontBold(14)));
+        document.add(Chunk.NEWLINE);
+        document.add(new Paragraph(I18n.get("reliability.uptime") + ": "
+                + String.format(locale, "%.2f %%", r.getUptimePercent()), statFont));
+        document.add(new Paragraph(I18n.get("reliability.coverage") + ": "
+                + String.format(locale, "%.0f %%", r.getCoveragePercent()), statFont));
+        document.add(new Paragraph(I18n.get("reliability.outages") + ": " + r.getOutageCount(), statFont));
+        document.add(new Paragraph(I18n.get("reliability.longestOutage") + ": "
+                + formatDuration(r.getLongestOutageSeconds()), statFont));
+        document.add(new Paragraph(I18n.get("reliability.mtbf") + ": "
+                + formatDuration(r.getMtbfSeconds()), statFont));
+        document.add(new Paragraph(I18n.get("reliability.mttr") + ": "
+                + formatDuration(r.getMttrSeconds()), statFont));
+        document.add(Chunk.NEWLINE);
+    }
+
+    /** Dauer menschenlesbar: "Xh Ym" / "Ym Zs" / "Zs". */
+    private static String formatDuration(long seconds)
+    {
+        if (seconds <= 0) return "0 s";
+        if (seconds < 60) return seconds + " s";
+        if (seconds < 3600) return (seconds / 60) + " min " + (seconds % 60) + " s";
+        return (seconds / 3600) + " h " + ((seconds % 3600) / 60) + " min";
+    }
+
+    /** Eine Segment-Zeile: "Label (IP): x ms, y % Paketverlust — Status". */
+    private Paragraph connectivityLine(String label, String ip,
+                                       H2MeasurementRepository.Statistics s,
+                                       Font statFont, Locale locale)
+    {
+        String status = !ConnectivityAssessment.hasData(s)
+                ? I18n.get("connectivity.noData")
+                : (ConnectivityAssessment.isHealthy(s)
+                ? I18n.get("connectivity.healthy")
+                : I18n.get("connectivity.degraded"));
+        String metric = ConnectivityAssessment.hasData(s)
+                ? String.format(locale, "%.1f ms, %.0f %% %s",
+                s.getAvgLatency(), s.getPacketLossPercent(), I18n.get("stats.packetLoss"))
+                : "";
+        String text = label + " (" + ip + "): "
+                + (metric.isEmpty() ? "" : metric + " — ") + status;
+        return new Paragraph(text, statFont);
     }
 
     // Hilfsmethoden
