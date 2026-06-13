@@ -1,0 +1,2 @@
+# Shell-Skripte immer mit Unix-Zeilenumbruechen (LF)
+*.sh text eol=lf

@@ -92,7 +92,7 @@ public class WebServer
             // Kein gueltiges Session-Token → zur Login-Seite umleiten
             if (path.startsWith("/api/"))
                 {
-                throw new io.javalin.http.UnauthorizedResponse("Nicht angemeldet");
+                throw new io.javalin.http.UnauthorizedResponse(I18n.get("api.notLoggedIn"));
                 }
             ctx.redirect("/login");
             return;
@@ -114,9 +114,23 @@ public class WebServer
         ctx.html(loginPageRenderer.render());
         });
 
-        // Setup-Seite
+        // Setup-Seite (mit optionalem Sprachwechsel via ?lang=xx)
         app.get("/setup", ctx ->
         {
+        String lang = ctx.queryParam("lang");
+        if (lang != null && I18n.isAvailable(lang))
+            {
+            Config config = Config.getInstance();
+            config.setLanguage(lang);
+            I18n.load(lang);
+            try
+                {
+                Config.save("config.json");
+                } catch (Exception e)
+                {
+                logger.error("Sprachwahl konnte nicht gespeichert werden: {}", e.getMessage());
+                }
+            }
         ctx.html(setupPageRenderer.render());
         });
 
@@ -249,8 +263,15 @@ public class WebServer
                 measurements = repository.findSince(cutoff);
                 }
 
+            // Spaltenkoepfe folgen der eingestellten Sprache (UI-Sprache)
             StringBuilder csv = new StringBuilder();
-            csv.append("timestamp;type;target;latency_ms;success;local_ipv4;local_ipv6;external_ipv4;external_ipv6;host_hash\n");
+            csv.append(String.join(";",
+                            I18n.get("csv.timestamp"), I18n.get("csv.type"), I18n.get("csv.target"),
+                            I18n.get("csv.latencyMs"), I18n.get("csv.success"),
+                            I18n.get("csv.localIpv4"), I18n.get("csv.localIpv6"),
+                            I18n.get("csv.externalIpv4"), I18n.get("csv.externalIpv6"),
+                            I18n.get("csv.hostHash")))
+                    .append("\n");
 
             for (Measurement m : measurements)
                 {
@@ -420,12 +441,40 @@ public class WebServer
                             "provider", config.getUserInfo().getProvider(),
                             "customerId", config.getUserInfo().getCustomerId(),
                             "userName", config.getUserInfo().getUserName()
-                    )
+                    ),
+                    "language", config.getLanguage()
             ));
             } catch (Exception e)
             {
             ctx.status(500);
             ctx.json(new ErrorResponse("Config-Lade-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Sprache der Benutzeroberflaeche aendern
+        app.post("/api/config/language", ctx ->
+        {
+        try
+            {
+            var body = ctx.bodyAsClass(java.util.Map.class);
+            String language = body.get("language") != null ? body.get("language").toString() : null;
+
+            if (!I18n.isAvailable(language))
+                {
+                ctx.status(400).result(I18n.get("api.invalidRequest"));
+                return;
+                }
+
+            Config config = Config.getInstance();
+            config.setLanguage(language);
+            I18n.load(language);
+            Config.save("config.json");
+
+            ctx.status(200).result(I18n.get("api.languageSaved"));
+            } catch (Exception e)
+            {
+            ctx.status(500);
+            ctx.json(new ErrorResponse("Sprach-Speicher-Fehler: " + e.getMessage()));
             }
         });
 
@@ -523,7 +572,7 @@ public class WebServer
             Config.save("config.json");
 
             ctx.status(200);
-            ctx.result("Konfiguration erfolgreich aktualisiert und gespeichert!");
+            ctx.result(I18n.get("api.configSaved"));
             } catch (Exception e)
             {
             ctx.status(500);
@@ -588,7 +637,7 @@ public class WebServer
 
             if (adminPasswordHash.isEmpty())
                 {
-                ctx.status(400).result("Admin-Passwort-Hash fehlt!");
+                ctx.status(400).result(I18n.get("api.adminHashMissing"));
                 return;
                 }
 
@@ -607,7 +656,7 @@ public class WebServer
                 }
 
             Config.save("config.json");
-            ctx.status(200).result("Setup abgeschlossen!");
+            ctx.status(200).result(I18n.get("api.setupDone"));
             } catch (Exception e)
             {
             ctx.status(500);
@@ -634,7 +683,7 @@ public class WebServer
             // Nonce validieren (Single-Use, 60s TTL)
             if (!sessionManager.validateNonce(nonce))
                 {
-                ctx.status(401).result("Ungueltige oder abgelaufene Anmeldung");
+                ctx.status(401).result(I18n.get("api.invalidLogin"));
                 return;
                 }
 
@@ -656,14 +705,14 @@ public class WebServer
 
             if (storedHash == null || storedHash.isEmpty())
                 {
-                ctx.status(401).result("Benutzername oder Passwort falsch");
+                ctx.status(401).result(I18n.get("api.wrongCredentials"));
                 return;
                 }
 
             // Challenge-Response verifizieren: SHA-256(storedHash + nonce) == challengeResponse
             if (!sessionManager.verifyChallengeResponse(storedHash, nonce, challengeResponse))
                 {
-                ctx.status(401).result("Benutzername oder Passwort falsch");
+                ctx.status(401).result(I18n.get("api.wrongCredentials"));
                 return;
                 }
 
@@ -673,7 +722,7 @@ public class WebServer
             } catch (Exception e)
             {
             logger.error("Login-Fehler", e);
-            ctx.status(500).result("Anmeldung fehlgeschlagen");
+            ctx.status(500).result(I18n.get("api.loginFailed"));
             }
         });
 
@@ -682,7 +731,7 @@ public class WebServer
         String token = ctx.cookie("SR_SESSION");
         sessionManager.invalidateSession(token);
         ctx.removeCookie("SR_SESSION", "/");
-        ctx.status(200).result("Abgemeldet");
+        ctx.status(200).result(I18n.get("api.loggedOut"));
         });
 
         // Authentifizierungs-Einstellungen
@@ -708,7 +757,7 @@ public class WebServer
             // Admin-Identitaet per Challenge-Response verifizieren
             if (!sessionManager.validateNonce(nonce))
                 {
-                ctx.status(401).result("Ungueltige Anfrage");
+                ctx.status(401).result(I18n.get("api.invalidRequest"));
                 return;
                 }
 
@@ -717,7 +766,7 @@ public class WebServer
 
             if (!sessionManager.verifyChallengeResponse(storedAdminHash, nonce, challengeResponse))
                 {
-                ctx.status(403).result("Falsches Admin-Passwort");
+                ctx.status(403).result(I18n.get("api.wrongAdminPassword"));
                 return;
                 }
 
@@ -728,7 +777,7 @@ public class WebServer
             auth.setEnabled(true);
 
             Config.save("config.json");
-            ctx.status(200).result("Authentifizierung aktiviert");
+            ctx.status(200).result(I18n.get("api.authEnabled"));
             } catch (Exception e)
             {
             ctx.status(500);
@@ -747,7 +796,7 @@ public class WebServer
             // Admin-Identitaet per Challenge-Response verifizieren
             if (!sessionManager.validateNonce(nonce))
                 {
-                ctx.status(401).result("Ungueltige Anfrage");
+                ctx.status(401).result(I18n.get("api.invalidRequest"));
                 return;
                 }
 
@@ -756,7 +805,7 @@ public class WebServer
 
             if (!sessionManager.verifyChallengeResponse(storedAdminHash, nonce, challengeResponse))
                 {
-                ctx.status(403).result("Falsches Admin-Passwort");
+                ctx.status(403).result(I18n.get("api.wrongAdminPassword"));
                 return;
                 }
 
@@ -764,7 +813,7 @@ public class WebServer
             auth.setEnabled(false);
             Config.save("config.json");
 
-            ctx.status(200).result("Authentifizierung deaktiviert");
+            ctx.status(200).result(I18n.get("api.authDisabled"));
             } catch (Exception e)
             {
             ctx.status(500);
@@ -784,7 +833,7 @@ public class WebServer
             // Nonce und altes Passwort per Challenge-Response verifizieren
             if (!sessionManager.validateNonce(nonce))
                 {
-                ctx.status(401).result("Ungueltige Anfrage");
+                ctx.status(401).result(I18n.get("api.invalidRequest"));
                 return;
                 }
 
@@ -793,14 +842,14 @@ public class WebServer
 
             if (!sessionManager.verifyChallengeResponse(storedHash, nonce, challengeResponse))
                 {
-                ctx.status(403).result("Falsches aktuelles Admin-Passwort");
+                ctx.status(403).result(I18n.get("api.wrongCurrentAdminPassword"));
                 return;
                 }
 
             // Client sendet SHA-256(newPassword) → direkt speichern
             config.getSetup().setAdminPasswordHash(newPasswordHash);
             Config.save("config.json");
-            ctx.status(200).result("Admin-Passwort geaendert");
+            ctx.status(200).result(I18n.get("api.adminPasswordChanged"));
             } catch (Exception e)
             {
             ctx.status(500);
@@ -837,7 +886,7 @@ public class WebServer
             push.setConsecutiveBadMeasurements(consecutive);
 
             Config.save("config.json");
-            ctx.status(200).result("Push-Einstellungen gespeichert");
+            ctx.status(200).result(I18n.get("api.pushSaved"));
             } catch (Exception e)
             {
             ctx.status(500).result("Fehler beim Speichern: " + e.getMessage());
@@ -860,7 +909,7 @@ public class WebServer
             Config config = Config.getInstance();
             config.getTheme().setDarkMode(darkMode);
             Config.save("config.json");
-            ctx.status(200).result("Theme gespeichert");
+            ctx.status(200).result(I18n.get("api.themeSaved"));
             } catch (Exception e)
             {
             ctx.status(500).result("Fehler beim Speichern: " + e.getMessage());

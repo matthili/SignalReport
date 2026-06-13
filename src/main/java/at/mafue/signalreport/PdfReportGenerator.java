@@ -18,6 +18,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -33,8 +34,76 @@ public class PdfReportGenerator
         this.repository = repository;
     }
 
+    // ========================================================================
+    //  Unicode-Schriften (DejaVu Sans, eingebettet)
+    //
+    //  Die eingebauten PDF-Schriften (Helvetica) beherrschen nur Westeuropa-
+    //  Zeichen. Fuer Tuerkisch, Polnisch und Ukrainisch (Kyrillisch) wird
+    //  DejaVu Sans mit IDENTITY_H-Encoding eingebettet. Dieselben TTF-Dateien
+    //  dienen auch JFreeChart als AWT-Schrift fuer die Chart-Beschriftungen.
+    // ========================================================================
+
+    private static volatile BaseFont baseRegular;
+    private static volatile BaseFont baseBold;
+    private static volatile BaseFont baseOblique;
+    private static volatile java.awt.Font awtChartFont;
+
+    private static synchronized void initFonts()
+    {
+        if (baseRegular != null) return;
+        try
+            {
+            byte[] regular = readResource("/fonts/DejaVuSans.ttf");
+            byte[] bold = readResource("/fonts/DejaVuSans-Bold.ttf");
+            byte[] oblique = readResource("/fonts/DejaVuSans-Oblique.ttf");
+
+            baseRegular = BaseFont.createFont("DejaVuSans.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, regular, null);
+            baseBold = BaseFont.createFont("DejaVuSans-Bold.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, bold, null);
+            baseOblique = BaseFont.createFont("DejaVuSans-Oblique.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, oblique, null);
+
+            awtChartFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT,
+                    new java.io.ByteArrayInputStream(regular));
+            } catch (Exception e)
+            {
+            throw new RuntimeException("Konnte eingebettete Schriften nicht laden", e);
+            }
+    }
+
+    private static byte[] readResource(String path) throws IOException
+    {
+        try (InputStream in = PdfReportGenerator.class.getResourceAsStream(path))
+            {
+            if (in == null)
+                {
+                throw new IOException("Ressource nicht gefunden: " + path);
+                }
+            return in.readAllBytes();
+            }
+    }
+
+    private static Font font(float size)
+    {
+        initFonts();
+        return new Font(baseRegular, size);
+    }
+
+    private static Font fontBold(float size)
+    {
+        initFonts();
+        return new Font(baseBold, size);
+    }
+
+    private static Font fontItalic(float size)
+    {
+        initFonts();
+        return new Font(baseOblique, size);
+    }
+
     public byte[] generateReport(int hours) throws Exception
     {
+        initFonts();
+        Locale locale = I18n.locale();
+
         Document document = new Document(PageSize.A4);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, baos);
@@ -47,7 +116,7 @@ public class PdfReportGenerator
 
         Instant now = Instant.now();
         Instant since = now.minusSeconds(hours * 3600L);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm", locale)
                 .withZone(ZoneId.systemDefault());
 
         // Logo
@@ -66,8 +135,7 @@ public class PdfReportGenerator
             } catch (Exception e)
             {
             // Fallback: Texttitel falls Logo nicht geladen werden kann
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA, 20, Font.BOLD);
-            document.add(new Paragraph("SignalReport – Internet-Qualitätsbericht", titleFont));
+            document.add(new Paragraph(I18n.get("pdf.title"), fontBold(20)));
             document.add(Chunk.NEWLINE);
             }
 
@@ -81,52 +149,46 @@ public class PdfReportGenerator
 
         if (hasUserInfo)
             {
-            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD);
-            document.add(new Paragraph("Kundendaten:", sectionFont));
+            document.add(new Paragraph(I18n.get("pdf.customerData"), fontBold(12)));
 
-            Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
+            Font regularInfoFont = font(11);
             if (!userInfo.getUserName().isEmpty())
                 {
-                document.add(new Paragraph("Name: " + userInfo.getUserName(), regularFont));
+                document.add(new Paragraph(I18n.get("customer.name") + ": " + userInfo.getUserName(), regularInfoFont));
                 }
             if (!userInfo.getProvider().isEmpty())
                 {
-                document.add(new Paragraph("Provider/Tarif: " + userInfo.getProvider(), regularFont));
+                document.add(new Paragraph(I18n.get("customer.provider") + ": " + userInfo.getProvider(), regularInfoFont));
                 }
             if (!userInfo.getCustomerId().isEmpty())
                 {
-                document.add(new Paragraph("Kundennummer: " + userInfo.getCustomerId(), regularFont));
+                document.add(new Paragraph(I18n.get("customer.customerId") + ": " + userInfo.getCustomerId(), regularInfoFont));
                 }
             document.add(Chunk.NEWLINE);
             }
 
         // Zeitraum
-        Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
-        String periodDesc = hours == 8760 ? "12 Monate" : hours + " Stunden";
-        document.add(new Paragraph("Zeitraum: " + formatter.format(since) + " – " + formatter.format(now) + " (" + periodDesc + ")", regularFont));
+        Font regularFont = font(12);
+        String periodDesc = hours == 8760 ? I18n.get("pdf.months12") : hours + " " + I18n.get("pdf.hours");
+        document.add(new Paragraph(I18n.get("pdf.period") + ": " + formatter.format(since) + " – " + formatter.format(now) + " (" + periodDesc + ")", regularFont));
         document.add(Chunk.NEWLINE);
 
         // Host-Informationen
-        Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
-        document.add(new Paragraph("Host: " + HostIdentifier.getHostname() + " | Hash: " + HostIdentifier.getHostHash().substring(0, 8), smallFont));
-        document.add(new Paragraph("LAN IPv4: " + NetworkInfo.getLocalIPv4() + " | LAN IPv6: " + NetworkInfo.getLocalIPv6(), smallFont));
-        document.add(new Paragraph("Externe IPv4: " + NetworkInfo.getExternalIPv4() + " | Externe IPv6: " + NetworkInfo.getExternalIPv6(), smallFont));
+        Font smallFont = font(10);
+        document.add(new Paragraph(I18n.get("table.host") + ": " + HostIdentifier.getHostname() + " | " + I18n.get("hosts.hash") + ": " + HostIdentifier.getHostHash().substring(0, 8), smallFont));
+        document.add(new Paragraph(I18n.get("network.localIPv4") + ": " + NetworkInfo.getLocalIPv4() + " | " + I18n.get("network.localIPv6") + ": " + NetworkInfo.getLocalIPv6(), smallFont));
+        document.add(new Paragraph(I18n.get("network.externalIPv4") + ": " + NetworkInfo.getExternalIPv4() + " | " + I18n.get("network.externalIPv6") + ": " + NetworkInfo.getExternalIPv6(), smallFont));
         document.add(Chunk.NEWLINE);
 
         // Alle Messungen im Zeitraum holen (direkt per SQL gefiltert)
         List<Measurement> filteredMeasurements = repository.findSince(since);
 
         // === PING STATISTIK ===
-        document.add(new Paragraph("PING-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        //document.add(Chunk.NEWLINE);
+        document.add(new Paragraph(I18n.get("pdf.pingMeasurements"), fontBold(14)));
 
         H2MeasurementRepository.Statistics pingStats = repository.calculateStatistics("PING", hours);
-        Font statFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
-        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", pingStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", pingStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", pingStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", pingStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", pingStats.getJitter()), statFont));
+        Font statFont = font(11);
+        addStatisticsBlock(document, pingStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // PING Chart
@@ -134,10 +196,9 @@ public class PdfReportGenerator
         if (!pingMeasurements.isEmpty())
             {
             BufferedImage pingChart = createLatencyChart(pingMeasurements, "PING", detectTargetChanges(pingMeasurements));
-            addChartToPdf(document, pingChart, "Grafische Darstellung:");
-            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
+            addChartToPdf(document, pingChart, I18n.get("pdf.chartTitle"));
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
-            document.add(new Paragraph(pingTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
+            document.add(new Paragraph(pingTargetsNote, fontItalic(9)));
             if (!hasUserInfo)
                 {
                 document.add(Chunk.NEXTPAGE); //provoziert leere Seite, wenn keine Kundendaten hinterlegt sind
@@ -146,15 +207,10 @@ public class PdfReportGenerator
 
 
         // === DNS STATISTIK ===
-        document.add(new Paragraph("DNS-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        //document.add(Chunk.NEWLINE);
+        document.add(new Paragraph(I18n.get("pdf.dnsMeasurements"), fontBold(14)));
 
         H2MeasurementRepository.Statistics dnsStats = repository.calculateStatistics("DNS", hours);
-        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", dnsStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", dnsStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", dnsStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", dnsStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", dnsStats.getJitter()), statFont));
+        addStatisticsBlock(document, dnsStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // DNS Chart
@@ -162,24 +218,17 @@ public class PdfReportGenerator
         if (!dnsMeasurements.isEmpty())
             {
             BufferedImage dnsChart = createLatencyChart(dnsMeasurements, "DNS", detectTargetChanges(dnsMeasurements));
-            addChartToPdf(document, dnsChart, "Grafische Darstellung:");
-            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
+            addChartToPdf(document, dnsChart, I18n.get("pdf.chartTitle"));
             String dnsTargetsNote = getTargetsChronological(dnsMeasurements);
-            document.add(new Paragraph(dnsTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
-            //document.add(Chunk.NEWLINE);
+            document.add(new Paragraph(dnsTargetsNote, fontItalic(9)));
             document.add(Chunk.NEXTPAGE);
             }
 
         // === HTTP STATISTIK ===
-        document.add(new Paragraph("HTTP-Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
-        //document.add(Chunk.NEWLINE);
+        document.add(new Paragraph(I18n.get("pdf.httpMeasurements"), fontBold(14)));
 
         H2MeasurementRepository.Statistics httpStats = repository.calculateStatistics("HTTP", hours);
-        document.add(new Paragraph("Durchschnittliche Latenz: " + String.format("%.1f ms", httpStats.getAvgLatency()), statFont));
-        document.add(new Paragraph("95. Perzentil: " + String.format("%.1f ms", httpStats.getP95Latency()), statFont));
-        document.add(new Paragraph("Maximale Latenz (erfolgreich): " + String.format("%.1f ms", httpStats.getMaxLatency()), statFont));
-        document.add(new Paragraph("Paketverlust: " + String.format("%.1f %%", httpStats.getPacketLossPercent()), statFont));
-        document.add(new Paragraph("Jitter: " + String.format("%.1f ms", httpStats.getJitter()), statFont));
+        addStatisticsBlock(document, httpStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // HTTP Chart
@@ -187,50 +236,59 @@ public class PdfReportGenerator
         if (!httpMeasurements.isEmpty())
             {
             BufferedImage httpChart = createLatencyChart(httpMeasurements, "HTTP", detectTargetChanges(httpMeasurements));
-            addChartToPdf(document, httpChart, "Grafische Darstellung:");
-            //document.add(Chunk.NEWLINE); //hat an dieser Stelle im Normalfall keine Auswirkung
+            addChartToPdf(document, httpChart, I18n.get("pdf.chartTitle"));
             String httpTargetsNote = getTargetsChronological(httpMeasurements);
-            document.add(new Paragraph(httpTargetsNote, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.ITALIC)));
-            //document.add(Chunk.NEWLINE);
+            document.add(new Paragraph(httpTargetsNote, fontItalic(9)));
             document.add(Chunk.NEXTPAGE);
             }
 
         // === TOP 10 SCHLECHTESTE MESSUNGEN ===
-        document.add(new Paragraph("Top 10 schlechteste Messungen", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
+        document.add(new Paragraph(I18n.get("pdf.worstTitle"), fontBold(14)));
         document.add(Chunk.NEWLINE);
 
         List<Measurement> worstMeasurements = getWorstMeasurements(filteredMeasurements, 10);
         if (!worstMeasurements.isEmpty())
             {
-            PdfPTable worstTable = createWorstMeasurementsTable(worstMeasurements);
+            PdfPTable worstTable = createWorstMeasurementsTable(worstMeasurements, locale);
             document.add(worstTable);
             } else
             {
-            document.add(new Paragraph("Keine Messungen gefunden.", FontFactory.getFont(FontFactory.HELVETICA, 10)));
+            document.add(new Paragraph(I18n.get("pdf.noMeasurements"), font(10)));
             }
         document.add(Chunk.NEWLINE);
 
         // === VERBINDUNGSAUSFÄLLE ===
-        document.add(new Paragraph("Verbindungsausfälle", FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD)));
+        document.add(new Paragraph(I18n.get("pdf.outagesTitle"), fontBold(14)));
         document.add(Chunk.NEWLINE);
 
         List<ConnectionOutage> outages = detectConnectionOutages(filteredMeasurements);
         int totalOutages = outages.size();
-        document.add(new Paragraph("Gesamtanzahl Verbindungsausfälle: " + totalOutages, statFont));
+        document.add(new Paragraph(I18n.get("pdf.totalOutages") + ": " + totalOutages, statFont));
         document.add(Chunk.NEWLINE);
 
         if (!outages.isEmpty())
             {
-            document.add(new Paragraph("Top 10 längste Verbindungsausfälle", FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD)));
+            document.add(new Paragraph(I18n.get("pdf.longestOutages"), fontBold(12)));
             document.add(Chunk.NEWLINE);
 
             List<ConnectionOutage> longestOutages = getLongestOutages(outages, 10);
-            PdfPTable outagesTable = createOutagesTable(longestOutages);
+            PdfPTable outagesTable = createOutagesTable(longestOutages, locale);
             document.add(outagesTable);
             }
 
         document.close();
         return baos.toByteArray();
+    }
+
+    /** Schreibt den Statistik-Block (5 Kennzahlen) lokalisiert ins Dokument. */
+    private void addStatisticsBlock(Document document, H2MeasurementRepository.Statistics stats,
+                                    Font statFont, Locale locale) throws DocumentException
+    {
+        document.add(new Paragraph(I18n.get("pdf.avgLatency") + ": " + String.format(locale, "%.1f ms", stats.getAvgLatency()), statFont));
+        document.add(new Paragraph(I18n.get("stats.p95") + ": " + String.format(locale, "%.1f ms", stats.getP95Latency()), statFont));
+        document.add(new Paragraph(I18n.get("pdf.maxLatency") + ": " + String.format(locale, "%.1f ms", stats.getMaxLatency()), statFont));
+        document.add(new Paragraph(I18n.get("stats.packetLoss") + ": " + String.format(locale, "%.1f %%", stats.getPacketLossPercent()), statFont));
+        document.add(new Paragraph(I18n.get("stats.jitter") + ": " + String.format(locale, "%.1f ms", stats.getJitter()), statFont));
     }
 
     // Hilfsmethoden
@@ -352,35 +410,36 @@ public class PdfReportGenerator
     {
         if (measurements == null || measurements.isEmpty())
             {
-            return "Keine Messungen im Zeitraum";
+            return I18n.get("pdf.noMeasurementsInPeriod");
             }
 
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm", I18n.locale())
                 .withZone(ZoneId.systemDefault());
 
         // Erstes Ziel mit Zeitstempel der ersten Messung
         String firstTarget = measurements.get(0).getTarget();
         String firstTime = fmt.format(measurements.get(0).getTimestamp());
         List<String> entries = new ArrayList<>();
-        entries.add(firstTarget + " (ab " + firstTime + ")");
+        entries.add(firstTarget + " (" + I18n.get("pdf.since") + " " + firstTime + ")");
 
         // Ziel-Änderungen mit jeweiligem Zeitstempel
         List<TargetChange> changes = detectTargetChanges(measurements);
         for (TargetChange change : changes)
             {
-            entries.add(change.getNewTarget() + " (ab " + fmt.format(change.getTimestamp()) + ")");
+            entries.add(change.getNewTarget() + " (" + I18n.get("pdf.since") + " " + fmt.format(change.getTimestamp()) + ")");
             }
 
         String prefix = entries.size() > 1
-                ? "⚠️ Gemessene Ziele (chronologisch): "
-                : "Gemessenes Ziel: ";
+                ? "⚠️ " + I18n.get("pdf.measuredTargets")
+                : I18n.get("pdf.measuredTarget");
 
         return prefix + String.join(", ", entries);
     }
 
     private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
     {
-        XYSeries series = new XYSeries(type + " Latenz");
+        initFonts();
+        XYSeries series = new XYSeries(type + " " + I18n.get("table.latency"));
 
         for (int i = 0; i < measurements.size(); i++)
             {
@@ -393,9 +452,9 @@ public class PdfReportGenerator
 
         XYSeriesCollection dataset = new XYSeriesCollection(series);
         JFreeChart chart = ChartFactory.createXYLineChart(
-                type + " Latenz über Zeit",
-                "Messung #",
-                "Latenz (ms)",
+                type + " " + I18n.get("chart.latencyOverTime"),
+                I18n.get("pdf.measurementNo"),
+                I18n.get("chart.latencyMs"),
                 dataset,
                 PlotOrientation.VERTICAL,
                 false,
@@ -403,7 +462,16 @@ public class PdfReportGenerator
                 false
         );
 
+        // DejaVu auch fuer die Chart-Texte verwenden, damit alle Sprachen
+        // (inkl. Kyrillisch) korrekt gerendert werden
+        chart.getTitle().setFont(awtChartFont.deriveFont(java.awt.Font.BOLD, 16f));
+
         XYPlot plot = chart.getXYPlot();
+        plot.getDomainAxis().setLabelFont(awtChartFont.deriveFont(12f));
+        plot.getDomainAxis().setTickLabelFont(awtChartFont.deriveFont(10f));
+        plot.getRangeAxis().setLabelFont(awtChartFont.deriveFont(12f));
+        plot.getRangeAxis().setTickLabelFont(awtChartFont.deriveFont(10f));
+
         XYLineAndShapeRenderer renderer = (XYLineAndShapeRenderer) plot.getRenderer();
         renderer.setSeriesPaint(0, Color.decode("#0d6efd"));
         renderer.setSeriesStroke(0, new BasicStroke(2.0f));
@@ -466,7 +534,7 @@ public class PdfReportGenerator
         chartImage.setAlignment(com.lowagie.text.Image.ALIGN_CENTER);
 
         // Titel + Chart
-        document.add(new Paragraph(title, FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD)));
+        document.add(new Paragraph(title, fontBold(12)));
         document.add(Chunk.NEWLINE);
         document.add(chartImage);
 
@@ -475,21 +543,21 @@ public class PdfReportGenerator
         document.add(Chunk.NEWLINE);
     }
 
-    private PdfPTable createWorstMeasurementsTable(List<Measurement> measurements)
+    private PdfPTable createWorstMeasurementsTable(List<Measurement> measurements, Locale locale) throws DocumentException
     {
         PdfPTable table = new PdfPTable(5);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{2, 1, 2, 1, 1});
 
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD);
-        addTableCell(table, "Zeitstempel", headerFont, true);
-        addTableCell(table, "Typ", headerFont, true);
-        addTableCell(table, "Ziel", headerFont, true);
-        addTableCell(table, "Latenz", headerFont, true);
-        addTableCell(table, "Host", headerFont, true);
+        Font headerFont = fontBold(10);
+        addTableCell(table, I18n.get("pdf.timestamp"), headerFont, true);
+        addTableCell(table, I18n.get("table.type"), headerFont, true);
+        addTableCell(table, I18n.get("table.target"), headerFont, true);
+        addTableCell(table, I18n.get("table.latency"), headerFont, true);
+        addTableCell(table, I18n.get("table.host"), headerFont, true);
 
-        Font contentFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+        Font contentFont = font(9);
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", locale)
                 .withZone(ZoneId.systemDefault());
 
         for (Measurement m : measurements)
@@ -497,27 +565,27 @@ public class PdfReportGenerator
             addTableCell(table, dtf.format(m.getTimestamp()), contentFont, false);
             addTableCell(table, m.getType(), contentFont, false);
             addTableCell(table, m.getTarget(), contentFont, false);
-            addTableCell(table, String.format("%.1f ms", m.getLatencyMs()), contentFont, false);
+            addTableCell(table, String.format(locale, "%.1f ms", m.getLatencyMs()), contentFont, false);
             addTableCell(table, m.getHostHash().substring(0, 8), contentFont, false);
             }
 
         return table;
     }
 
-    private PdfPTable createOutagesTable(List<ConnectionOutage> outages)
+    private PdfPTable createOutagesTable(List<ConnectionOutage> outages, Locale locale) throws DocumentException
     {
         PdfPTable table = new PdfPTable(4);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{2, 2, 1, 1});
 
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD);
-        addTableCell(table, "Start", headerFont, true);
-        addTableCell(table, "Ende", headerFont, true);
-        addTableCell(table, "Dauer", headerFont, true);
-        addTableCell(table, "Typ", headerFont, true);
+        Font headerFont = fontBold(10);
+        addTableCell(table, I18n.get("pdf.start"), headerFont, true);
+        addTableCell(table, I18n.get("pdf.end"), headerFont, true);
+        addTableCell(table, I18n.get("pdf.duration"), headerFont, true);
+        addTableCell(table, I18n.get("table.type"), headerFont, true);
 
-        Font contentFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss")
+        Font contentFont = font(9);
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", locale)
                 .withZone(ZoneId.systemDefault());
 
         for (ConnectionOutage outage : outages)
@@ -598,19 +666,14 @@ public class PdfReportGenerator
     private static class PageNumberFooter extends PdfPageEventHelper
     {
         private PdfTemplate totalPages;
-        private BaseFont baseFont;
+        private BaseFont footerFont;
 
         @Override
         public void onOpenDocument(PdfWriter writer, Document document)
         {
             totalPages = writer.getDirectContent().createTemplate(30, 16);
-            try
-                {
-                baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-                } catch (Exception e)
-                {
-                throw new RuntimeException(e);
-                }
+            initFonts();
+            footerFont = baseRegular;
         }
 
         @Override
@@ -618,12 +681,12 @@ public class PdfReportGenerator
         {
             int currentPage = writer.getPageNumber();
             String text = currentPage + " / ";
-            float textWidth = baseFont.getWidthPoint(text, 9);
+            float textWidth = footerFont.getWidthPoint(text, 9);
             float xCenter = (document.right() + document.left()) / 2;
 
             PdfContentByte cb = writer.getDirectContent();
             cb.beginText();
-            cb.setFontAndSize(baseFont, 9);
+            cb.setFontAndSize(footerFont, 9);
             cb.setTextMatrix(xCenter - textWidth / 2, document.bottom() - 20);
             cb.showText(text);
             cb.endText();
@@ -634,7 +697,7 @@ public class PdfReportGenerator
         public void onCloseDocument(PdfWriter writer, Document document)
         {
             totalPages.beginText();
-            totalPages.setFontAndSize(baseFont, 9);
+            totalPages.setFontAndSize(footerFont, 9);
             totalPages.showText(String.valueOf(writer.getPageNumber() - 1));
             totalPages.endText();
         }

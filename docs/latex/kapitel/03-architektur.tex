@@ -185,6 +185,70 @@ Version bereits eine alte Single-DB ohne Shadow, wird im ersten Konstruktor-Aufr
 die Shadow als exakte Kopie der Primary angelegt. Damit greift die Twin-Redundanz
 sofort -- ohne Datenverlust und ohne manuelle Migrationsschritte.
 
+\subsection{Internationalisierung (i18n)}
+\label{subsec:i18n}
+
+Die gesamte Präsentationsschicht -- Web-Oberfläche, Login- und Setup-Seite,
+PDF-Berichte, CSV-Spaltenköpfe und benutzerseitige API-Meldungen -- ist
+mehrsprachig. Aktuell werden neun Sprachen mitgeliefert: Deutsch (Referenz),
+Englisch, Französisch, Italienisch, Spanisch, Portugiesisch, Türkisch, Polnisch
+und Ukrainisch.
+
+\paragraph{Sprachdateien.} Jede Sprache ist eine flache JSON-Datei (UTF-8) mit
+Punkt-Schlüsseln unter \texttt{resources/lang/}, z.\,B.
+\texttt{"nav.settings": "Einstellungen"}. Die zentrale Klasse \texttt{I18n}
+lädt die in der Konfiguration hinterlegte Sprache und stellt drei Mechanismen
+bereit:
+
+\begin{enumerate}
+  \item \textbf{Platzhalter-Auflösung}: Die HTML-Renderer enthalten statt
+    deutscher Literale Platzhalter der Form \texttt{\{\{nav.settings\}\}}.
+    \texttt{I18n.resolve()} ersetzt sie beim Rendern per regulärem Ausdruck.
+  \item \textbf{JS-Injektion}: Texte, die das Frontend-JavaScript zur Laufzeit
+    erzeugt (Status-Badges, Chart-Beschriftungen, Fehlermeldungen), werden als
+    \texttt{const I18N = \{...\}}-Objekt in die Seite eingebettet. Datums- und
+    Zahlenformate folgen über die mitgereichte Locale der gewählten Sprache.
+  \item \textbf{Direkte Aufrufe}: PDF-Generator und WebServer verwenden
+    \texttt{I18n.get(key)} sowie locale-bewusste Formatierung
+    (\texttt{String.format(locale, ...)}) -- im Deutschen erscheint
+    \texttt{23,5 ms}, im Englischen \texttt{23.5 ms}.
+\end{enumerate}
+
+\paragraph{Fallback-Kette.} Fehlt ein Schlüssel in der gewählten Sprache, wird
+auf Deutsch (Referenzsprache) zurückgegriffen, danach auf den Schlüsselnamen
+selbst -- die Oberfläche zeigt also nie ein Loch. Ein eigener Testfall
+(\texttt{I18nTest}) erzwingt zusätzlich, dass alle mitgelieferten Sprachdateien
+exakt dieselben Schlüssel wie die Referenz enthalten und dass jeder im
+Quellcode verwendete Platzhalter existiert.
+
+\paragraph{Erweiterbarkeit ohne Neukompilieren.} Neben den im JAR gebündelten
+Sprachen liest \texttt{I18n} einen externen Ordner \texttt{./lang} neben der
+JAR-Datei ein. Eine dort abgelegte Datei (z.\,B. \texttt{ca.json} für
+Katalanisch) erscheint automatisch im Sprach-Dropdown; gleichnamige Dateien
+überschreiben gebündelte Sprachen, womit auch Übersetzungskorrekturen ohne
+Neubau möglich sind. Der Anzeigename jeder Sprache stammt aus ihrem eigenen
+Schlüssel \texttt{language.name} und erscheint im Dropdown in der jeweiligen
+Eigenbezeichnung (Deutsch, English, Türkçe, Ukrainisch in kyrillischer
+Schrift usw.).
+
+\paragraph{Sprachwahl.} Die Sprache wird global pro Installation in
+\texttt{config.json} gespeichert. Sie ist an zwei Stellen umstellbar: per
+Dropdown im Setup-Wizard (noch vor der Passwortvergabe, via
+\texttt{/setup?lang=xx}) und im Einstellungen-Tab (sofortige Übernahme über
+\texttt{POST /api/config/language} mit anschließendem Seiten-Reload).
+Neuinstallationen starten in der Systemsprache des Rechners, sofern
+unterstützt -- andernfalls auf Englisch. Bestehende Konfigurationen ohne
+\texttt{language}-Feld bleiben unverändert auf Deutsch.
+
+\paragraph{PDF und Sonderzeichen.} Die eingebauten PDF-Schriften (Helvetica)
+beherrschen nur Westeuropa-Zeichen; Türkisch, Polnisch und Ukrainisch wären
+damit im Bericht nicht darstellbar. Deshalb wird die freie Schrift
+\textbf{DejaVu Sans} (Regular, Bold, Oblique) als Ressource mitgeliefert und
+mit Unicode-Encoding (\texttt{IDENTITY\_H}) in jedes PDF eingebettet. Dieselben
+TTF-Dateien dienen JFreeChart als AWT-Schrift, sodass auch Chart-Titel und
+Achsenbeschriftungen in allen Sprachen korrekt gerendert werden. Der
+JAR-Zuwachs durch Schriften und neun Sprachdateien beträgt rund 1,5\,MB.
+
 \subsection{Datenfluss bei der Messung}
 
 Der Messablauf (Abbildung \ref{fig:sequence-measurement}) zeigt den kontinuierlichen

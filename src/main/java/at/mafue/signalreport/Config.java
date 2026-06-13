@@ -72,6 +72,21 @@ public class Config
         this.theme = theme;
     }
 
+    // Sprache der Benutzeroberflaeche (ISO-Code, z. B. "de", "en", "uk").
+    // null bei Konfigurationen aus Vorgaenger-Versionen -> getLanguage() liefert dann "de",
+    // damit sich bestehende Installationen beim Update nicht ploetzlich umstellen.
+    private String language;
+
+    public String getLanguage()
+    {
+        return (language == null || language.isBlank()) ? "de" : language;
+    }
+
+    public void setLanguage(String language)
+    {
+        this.language = language;
+    }
+
     public static Config load(String path) throws IOException
     {
 
@@ -465,6 +480,10 @@ public class Config
     public static Config createDefault()
     {
         Config config = new Config();
+
+        // Neuinstallation: Systemsprache verwenden, falls unterstuetzt - sonst Englisch.
+        // (Bestehende Installationen ohne language-Feld bleiben ueber getLanguage() auf Deutsch.)
+        config.language = I18n.detectOsLanguage();
 
         config.measurement = new MeasurementConfig();
         config.measurement.intervalSeconds = 10;

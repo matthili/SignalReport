@@ -53,6 +53,9 @@ public class SignalReportApp
                 }
             }
 
+        // Sprache laden (Web-UI, PDF- und CSV-Texte)
+        I18n.load(config.getLanguage());
+
         // Measurer initialisieren
         PingMeasurer pingMeasurer = new PingMeasurer();
         DnsMeasurer dnsMeasurer = new DnsMeasurer();

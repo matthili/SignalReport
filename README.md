@@ -5,90 +5,96 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-76%20passing-brightgreen" alt="JUnit Tests"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-86%20passing-brightgreen" alt="JUnit Tests"></a>
 </p>
 
-Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachung deiner Internet-Qualität – mit PDF-Berichten für Provider-Beschwerden, IP-Tracking und DNS-Benchmark.
+<p align="center">
+  <b>English</b> | <a href="README_de.md">Deutsch</a>
+</p>
 
-> 💡 **Warum SignalReport?**  
-> *"Mein Internet ist langsam!"* reicht bei Providern nicht. Mit SignalReport lieferst du **nachweisbare, quantifizierte Belege** – nicht nur Bauchgefühl.
+A professional, open-source monitoring tool for the continuous supervision of your internet quality – with PDF reports for ISP complaints, IP tracking and a DNS benchmark.
 
-> 📜 **Projektgeschichte**  
-> SignalReport entstand zwischen Jänner und April 2026 als Abschlussprojekt des Diplomlehrgangs *"Software Developer:in"* am WIFI Wien (Kurs 18195015) und wird seither als persönliches Open-Source-Projekt aktiv weiterentwickelt. Wer den exakten Stand zum Zeitpunkt der Diplomprüfung begutachten möchte, findet diesen als Release [`V1`](https://github.com/matthili/SignalReport/releases/tag/V1).
+> 💡 **Why SignalReport?**  
+> *"My internet is slow!"* is not enough for an ISP. With SignalReport you deliver **verifiable, quantified evidence** – not just a gut feeling.
+
+> 📜 **Project history**  
+> SignalReport was created between January and April 2026 as the final project of the diploma course *"Software Developer"* at WIFI Vienna (course 18195015) and has since been actively developed further as a personal open-source project. If you want to review the exact state at the time of the diploma examination, you can find it as release [`V1`](https://github.com/matthili/SignalReport/releases/tag/V1).
 
 ---
 
 ## 🌟 Features
 
-| Kategorie | Funktionen |
-|-----------|------------|
-| **Monitoring** | 🔁 Kontinuierliche Messung (Ping/DNS/HTTP)<br>⏱️ Konfigurierbares Intervall (5s–1h)<br>⏸️ Maintenance-Fenster (Router-Updates)<br>🌐 IP-Tracking (externe IP-Änderungen erkennen) |
-| **Visualisierung** | 📊 Live-Charts mit Chart.js<br>🌡️ Heatmap pro Stunde<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
-| **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export (vollständig oder gefiltert) |
-| **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
-| **Datensicherheit** | 🛟 Twin-Datenbank (synchrone Spiegelung)<br>🔄 Auto-Recovery beim Start (Korruption → Rekonstruktion aus intakter Kopie)<br>⚡ Synchrone Schreibvorgänge (`WRITE_DELAY=0`)<br>🛡️ Schutz vor Crash durch Update-Reboots / Stromausfälle |
-| **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark (Server weltweit)<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
+| Category | Functions |
+|----------|-----------|
+| **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP)<br>⏱️ Configurable interval (5s–1h)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
+| **Visualisation** | 📊 Live charts with Chart.js<br>🌡️ Hourly heatmap<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
+| **Reports** | 📄 PDF export (24h / 7 days / 12 months)<br>📈 3 charts (PING/DNS/HTTP) with target-change markers<br>🏆 Top 10 worst measurements<br>⚠️ Connection-outage analysis<br>📤 CSV export (complete or filtered) |
+| **Security** | 🔐 Setup wizard (web-based, no CLI)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles with session management<br>🛡️ Password is never transmitted in plaintext |
+| **Data safety** | 🛟 Twin database (synchronous mirroring)<br>🔄 Auto-recovery on startup (corruption → reconstruction from the intact copy)<br>⚡ Synchronous writes (`WRITE_DELAY=0`)<br>🛡️ Protection against crashes from update reboots / power failures |
+| **Internationalisation** | 🌐 9 languages: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Applies to web UI, PDF reports and CSV exports<br>🎛️ Language choice in the setup wizard and in the settings<br>📂 Extensible without recompiling: drop your own language file into `./lang/` |
+| **Configuration** | ⚙️ Dynamic measurement targets (ping/DNS/HTTP)<br>🌍 DNS benchmark (servers worldwide)<br>👤 User info (provider/customer number for reports) |
 
 ---
 
-## 🚀 Schnellstart
+## 🚀 Quick start
 
-### Voraussetzungen
-- Java 21 oder höher ([Download](https://adoptium.net/))
-- (Optional) Maven für Build aus Quelle
+### Requirements
+- Java 21 or higher ([download](https://adoptium.net/))
+- (Optional) Maven to build from source
 
-### Installation & Start
+### Installation & start
 ```bash
-# 1. JAR herunterladen (oder mit Maven bauen: mvn clean package)
+# 1. Download the JAR (or build with Maven: mvn clean package)
 java -jar signalreport.jar
 
-# 2. Browser öffnen
+# 2. Open the browser
 http://localhost:4567
 
-# 3. Setup-Wizard durchlaufen (Admin-Passwort festlegen)
+# 3. Run through the setup wizard (set an admin password)
 ```
 
-✅ **Fertig!** Die Messung beginnt automatisch – alle 10 Sekunden werden Ping, DNS und HTTP getestet.
+✅ **Done!** Measurement starts automatically – ping, DNS and HTTP are tested every 10 seconds.
 
 ---
 
-## 📦 Installation als Dienst
+## 📦 Installation as a service
 
-Für den Dauerbetrieb (auch ohne angemeldeten Benutzer) kann SignalReport als Hintergrund-Dienst installiert werden.
+For continuous operation (even without a logged-in user) SignalReport can be installed as a background service.
 
 ### Windows
-1. [`signalreport_windows.zip`](deployment/signalreport_windows.zip) herunterladen und entpacken
-2. `install.bat` mit Rechtsklick → *"Als Administrator ausführen"* starten
-3. Das Skript installiert den Dienst, erstellt eine Desktop-Verknüpfung und richtet die Firewall ein
+1. Download and unpack [`signalreport_windows.zip`](deployment/signalreport_windows.zip)
+2. Right-click `install.bat` → *"Run as administrator"*
+3. The script installs the service, creates a desktop shortcut and sets up the firewall
 
 ### macOS / Linux
-1. [`signalreport_mac-linux.zip`](deployment/signalreport_mac-linux.zip) herunterladen und entpacken
-2. Terminal öffnen und ausführen: `sudo bash install.sh`
-3. Der Dienst wird als systemd-Service (Linux) bzw. launchd-Service (macOS) eingerichtet
+1. Download and unpack [`signalreport_mac-linux.zip`](deployment/signalreport_mac-linux.zip)
+2. Open a terminal and run: `sudo bash install.sh`
+3. The service is set up as a systemd service (Linux) or launchd service (macOS)
 
-> 💡 Die [`signalreport.jar`](deployment/signalreport.jar) muss sich im selben Verzeichnis wie die Installations-Skripte befinden.
+> 💡 The [`signalreport.jar`](deployment/signalreport.jar) must be located in the same directory as the installation scripts.
 
-### Deinstallation
-- **Windows**: `uninstall.bat` Rechtsklick → als Administrator ausführen
-- **macOS/Linux**: `sudo bash uninstall.sh` (im Terminal)
+### Uninstallation
+- **Windows**: right-click `uninstall.bat` → run as administrator
+- **macOS/Linux**: `sudo bash uninstall.sh` (in the terminal)
 
 ---
 
 ## 📸 Screenshots
 
-| Web-Oberfläche | PDF-Bericht (Auszug) | DNS-Benchmark |
-|----------------|----------------------|---------------|
+| Web interface | PDF report (excerpt) | DNS benchmark |
+|---------------|----------------------|---------------|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![PDF Report](docs/screenshots/pdf-report.png) | ![DNS Benchmark](docs/screenshots/dns-benchmark.png) |
-| *Live-Charts, Statistiken, Einstellungen* | *Professioneller Bericht für Provider* | *Vergleich globaler DNS-Server* |
+| *Live charts, statistics, settings* | *Professional report for ISPs* | *Comparison of global DNS servers* |
 
 ---
 
-## ⚙️ Konfiguration
+## ⚙️ Configuration
 
-Nach dem ersten Start wird `config.json` erstellt. Wichtige Einstellungen:
+After the first start a `config.json` is created. Important settings:
 
 ```json
 {
+  "language": "en",
   "measurement": {
     "intervalSeconds": 10,
     "targets": {
@@ -112,156 +118,178 @@ Nach dem ersten Start wird `config.json` erstellt. Wichtige Einstellungen:
 }
 ```
 
-💡 **Tipp**: Änderungen über die Web-Oberfläche (Tab *⚙️ Einstellungen*) werden sofort übernommen und persistiert!
+💡 **Tip**: Changes made via the web interface (tab *⚙️ Settings*) are applied and persisted immediately!
 
 ---
 
-## 📊 PDF-Bericht – Perfekt für Provider-Beschwerden
+## 🌐 Internationalisation
 
-Der 12-Monats-Bericht enthält:
-- ✅ Deine Kundendaten (Name, Provider, Kundennummer)
-- ✅ Host-Informationen (Hostname, Hash, IPs)
-- ✅ 3 Charts mit roten Linien bei Ziel-Änderungen
-- ✅ Chronologische Liste der gemessenen Ziele
-- ✅ Top 10 schlechteste Messungen (mit Zeitstempel)
-- ✅ Top 10 längste Verbindungsausfälle
-- ✅ Gesamtanzahl der Ausfälle
+SignalReport is fully multilingual – web interface, PDF reports and CSV exports. **9 languages** are bundled:
 
-> 📌 **So nutzt du den Bericht**:  
-> 1. PDF mit "📄 PDF-Bericht (12 Monate)" generieren  
-> 2. Als `signalreport-providername-beschwerde-2026-03-25.pdf` speichern  
-> 3. An Support-Mail anhängen mit Text:  
-> *"Anbei der technische Nachweis für wiederholte Verbindungsprobleme im Zeitraum XX bis YY. Bitte prüfen Sie die Leitung zu meinem Anschluss."*
+🇩🇪 Deutsch · 🇬🇧 English · 🇫🇷 Français · 🇮🇹 Italiano · 🇪🇸 Español · 🇵🇹 Português · 🇹🇷 Türkçe · 🇵🇱 Polski · 🇺🇦 Українська
+
+- **Switching**: in the setup wizard (before setting the password) or any time in the *⚙️ Settings* tab
+- **Default**: fresh installations adopt the system language (otherwise English); existing installations stay on German
+- **Add your own language** (without recompiling): place a `<code>.json` file (e.g. `nl.json`) modelled on [`de.json`](src/main/resources/lang/de.json) into a `lang/` folder next to `signalreport.jar` – it appears in the language dropdown automatically
+- **Unicode in the PDF**: the DejaVu font is embedded, so Turkish, Polish and Cyrillic script (Ukrainian) are rendered correctly too
 
 ---
 
-## 🏗️ Projektstruktur
+## 📊 PDF report – perfect for ISP complaints
+
+The 12-month report contains:
+- ✅ Your customer data (name, provider, customer number)
+- ✅ Host information (hostname, hash, IPs)
+- ✅ 3 charts with red lines at target changes
+- ✅ Chronological list of the measured targets
+- ✅ Top 10 worst measurements (with timestamp)
+- ✅ Top 10 longest connection outages
+- ✅ Total number of outages
+
+> 📌 **How to use the report**:  
+> 1. Generate the PDF via "📄 PDF report (12 months)"  
+> 2. Save it as `signalreport-providername-complaint-2026-03-25.pdf`  
+> 3. Attach it to a support email with text such as:  
+> *"Attached is the technical evidence of repeated connection problems in the period XX to YY. Please check the line to my connection."*
+
+---
+
+## 🏗️ Project structure
+
+A compact overview of the directories and classes is available in [`docs/ProjectStructure.md`](docs/ProjectStructure.md); the architecture is described in [`docs/Architecture.md`](docs/Architecture.md).
 
 ```
 signalreport/
 ├── src/main/java/at/mafue/signalreport/
-│   ├── SignalReportApp.java              # Hauptklasse (Entry Point)
-│   ├── Config.java                       # Singleton-Konfiguration (JSON)
-│   ├── Measurer.java                     # Interface (Strategy-Pattern)
-│   ├── PingMeasurer.java                 # ICMP-Ping-Messung
-│   ├── DnsMeasurer.java                  # DNS-Auflösungs-Messung
-│   ├── HttpMeasurer.java                 # HTTP-GET-Messung
-│   ├── DnsBenchmark.java                 # DNS-Server-Vergleich
-│   ├── H2MeasurementRepository.java      # Datenbank-Zugriff (H2)
-│   ├── WebServer.java                    # Javalin REST-API + Routing
-│   ├── HtmlPageRenderer.java             # HTML-Rendering Hauptseite
-│   ├── SetupPageRenderer.java            # HTML-Rendering Setup-Wizard
-│   ├── LoginPageRenderer.java            # Login-Seite (Challenge-Response)
-│   ├── SessionManager.java               # Session- & Nonce-Verwaltung
-│   ├── PdfReportGenerator.java           # PDF-Export (OpenPDF + JFreeChart)
-│   ├── NetworkInfo.java                  # IP-Adress-Ermittlung (mit Cache)
-│   └── HostIdentifier.java               # Host-Hash (stabile ID)
-├── src/test/java/at/mafue/signalreport/  # 8 Testklassen, 76 Tests
-├── src/main/resources/web/               # Statische Dateien (Logos, Favicons)
+│   ├── SignalReportApp.java              # Main class (entry point)
+│   ├── Config.java                       # Singleton configuration (JSON)
+│   ├── I18n.java                         # Internationalisation (9 languages, extensible)
+│   ├── Measurer.java                     # Interface (strategy pattern)
+│   ├── PingMeasurer.java                 # ICMP ping measurement
+│   ├── DnsMeasurer.java                  # DNS resolution measurement
+│   ├── HttpMeasurer.java                 # HTTP GET measurement
+│   ├── DnsBenchmark.java                 # DNS server comparison
+│   ├── H2MeasurementRepository.java      # Twin-database access (H2)
+│   ├── WebServer.java                    # Javalin REST API + routing
+│   ├── HtmlPageRenderer.java             # HTML rendering of the main page
+│   ├── SetupPageRenderer.java            # HTML rendering of the setup wizard
+│   ├── LoginPageRenderer.java            # Login page (challenge-response)
+│   ├── SessionManager.java               # Session & nonce management
+│   ├── PdfReportGenerator.java           # PDF export (OpenPDF + JFreeChart)
+│   ├── NetworkInfo.java                  # IP address discovery (with cache)
+│   └── HostIdentifier.java               # Host hash (stable ID)
+├── src/test/java/at/mafue/signalreport/  # 9 test classes, 86 tests
+├── src/main/resources/web/               # Static files (logos, favicons)
+├── src/main/resources/lang/              # Language files (de, en, fr, it, es, pt, tr, pl, uk)
+├── src/main/resources/fonts/             # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/
-│   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
-│   ├── latex/                            # Vollständige LaTeX-Dokumentation
-│   └── screenshots/                      # UI-Screenshots
-├── deployment/                           # Installations-Skripte (Win/Linux/macOS)
-├── config.json                           # Auto-generierte Konfiguration
-├── data/                                 # H2-Twin-Datenbank: Primary + Shadow (gitignored)
-│   └── quarantine/                       # Defekte DB-Dateien zur Nachanalyse
-├── pom.xml                               # Maven-Build-Konfiguration
-└── README.md                             # Diese Datei
+│   ├── diagrams/                         # PlantUML diagrams (.puml + .png)
+│   ├── latex/                            # Full LaTeX documentation
+│   └── screenshots/                      # UI screenshots
+├── deployment/                           # Installation scripts (Win/Linux/macOS)
+├── config.json                           # Auto-generated configuration
+├── data/                                 # H2 twin database: primary + shadow (gitignored)
+│   └── quarantine/                       # Corrupt DB files kept for analysis
+├── pom.xml                               # Maven build configuration
+└── README.md                             # This file (German version: README_de.md)
 ```
 
 ---
 
-## 📚 Dokumentation
+## 📚 Documentation
 
-- **Vollständige LaTeX-Dokumentation als PDF**: [`signalreport-dokumentation.pdf`](docs/latex/signalreport-dokumentation.pdf)
-  Enthält UML-Diagramme, Architekturbeschreibung, Implementierungsdetails und Testbericht.
-- **UML-Diagramme**: Alle 7 Diagramme als PNG und PlantUML in `docs/diagrams/`:
-  - [`class-diagram.png`](docs/diagrams/class-diagram.png) – Klassenstruktur
-  - [`component-diagram.png`](docs/diagrams/component-diagram.png) – Komponentenübersicht
-  - [`sequence-measurement.png`](docs/diagrams/sequence-measurement.png) – Messungsablauf
-  - [`sequence-pdf.png`](docs/diagrams/sequence-pdf.png) – PDF-Export-Prozess
-  - [`usecase-diagram.png`](docs/diagrams/usecase-diagram.png) – Use-Cases
-  - [`deployment-diagram.png`](docs/diagrams/deployment-diagram.png) – Deployment-Szenarien
-  - [`state-diagram-auth.png`](docs/diagrams/state-diagram-auth.png) – Authentifizierungs-Zustände
-
----
-
-## 🔒 Sicherheitshinweise
-
-- **Challenge-Response Auth**: Passwörter werden nie im Klartext übertragen – SHA-256 mit Einmal-Nonces
-- **Session-Management**: 24h Session-Timeout, sichere Cookie-basierte Authentifizierung
-- **Authentifizierung**: Für öffentliche IPs (z.B. NAS mit Port-Weiterleitung) **unbedingt aktivieren** (Tab *🔐 Sicherheit*)
-- **Setup-Passwort**: Admin-Passwort wird beim ersten Start festgelegt – niemals Standardwerte belassen!
-- **Datenbank**: Alle Daten lokal gespeichert in einer crash-resistenten Twin-Datenbank (Primary + Shadow). Keine Cloud-Abhängigkeit, keine externen APIs (außer ipify.org für externe IP)
+- **Full LaTeX documentation as PDF**: [`signalreport-dokumentation.pdf`](docs/latex/signalreport-dokumentation.pdf)
+  Contains UML diagrams, architecture description, implementation details and the test report. *(Document language: German.)*
+- **Architecture overview**: [`docs/Architecture.md`](docs/Architecture.md)
+- **Project structure**: [`docs/ProjectStructure.md`](docs/ProjectStructure.md)
+- **UML diagrams**: all 7 diagrams as PNG and PlantUML in `docs/diagrams/`:
+  - [`class-diagram.png`](docs/diagrams/class-diagram.png) – class structure
+  - [`component-diagram.png`](docs/diagrams/component-diagram.png) – component overview
+  - [`sequence-measurement.png`](docs/diagrams/sequence-measurement.png) – measurement flow
+  - [`sequence-pdf.png`](docs/diagrams/sequence-pdf.png) – PDF export process
+  - [`usecase-diagram.png`](docs/diagrams/usecase-diagram.png) – use cases
+  - [`deployment-diagram.png`](docs/diagrams/deployment-diagram.png) – deployment scenarios
+  - [`state-diagram-auth.png`](docs/diagrams/state-diagram-auth.png) – authentication states
 
 ---
 
-## 🤝 Mitwirken
+## 🔒 Security notes
 
-SignalReport ist Open Source! Du kannst:
-- 🐛 Fehler melden (Issues)
-- 💡 Neue Features vorschlagen
-- 📝 Dokumentation verbessern
-- 🌍 Übersetzungen beisteuern
-
----
-
-## 📜 Lizenz
-
-MIT License – siehe [LICENSE](LICENSE) Datei.  
-*Frei nutzbar für private und kommerzielle Zwecke – mit Quellenangabe.*
+- **Challenge-response auth**: passwords are never transmitted in plaintext – SHA-256 with single-use nonces
+- **Session management**: 24h session timeout, secure cookie-based authentication
+- **Authentication**: for public IPs (e.g. a NAS with port forwarding) **make sure to enable it** (tab *🔐 Security*)
+- **Setup password**: the admin password is set on first start – never leave default values!
+- **Database**: all data stored locally in a crash-resistant twin database (primary + shadow). No cloud dependency, no external APIs (except ipify.org for the external IP)
 
 ---
 
-## 🙏 Danksagung
+## 🤝 Contributing
 
-Dieses Projekt nutzt großartige Open-Source-Bibliotheken und Dienste:
+SignalReport is open source! You can:
+- 🐛 Report bugs (issues)
+- 💡 Suggest new features
+- 📝 Improve the documentation
+- 🌍 Contribute translations (a new `lang/<code>.json` modelled on [`de.json`](src/main/resources/lang/de.json))
 
-**Backend-Bibliotheken (Maven/Java):**
-- [Javalin](https://javalin.io/) – Leichtgewichtiges Web-Framework
-- [H2 Database](https://www.h2database.com/) – Embedded SQL-Datenbank
-- [Jackson](https://github.com/FasterXML/jackson) – JSON-Serialisierung (Config, API)
-- [OpenPDF](https://github.com/LibrePDF/OpenPDF) – PDF-Erstellung
-- [JFreeChart](https://www.jfree.org/jfreechart/) – Chart-Generierung für PDF-Reports
-- [dnsjava](https://dnsjava.org/) – DNS-Queries für Benchmark
-- [SLF4J](https://www.slf4j.org/) + [Logback](https://logback.qos.ch/) – Logging
-- [JUnit 5](https://junit.org/junit5/) – Test-Framework
+---
 
-**Frontend (Browser):**
-- [Chart.js](https://www.chartjs.org/) – Live-Charts im Web-Interface (via CDN)
-- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) – Client-seitiges SHA-256 Hashing für Challenge-Response Auth
+## 📜 License
 
-**Externe Dienste:**
-- [ipify.org](https://www.ipify.org/) – Ermittlung der externen IP-Adresse
+MIT License – see the [LICENSE](LICENSE) file.  
+*Free to use for private and commercial purposes – with attribution.*
 
-**Build & Deployment:**
-- [Apache Maven](https://maven.apache.org/) – Build-System
-- [Apache Commons Daemon](https://commons.apache.org/proper/commons-daemon/) – Service-Installation (procrun/jsvc)
+---
 
-**Dokumentation & Entwicklung:**
-- [PlantUML](https://plantuml.com/) – UML-Diagramme
-- [LaTeX](https://www.latex-project.org/) – Projektdokumentation
-- [EmojiTerra](https://emojiterra.com/) – Emoji-Übersicht
-- [StackOverflow](https://stackoverflow.com/) – Fragen/Antworten-Plattform für Softwareentwickler
-- [Hitchhiker’s Guide to PlantUML](https://crashedmind.github.io/PlantUMLHitchhikersGuide/) – Nomen est omen
+## 🙏 Acknowledgements
 
-Außerdem gilt mein Dank:
+This project uses great open-source libraries and services:
 
-- [Christian Schäfer](https://github.com/chris-cgsit/) – Java-Lehrgang und Projekt-Coaching
-- [Serap Kadam](https://github.com/serap) – Unterstützung, Freundschaft, alles rund um Java
-- [Angelika Winder] – Unterstützung in allen Lebenslagen (außer bei Java)
+**Backend libraries (Maven/Java):**
+- [Javalin](https://javalin.io/) – lightweight web framework
+- [H2 Database](https://www.h2database.com/) – embedded SQL database
+- [Jackson](https://github.com/FasterXML/jackson) – JSON serialisation (config, API)
+- [OpenPDF](https://github.com/LibrePDF/OpenPDF) – PDF creation
+- [JFreeChart](https://www.jfree.org/jfreechart/) – chart generation for PDF reports
+- [dnsjava](https://dnsjava.org/) – DNS queries for the benchmark
+- [SLF4J](https://www.slf4j.org/) + [Logback](https://logback.qos.ch/) – logging
+- [JUnit 5](https://junit.org/junit5/) – test framework
+
+**Frontend (browser):**
+- [Chart.js](https://www.chartjs.org/) – live charts in the web interface (via CDN)
+- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) – client-side SHA-256 hashing for challenge-response auth
+
+**Fonts:**
+- [DejaVu Fonts](https://dejavu-fonts.github.io/) – embedded Unicode font for PDF reports (Latin, Latin Extended, Cyrillic)
+
+**External services:**
+- [ipify.org](https://www.ipify.org/) – discovery of the external IP address
+
+**Build & deployment:**
+- [Apache Maven](https://maven.apache.org/) – build system
+- [Apache Commons Daemon](https://commons.apache.org/proper/commons-daemon/) – service installation (procrun/jsvc)
+
+**Documentation & development:**
+- [PlantUML](https://plantuml.com/) – UML diagrams
+- [LaTeX](https://www.latex-project.org/) – project documentation
+- [EmojiTerra](https://emojiterra.com/) – emoji reference
+- [StackOverflow](https://stackoverflow.com/) – Q&A platform for software developers
+- [Hitchhiker’s Guide to PlantUML](https://crashedmind.github.io/PlantUMLHitchhikersGuide/) – nomen est omen
+
+My thanks also go to:
+
+- [Christian Schäfer](https://github.com/chris-cgsit/) – Java course and project coaching
+- [Serap Kadam](https://github.com/serap) – support, friendship, everything around Java
+- [Angelika Winder] – support in all situations of life (except with Java)
 
 
 ---
 
-## 📮 Kontakt & Support
+## 📮 Contact & support
 
-Bei Fragen zur Abschlussarbeit oder technischen Details:  
-📧 **  
+For questions about the project or technical details, feel free to open an issue on GitHub.
 
 
 ---
 
 > 🌐 **SignalReport**  
-> *Entwickelt mit ❤️ für alle, die wissen wollen, wie stabil ihre Internet-Verbindung ist.*
+> *Built with ❤️ for everyone who wants to know how stable their internet connection really is.*

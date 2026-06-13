@@ -7,14 +7,14 @@ public class SetupPageRenderer
         boolean darkMode = Config.getInstance().getTheme().isDarkMode();
         String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
         String faviconSuffix = darkMode ? "dark" : "light";
-        return """
+        String html = """
                 <!DOCTYPE html>
-                <html>
+                <html lang="__LOCALE__">
                 <head>
                     <meta charset="UTF-8">
                     <link rel="icon" id="favicon" type="image/png" href="/favicon-32x32-THEME_SUFFIX.png">
                     <link rel="apple-touch-icon" href="/apple-icon-180x180-THEME_SUFFIX.png">
-                    <title>SignalReport Setup</title>
+                    <title>{{setup.pageTitle}}</title>
                     <style>
                         :root {
                             --bg-body: #f8f9fa;
@@ -65,66 +65,77 @@ public class SetupPageRenderer
                         .setup-logo.dark { display: none; }
                         body.dark-mode .setup-logo.light { display: none; }
                         body.dark-mode .setup-logo.dark { display: block; margin: 0 auto 10px auto; }
+                        .language-select { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 10px; }
+                        .language-select select { padding: 6px 10px; border-radius: 5px; border: 1px solid var(--color-border); background: var(--color-input-bg); color: var(--color-text); }
                     </style>
                 </head>
                 <body BODY_CLASS>
                     <div class="setup-container">
+                        <div class="language-select">
+                            <span>🌐</span>
+                            <select id="setupLanguage" onchange="location.href='/setup?lang=' + this.value">
+                                __LANG_OPTIONS__
+                            </select>
+                        </div>
                         <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="setup-logo light">
                         <img src="/logo_mit_schriftzug_dark_login.png" alt="SignalReport" class="setup-logo dark">
-                        <h2 style="text-align:center; color:var(--color-primary); margin-bottom:30px;">Setup</h2>
-                
+                        <h2 style="text-align:center; color:var(--color-primary); margin-bottom:30px;">{{setup.title}}</h2>
+
                         <div class="info-box">
-                            <strong>Willkommen!</strong>
-                            <p>Dies ist die erstmalige Einrichtung von SignalReport. Bitte lege ein Admin-Passwort fest.</p>
+                            <strong>{{setup.welcome}}</strong>
+                            <p>{{setup.welcomeText}}</p>
                         </div>
-                
+
                         <div class="setup-steps">
                             <div class="step active">
                                 <div class="step-number">1</div>
-                                <div>Admin-Passwort</div>
+                                <div>{{setup.step1}}</div>
                             </div>
                             <div class="step">
                                 <div class="step-number">2</div>
-                                <div>Authentifizierung</div>
+                                <div>{{setup.step2}}</div>
                             </div>
                             <div class="step">
                                 <div class="step-number">3</div>
-                                <div>Fertig</div>
+                                <div>{{setup.step3}}</div>
                             </div>
                         </div>
-                
+
                         <div class="form-group">
-                            <label for="adminPassword">Admin-Passwort *</label>
-                            <input type="password" id="adminPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
+                            <label for="adminPassword">{{setup.adminPassword}} *</label>
+                            <input type="password" id="adminPassword" placeholder="{{setup.minChars}}" minlength="6">
                         </div>
-                
+
                         <div class="form-group">
-                            <label for="adminPasswordConfirm">Admin-Passwort bestätigen *</label>
-                            <input type="password" id="adminPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
+                            <label for="adminPasswordConfirm">{{setup.adminPasswordConfirm}} *</label>
+                            <input type="password" id="adminPasswordConfirm" placeholder="{{setup.repeatPassword}}" minlength="6">
                         </div>
-                
+
                         <div class="checkbox-group">
                             <input type="checkbox" id="enableAuth">
-                            <label for="enableAuth" style="display:inline; font-weight:normal;">Authentifizierung aktivieren (empfohlen für öffentliche IP)</label>
+                            <label for="enableAuth" style="display:inline; font-weight:normal;">{{setup.enableAuth}}</label>
                         </div>
-                
+
                         <div id="userPasswordGroup" style="display:none; margin-top:15px;">
                             <div class="form-group">
-                                <label for="userPassword">User-Passwort für Web-Zugriff (Benutzername: User) *</label>
-                                <input type="password" id="userPassword" placeholder="Mindestens 6 Zeichen" minlength="6">
+                                <label for="userPassword">{{setup.userPassword}} *</label>
+                                <input type="password" id="userPassword" placeholder="{{setup.minChars}}" minlength="6">
                             </div>
                             <div class="form-group">
-                                <label for="userPasswordConfirm">User-Passwort bestätigen *</label>
-                                <input type="password" id="userPasswordConfirm" placeholder="Passwort erneut eingeben" minlength="6">
+                                <label for="userPasswordConfirm">{{setup.userPasswordConfirm}} *</label>
+                                <input type="password" id="userPasswordConfirm" placeholder="{{setup.repeatPassword}}" minlength="6">
                             </div>
                         </div>
-                
+
                         <div class="error" id="errorMessage"></div>
-                
-                        <button class="btn" id="completeSetup">Setup abschließen</button>
+
+                        <button class="btn" id="completeSetup">{{setup.complete}}</button>
                     </div>
-                
+
                     <script>
+                        // Uebersetzungen (vom Server eingebettet)
+                        const I18N = __I18N_JSON__;
+
                         // SHA-256 Hash-Funktion (Web Crypto API)
                         async function sha256(message) {
                             const encoder = new TextEncoder();
@@ -133,12 +144,12 @@ public class SetupPageRenderer
                             const hashArray = Array.from(new Uint8Array(hashBuffer));
                             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                         }
-                
+
                         // Authentifizierung-Checkbox Toggle
                         document.getElementById('enableAuth').addEventListener('change', function() {
                             document.getElementById('userPasswordGroup').style.display = this.checked ? 'block' : 'none';
                         });
-                
+
                         // Setup abschließen
                         document.getElementById('completeSetup').addEventListener('click', async function() {
                             const adminPassword = document.getElementById('adminPassword').value;
@@ -146,41 +157,41 @@ public class SetupPageRenderer
                             const enableAuth = document.getElementById('enableAuth').checked;
                             const userPassword = document.getElementById('userPassword').value;
                             const userPasswordConfirm = document.getElementById('userPasswordConfirm').value;
-                
+
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.style.display = 'none';
-                
+
                             // Validierung
                             if (adminPassword.length < 6) {
-                                showError('Admin-Passwort muss mindestens 6 Zeichen lang sein!');
+                                showError(I18N['setup.adminTooShort']);
                                 return;
                             }
-                
+
                             if (adminPassword !== adminPasswordConfirm) {
-                                showError('Admin-Passwoerter stimmen nicht ueberein!');
+                                showError(I18N['setup.adminMismatch']);
                                 return;
                             }
-                
+
                             if (enableAuth) {
                                 if (userPassword.length < 6) {
-                                    showError('User-Passwort muss mindestens 6 Zeichen lang sein!');
+                                    showError(I18N['setup.userTooShort']);
                                     return;
                                 }
-                
+
                                 if (userPassword !== userPasswordConfirm) {
-                                    showError('User-Passwoerter stimmen nicht ueberein!');
+                                    showError(I18N['setup.userMismatch']);
                                     return;
                                 }
                             }
-                
+
                             // Passwoerter client-seitig hashen (SHA-256)
                             this.disabled = true;
-                            this.textContent = 'Setup wird abgeschlossen...';
-                
+                            this.textContent = I18N['setup.completing'];
+
                             try {
                                 const adminPasswordHash = await sha256(adminPassword);
                                 const userPasswordHash = enableAuth ? await sha256(userPassword) : '';
-                
+
                                 const response = await fetch('/api/setup/complete', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -190,19 +201,19 @@ public class SetupPageRenderer
                                         userPasswordHash: userPasswordHash
                                     })
                                 });
-                
+
                                 const message = await response.text();
-                                alert('\u2705 ' + message);
-                
+                                alert('✅ ' + message);
+
                                 // Bei aktivierter Auth zur Login-Seite, sonst zur Hauptseite
                                 window.location.href = enableAuth ? '/login' : '/';
                             } catch (error) {
-                                showError('Fehler: ' + error.message);
+                                showError(I18N['common.error'] + ': ' + error.message);
                                 this.disabled = false;
-                                this.textContent = 'Setup abschliessen';
+                                this.textContent = I18N['setup.complete'];
                             }
                         });
-                
+
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;
@@ -212,6 +223,10 @@ public class SetupPageRenderer
                 </body>
                 </html>
                 """.replace("BODY_CLASS", bodyClass)
-                .replace("THEME_SUFFIX", faviconSuffix);
+                .replace("THEME_SUFFIX", faviconSuffix)
+                .replace("__I18N_JSON__", I18n.activeAsJson())
+                .replace("__LANG_OPTIONS__", I18n.languageOptionsHtml())
+                .replace("__LOCALE__", I18n.current());
+        return I18n.resolve(html);
     }
 }

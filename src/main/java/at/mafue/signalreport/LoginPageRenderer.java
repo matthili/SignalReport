@@ -7,14 +7,14 @@ public class LoginPageRenderer
         boolean darkMode = Config.getInstance().getTheme().isDarkMode();
         String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
         String faviconSuffix = darkMode ? "dark" : "light";
-        return """
+        String html = """
                 <!DOCTYPE html>
-                <html>
+                <html lang="__LOCALE__">
                 <head>
                     <meta charset="UTF-8">
                     <link rel="icon" id="favicon" type="image/png" href="/favicon-32x32-THEME_SUFFIX.png">
                     <link rel="apple-touch-icon" href="/apple-icon-180x180-THEME_SUFFIX.png">
-                    <title>SignalReport Login</title>
+                    <title>{{login.pageTitle}}</title>
                     <style>
                         :root {
                             --bg-body: #f8f9fa;
@@ -62,24 +62,27 @@ public class LoginPageRenderer
                     <div class="login-container">
                         <img src="/logo_mit_schriftzug_light.png" alt="SignalReport" class="login-logo light">
                         <img src="/logo_mit_schriftzug_dark_login.png" alt="SignalReport" class="login-logo dark">
-                        <p class="subtitle">Anmeldung erforderlich</p>
-                
+                        <p class="subtitle">{{login.required}}</p>
+
                         <div class="form-group">
-                            <label for="username">Benutzername</label>
-                            <input type="text" id="username" placeholder="admin oder user" autocomplete="username">
+                            <label for="username">{{login.username}}</label>
+                            <input type="text" id="username" placeholder="{{login.usernamePlaceholder}}" autocomplete="username">
                         </div>
-                
+
                         <div class="form-group">
-                            <label for="password">Passwort</label>
-                            <input type="password" id="password" placeholder="Passwort eingeben" autocomplete="current-password">
+                            <label for="password">{{login.password}}</label>
+                            <input type="password" id="password" placeholder="{{login.passwordPlaceholder}}" autocomplete="current-password">
                         </div>
-                
+
                         <div class="error" id="errorMessage"></div>
-                
-                        <button class="btn" id="loginBtn">Anmelden</button>
+
+                        <button class="btn" id="loginBtn">{{login.submit}}</button>
                     </div>
-                
+
                     <script>
+                        // Uebersetzungen (vom Server eingebettet)
+                        const I18N = __I18N_JSON__;
+
                         // SHA-256 Hash-Funktion (Web Crypto API)
                         async function sha256(message) {
                             const encoder = new TextEncoder();
@@ -88,35 +91,35 @@ public class LoginPageRenderer
                             const hashArray = Array.from(new Uint8Array(hashBuffer));
                             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                         }
-                
+
                         // Challenge-Response Login
                         async function login() {
                             const username = document.getElementById('username').value.trim();
                             const password = document.getElementById('password').value;
                             const errorDiv = document.getElementById('errorMessage');
                             const loginBtn = document.getElementById('loginBtn');
-                
+
                             errorDiv.style.display = 'none';
-                
+
                             if (!username || !password) {
-                                showError('Benutzername und Passwort eingeben!');
+                                showError(I18N['login.enterBoth']);
                                 return;
                             }
-                
+
                             loginBtn.disabled = true;
-                            loginBtn.textContent = 'Anmeldung...';
-                
+                            loginBtn.textContent = I18N['login.submitting'];
+
                             try {
                                 // 1. Nonce vom Server holen
                                 const nonceResponse = await fetch('/api/auth/nonce');
-                                if (!nonceResponse.ok) throw new Error('Nonce-Anfrage fehlgeschlagen');
+                                if (!nonceResponse.ok) throw new Error(I18N['login.requestFailed']);
                                 const nonceData = await nonceResponse.json();
                                 const nonce = nonceData.nonce;
-                
+
                                 // 2. Challenge-Response berechnen: SHA-256(SHA-256(password) + nonce)
                                 const passwordHash = await sha256(password);
                                 const challengeResponse = await sha256(passwordHash + nonce);
-                
+
                                 // 3. Login-Anfrage senden
                                 const loginResponse = await fetch('/api/auth/login', {
                                     method: 'POST',
@@ -127,7 +130,7 @@ public class LoginPageRenderer
                                         challengeResponse: challengeResponse
                                     })
                                 });
-                
+
                                 if (loginResponse.ok) {
                                     const result = await loginResponse.json();
                                     // Session-Token als Cookie speichern
@@ -135,22 +138,22 @@ public class LoginPageRenderer
                                     window.location.href = '/';
                                 } else {
                                     const errorText = await loginResponse.text();
-                                    showError(errorText || 'Anmeldung fehlgeschlagen!');
+                                    showError(errorText || I18N['login.failed']);
                                 }
                             } catch (error) {
-                                showError('Verbindungsfehler: ' + error.message);
+                                showError(I18N['login.connectionError'] + ': ' + error.message);
                             } finally {
                                 loginBtn.disabled = false;
-                                loginBtn.textContent = 'Anmelden';
+                                loginBtn.textContent = I18N['login.submit'];
                             }
                         }
-                
+
                         function showError(message) {
                             const errorDiv = document.getElementById('errorMessage');
                             errorDiv.textContent = message;
                             errorDiv.style.display = 'block';
                         }
-                
+
                         // Login-Button und Enter-Taste
                         document.getElementById('loginBtn').addEventListener('click', login);
                         document.getElementById('password').addEventListener('keypress', function(e) {
@@ -159,13 +162,16 @@ public class LoginPageRenderer
                         document.getElementById('username').addEventListener('keypress', function(e) {
                             if (e.key === 'Enter') document.getElementById('password').focus();
                         });
-                
+
                         // Autofocus auf Benutzername
                         document.getElementById('username').focus();
                     </script>
                 </body>
                 </html>
                 """.replace("BODY_CLASS", bodyClass)
-                .replace("THEME_SUFFIX", faviconSuffix);
+                .replace("THEME_SUFFIX", faviconSuffix)
+                .replace("__I18N_JSON__", I18n.activeAsJson())
+                .replace("__LOCALE__", I18n.current());
+        return I18n.resolve(html);
     }
 }
