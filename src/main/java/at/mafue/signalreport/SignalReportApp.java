@@ -96,14 +96,16 @@ public class SignalReportApp
         // Lokale Gateways ermitteln (naechster Router + Pforte ins Internet).
         // Per Traceroute beim Start; das Ergebnis wird in config.json hinterlegt.
         Config.GatewayConfig gwCfg = config.getGateway();
-        if (gwCfg.isAutoDiscover())
+        boolean discoverNear = !gwCfg.isNearManual();
+        boolean discoverFar = !gwCfg.isFarManual();
+        if (gwCfg.isAutoDiscover() && (discoverNear || discoverFar))
             {
             logger.info("Ermittle lokale Gateways (Traceroute)...");
             java.util.List<String> chain = GatewayDiscovery.discoverLocalChain();
             if (!chain.isEmpty())
                 {
-                gwCfg.setNear(chain.get(0));
-                gwCfg.setFar(chain.get(chain.size() - 1));
+                if (discoverNear) gwCfg.setNear(chain.get(0));
+                if (discoverFar) gwCfg.setFar(chain.get(chain.size() - 1));
                 try
                     {
                     Config.save(CONFIG_JSON);
@@ -127,10 +129,21 @@ public class SignalReportApp
         // Kontinuierliche Messung
         logger.info("Starte kontinuierliche Messung...\n");
 
+        // Lokale IP merken, um bei einem Netzwechsel die Gateways neu zu ermitteln.
+        String lastLocalIp = NetworkInfo.getLocalIPv4();
         int round = 1;
         while (true)
             {
             Config currentConfig = Config.getInstance();
+
+            // Lokaler IP-Wechsel? Dann nicht-persistente Gateways neu ermitteln.
+            String curLocalIp = NetworkInfo.getLocalIPv4();
+            if (lastLocalIp != null && curLocalIp != null && !curLocalIp.equals(lastLocalIp))
+                {
+                rediscoverGatewaysAfterIpChange(currentConfig, lastLocalIp, curLocalIp);
+                }
+            lastLocalIp = curLocalIp;
+
             Config.MaintenanceWindow maintenance = currentConfig.getMaintenanceWindow();
 
             if (maintenance == null)
@@ -189,7 +202,7 @@ public class SignalReportApp
                         repo.save(pingMeasurer.measure(nearGw, GatewayDiscovery.TYPE_NEAR));
                         gwCount++;
                         }
-                    if (farGw != null && !farGw.isBlank() && !farGw.equals(nearGw))
+                    if (farGw != null && !farGw.isBlank() && !farGw.equals(nearGw) && gw.isFarPingEnabled())
                         {
                         repo.save(pingMeasurer.measure(farGw, GatewayDiscovery.TYPE_FAR));
                         gwCount++;
@@ -209,6 +222,53 @@ public class SignalReportApp
             int nextInterval = updatedConfig.getMeasurement().getIntervalSeconds();
             Thread.sleep(nextInterval * 1000L);
             round++;
+            }
+    }
+
+    /**
+     * Ermittelt nach einem lokalen IP-Wechsel die Gateways neu. Segmente, die
+     * manuell UND als persistent markiert sind, bleiben unveraendert; alle anderen
+     * werden per Traceroute aktualisiert und verlieren dabei ihr Manuell-Flag.
+     * Vollstaendig gekapselt (eigenes try/catch), damit die Messschleife nie bricht.
+     */
+    private static void rediscoverGatewaysAfterIpChange(Config cfg, String oldIp, String newIp)
+    {
+        Config.GatewayConfig gw = cfg.getGateway();
+        if (!gw.isAutoDiscover())
+            {
+            return; // Auto-Erkennung global deaktiviert
+            }
+        boolean keepNear = gw.isNearManual() && gw.isNearPersistent();
+        boolean keepFar = gw.isFarManual() && gw.isFarPersistent();
+        if (keepNear && keepFar)
+            {
+            logger.info("Lokaler IP-Wechsel {} -> {}; Gateways bleiben (manuell+persistent).", oldIp, newIp);
+            return;
+            }
+        try
+            {
+            logger.info("Lokaler IP-Wechsel {} -> {}; ermittle Gateways neu...", oldIp, newIp);
+            java.util.List<String> chain = GatewayDiscovery.discoverLocalChain();
+            if (chain.isEmpty())
+                {
+                logger.info("Keine lokalen Gateways nach IP-Wechsel erkannt.");
+                return;
+                }
+            if (!keepNear)
+                {
+                gw.setNear(chain.get(0));
+                gw.setNearManual(false);
+                }
+            if (!keepFar)
+                {
+                gw.setFar(chain.get(chain.size() - 1));
+                gw.setFarManual(false);
+                }
+            Config.save(CONFIG_JSON);
+            logger.info("Gateways nach IP-Wechsel aktualisiert: nah={}, fern={}", gw.getNear(), gw.getFar());
+            } catch (Exception e)
+            {
+            logger.warn("Gateway-Neuermittlung nach IP-Wechsel fehlgeschlagen: {}", e.getMessage());
             }
     }
 }

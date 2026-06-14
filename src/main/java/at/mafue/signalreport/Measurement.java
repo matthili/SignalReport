@@ -17,6 +17,10 @@ public class Measurement
     private final String externalIPv6;
     private final String hostHash;
 
+    // Aus der Ausfalls-Auswertung ausgenommen (z. B. nachtraeglich als geplant markiert).
+    // Daten bleiben in der DB, werden aber nicht als Ausfall/Paketverlust gewertet.
+    private boolean excluded = false;
+
     // Hauptkonstruktor (ohne IP-Adressen für alte Messungen)
     public Measurement(String target, double latencyMs, boolean success, String type)
     {
@@ -110,6 +114,16 @@ public class Measurement
     public String getHostHash()
     {
         return hostHash;
+    }
+
+    public boolean isExcluded()
+    {
+        return excluded;
+    }
+
+    public void setExcluded(boolean excluded)
+    {
+        this.excluded = excluded;
     }
 
     // Für Debug-Ausgabe

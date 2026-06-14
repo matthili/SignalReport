@@ -106,6 +106,18 @@ public class HtmlPageRenderer
                         .dns-card .success { color: #198754; }
                         .dns-card .failure { color: #dc3545; }
                         input, select { background: var(--color-input-bg); color: var(--color-text); border: 1px solid var(--color-input-border); }
+                        .cycle-row { cursor: pointer; }
+                        .cycle-row:hover { background: var(--bg-tab-inactive); }
+                        .cycle-row.cycle-fail { box-shadow: inset 3px 0 0 #dc3545; }
+                        .cycle-caret { color: var(--color-text-secondary); font-size: 0.8em; }
+                        .chip { display: inline-block; padding: 2px 9px; margin: 2px 4px 2px 0; border-radius: 12px; font-size: 0.82em; font-weight: bold; border: 1px solid transparent; white-space: nowrap; }
+                        .chip-ok { color: #198754; background: rgba(25,135,84,0.13); border-color: rgba(25,135,84,0.35); }
+                        .chip-fail { color: #dc3545; background: rgba(220,53,69,0.15); border-color: rgba(220,53,69,0.45); }
+                        .chip-maint { color: #fd7e14; background: rgba(253,126,20,0.13); border-color: rgba(253,126,20,0.35); }
+                        .cycle-detail > td { padding: 0; background: var(--bg-body); }
+                        .cycle-detail table { margin: 0; border-radius: 0; box-shadow: none; }
+                        .cycle-detail th { background: var(--color-text-secondary); }
+                        .cycle-detail td, .cycle-detail th { font-size: 0.82em; padding: 8px 15px; }
                     </style>
                 </head>
                 <body""" + bodyClass + """
@@ -184,6 +196,7 @@ public class HtmlPageRenderer
                         <div id="reliability-card" style="display:none; background:var(--bg-card); padding:15px 20px; border-radius:8px; margin-bottom:25px; box-shadow:0 2px 4px var(--color-shadow);">
                             <h3 style="margin:0 0 12px 0;">📈 {{reliability.title}}</h3>
                             <div id="reliability-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;"></div>
+                            <div id="outage-details" style="display:none; margin-top:14px;"></div>
                         </div>
 
                         <div class="chart-container">
@@ -207,16 +220,12 @@ public class HtmlPageRenderer
                             <thead>
                                 <tr>
                                     <th>{{table.time}}</th>
-                                    <th>{{table.type}}</th>
-                                    <th>{{table.target}}</th>
-                                    <th>{{table.latency}}</th>
                                     <th>{{table.status}}</th>
-                                    <th>{{table.host}}</th>
-                                    <th>{{table.lanIp}}</th>
+                                    <th style="width:1%"></th>
                                 </tr>
                             </thead>
                             <tbody id="measurementsTable">
-                                <tr><td colspan="7" style="text-align:center">{{common.loadingData}}</td></tr>
+                                <tr><td colspan="3" style="text-align:center">{{common.loadingData}}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -378,7 +387,42 @@ public class HtmlPageRenderer
                                 </div>
                                 <div>
                                     <label style="display:block; margin-bottom:5px; font-weight:bold;">⏱️ {{settings.interval}}</label>
-                                    <input type="number" id="config-interval" value="10" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                    <input type="number" id="config-interval" value="30" min="5" max="3600" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
+                            <h3>🛰️ {{settings.gatewayTitle}}</h3>
+                            <p style="color:var(--color-text-secondary); font-size:0.9em; margin-top:5px;">{{settings.gatewayDescription}}</p>
+
+                            <div style="margin-top:15px; padding:15px; background:var(--bg-body); border-radius:8px;">
+                                <div style="margin-bottom:8px;"><strong>{{gateway.near}}:</strong> <span id="gw-near-current" style="font-family:monospace;">--</span></div>
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <input type="checkbox" id="gw-near-manual" style="width:18px; height:18px;">
+                                    <label for="gw-near-manual" style="font-weight:bold;">{{settings.gatewayManual}}</label>
+                                    <input type="text" id="gw-near-ip" placeholder="192.168.0.1" style="flex:1; min-width:140px; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+                                    <input type="checkbox" id="gw-near-persistent" style="width:18px; height:18px;">
+                                    <label for="gw-near-persistent">{{settings.gatewayPersistent}}</label>
+                                </div>
+                            </div>
+
+                            <div style="margin-top:12px; padding:15px; background:var(--bg-body); border-radius:8px;">
+                                <div style="margin-bottom:8px;"><strong>{{gateway.far}}:</strong> <span id="gw-far-current" style="font-family:monospace;">--</span></div>
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <input type="checkbox" id="gw-far-manual" style="width:18px; height:18px;">
+                                    <label for="gw-far-manual" style="font-weight:bold;">{{settings.gatewayManual}}</label>
+                                    <input type="text" id="gw-far-ip" placeholder="10.0.0.1" style="flex:1; min-width:140px; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+                                    <input type="checkbox" id="gw-far-persistent" style="width:18px; height:18px;">
+                                    <label for="gw-far-persistent">{{settings.gatewayPersistent}}</label>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+                                    <input type="checkbox" id="gw-far-noping" style="width:18px; height:18px;">
+                                    <label for="gw-far-noping">{{settings.gatewayFarNoPing}}</label>
                                 </div>
                             </div>
                         </div>
@@ -644,52 +688,217 @@ public class HtmlPageRenderer
 
                                     const upColor = d.uptimePercent >= 99 ? '#198754'
                                         : (d.uptimePercent >= 95 ? '#fd7e14' : '#dc3545');
+                                    // Ausfall-Liste fuer die klickbare Detailansicht merken
+                                    window._outages = d.outages || [];
+                                    const hasOutageDetails = window._outages.length > 0;
                                     const cells = [
-                                        { label: I18N['reliability.uptime'], value: d.uptimePercent.toFixed(2) + ' %', color: upColor },
-                                        { label: I18N['reliability.coverage'], value: d.coveragePercent.toFixed(0) + ' %', color: 'var(--color-text-secondary)' },
-                                        { label: I18N['reliability.outages'], value: d.outageCount, color: d.outageCount > 0 ? '#dc3545' : '#198754' },
-                                        { label: I18N['reliability.longestOutage'], value: fmtDuration(d.longestOutageSeconds), color: 'var(--color-text)' },
-                                        { label: I18N['reliability.mtbf'], value: fmtDuration(d.mtbfSeconds), color: 'var(--color-text)' },
-                                        { label: I18N['reliability.mttr'], value: fmtDuration(d.mttrSeconds), color: 'var(--color-text)' }
+                                        { key: 'uptime', label: I18N['reliability.uptime'], value: d.uptimePercent.toFixed(2) + ' %', color: upColor },
+                                        { key: 'coverage', label: I18N['reliability.coverage'], value: d.coveragePercent.toFixed(0) + ' %', color: 'var(--color-text-secondary)' },
+                                        { key: 'outages', label: I18N['reliability.outages'], value: d.outageCount, color: d.outageCount > 0 ? '#dc3545' : '#198754' },
+                                        { key: 'longest', label: I18N['reliability.longestOutage'], value: fmtDuration(d.longestOutageSeconds), color: 'var(--color-text)' },
+                                        { key: 'mtbf', label: I18N['reliability.mtbf'], value: fmtDuration(d.mtbfSeconds), color: 'var(--color-text)' },
+                                        { key: 'mttr', label: I18N['reliability.mttr'], value: fmtDuration(d.mttrSeconds), color: 'var(--color-text)' }
                                     ];
                                     grid.innerHTML = '';
                                     cells.forEach(c => {
                                         const box = document.createElement('div');
-                                        box.style.cssText = 'background:var(--bg-body); padding:10px; border-radius:6px; text-align:center;';
+                                        const clickable = c.key === 'outages' && hasOutageDetails;
+                                        box.style.cssText = 'background:var(--bg-body); padding:10px; border-radius:6px; text-align:center;'
+                                            + (clickable ? ' cursor:pointer; outline:1px solid var(--color-primary);' : '');
+                                        const hint = clickable ? ' 🔎' : '';
                                         box.innerHTML =
-                                            '<div style="font-size:0.85em; color:var(--color-text-secondary);">' + c.label + '</div>' +
+                                            '<div style="font-size:0.85em; color:var(--color-text-secondary);">' + c.label + hint + '</div>' +
                                             '<div style="font-size:1.4em; font-weight:bold; color:' + c.color + '; margin-top:4px;">' + c.value + '</div>';
+                                        if (clickable) box.onclick = toggleOutageDetails;
                                         grid.appendChild(box);
                                     });
+                                    // Falls die Detailansicht offen war, neu zeichnen
+                                    if (document.getElementById('outage-details').style.display === 'block') {
+                                        renderOutageDetails();
+                                    }
                                     card.style.display = 'block';
                                 })
                                 .catch(error => console.error('Reliability-Fehler:', error));
                         }
 
+                        function toggleOutageDetails() {
+                            const panel = document.getElementById('outage-details');
+                            if (panel.style.display === 'block') {
+                                panel.style.display = 'none';
+                            } else {
+                                renderOutageDetails();
+                                panel.style.display = 'block';
+                            }
+                        }
+
+                        function renderOutageDetails() {
+                            const panel = document.getElementById('outage-details');
+                            const list = window._outages || [];
+                            if (list.length === 0) { panel.innerHTML = '<em>' + I18N['outages.none'] + '</em>'; return; }
+                            let html = '<table style="margin-top:0;"><thead><tr>'
+                                + '<th>' + I18N['outages.start'] + '</th>'
+                                + '<th>' + I18N['outages.end'] + '</th>'
+                                + '<th>' + I18N['outages.duration'] + '</th>'
+                                + '<th></th></tr></thead><tbody>';
+                            list.forEach(o => {
+                                const start = new Date(o.fromEpoch * 1000).toLocaleString(LOCALE);
+                                const end = new Date(o.toEpoch * 1000).toLocaleString(LOCALE);
+                                const rowStyle = o.excluded ? ' style="opacity:0.5; text-decoration:line-through;"' : '';
+                                const btnLabel = o.excluded ? I18N['outages.include'] : I18N['outages.exclude'];
+                                const badge = o.excluded ? ' <span style="color:var(--color-text-secondary);">(' + I18N['outages.excludedBadge'] + ')</span>' : '';
+                                html += '<tr' + rowStyle + '><td>' + start + '</td><td>' + end + '</td>'
+                                    + '<td>' + fmtDuration(o.durationSeconds) + badge + '</td>'
+                                    + '<td><button onclick="excludeOutage(' + o.fromEpoch + ',' + o.toEpoch + ',' + (!o.excluded) + ')" '
+                                    + 'style="padding:4px 10px; border:1px solid var(--color-border); border-radius:4px; cursor:pointer; background:var(--bg-card); color:var(--color-text);">'
+                                    + btnLabel + '</button></td></tr>';
+                            });
+                            html += '</tbody></table>';
+                            panel.innerHTML = html;
+                        }
+
+                        function excludeOutage(fromEpoch, toEpoch, excluded) {
+                            fetch('/api/outages/exclude', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fromEpoch: fromEpoch, toEpoch: toEpoch, excluded: excluded })
+                            })
+                            .then(() => loadReliability())
+                            .catch(error => console.error('Ausschluss-Fehler:', error));
+                        }
+
+                        // Messzyklen: feste Anzeige-Reihenfolge der Messtypen in der Statuszeile
+                        const CYCLE_TYPE_ORDER = ['GATEWAY_FAR', 'GATEWAY_NEAR', 'HTTP', 'DNS', 'PING'];
+                        const MAINTENANCE_TYPE = 'MAINTENANCE';
+                        const CYCLE_GAP_SECONDS = 300; // Sicherheitsnetz: groesserer Abstand = neuer Zyklus
+                        const MAX_CYCLES = 20;
+                        // Gemerkter Aufklapp-Zustand, damit aufgeklappte Zeilen den 5s-Refresh ueberleben.
+                        // Schluessel = gerundeter Zyklus-Zeitstempel (stabil, im Gegensatz zur Position).
+                        const _expandedCycles = new Set();
+
+                        // Flache, nach Zeit absteigend sortierte Messliste in Messzyklen gruppieren.
+                        // Ein Zyklus endet, sobald sich ein Messtyp wiederholt (jeder Zyklus misst jeden
+                        // Typ genau einmal), bei einem Wartungsmarker oder bei sehr grossem Zeitabstand.
+                        function groupIntoCycles(measurements) {
+                            const cycles = [];
+                            let current = null;
+                            let seen = null;
+                            for (const m of measurements) {
+                                const startNew = !current
+                                    || seen.has(m.type)
+                                    || m.type === MAINTENANCE_TYPE
+                                    || current.isMaint
+                                    || (current.tsMax - m.timestamp) > CYCLE_GAP_SECONDS;
+                                if (startNew) {
+                                    current = { byType: {}, tsMax: m.timestamp, isMaint: m.type === MAINTENANCE_TYPE };
+                                    seen = new Set();
+                                    cycles.push(current);
+                                }
+                                current.byType[m.type] = m;
+                                seen.add(m.type);
+                                if (m.timestamp > current.tsMax) current.tsMax = m.timestamp;
+                            }
+                            return cycles;
+                        }
+
+                        // Messtypen eines Zyklus in fester Anzeige-Reihenfolge (Unbekannte ans Ende).
+                        function orderedTypes(byType) {
+                            const known = CYCLE_TYPE_ORDER.filter(t => byType[t]);
+                            const extra = Object.keys(byType).filter(t => CYCLE_TYPE_ORDER.indexOf(t) === -1);
+                            return known.concat(extra);
+                        }
+
+                        // Eine Zeile pro Messzyklus mit kompaktem Status; Klick klappt die Einzelwerte auf.
+                        function renderCycles(cycles) {
+                            const tableBody = document.getElementById('measurementsTable');
+                            tableBody.innerHTML = '';
+                            if (!cycles.length) {
+                                tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center">' + I18N['common.loadingData'] + '</td></tr>';
+                                return;
+                            }
+                            cycles.slice(0, MAX_CYCLES).forEach((cycle) => {
+                                const types = orderedTypes(cycle.byType);
+                                const anyFail = types.some(t => t !== MAINTENANCE_TYPE && !cycle.byType[t].success);
+                                const time = new Date(cycle.tsMax * 1000).toLocaleTimeString(LOCALE);
+                                const key = Math.round(cycle.tsMax); // stabile Kennung pro Zyklus (ueberlebt den Refresh)
+                                const expanded = _expandedCycles.has(key);
+
+                                const summary = document.createElement('tr');
+                                summary.className = 'cycle-row' + (anyFail ? ' cycle-fail' : '');
+                                summary.onclick = () => toggleCycle(key);
+
+                                let statusHtml;
+                                if (cycle.isMaint) {
+                                    statusHtml = '<span class="chip chip-maint">🔧 ' + (I18N['table.maintenance'] || 'Wartung') + '</span>';
+                                } else {
+                                    statusHtml = types.map(t => {
+                                        const m = cycle.byType[t];
+                                        const cls = m.success ? 'chip chip-ok' : 'chip chip-fail';
+                                        return '<span class="' + cls + '">' + typeLabel(t) + ' ' + (m.success ? '✅' : '❌') + '</span>';
+                                    }).join('');
+                                }
+
+                                const caret = cycle.isMaint ? '' : '<span class="cycle-caret" id="caret-' + key + '">' + (expanded ? '▾' : '▸') + '</span>';
+                                summary.innerHTML =
+                                    '<td style="white-space:nowrap">' + time + '</td>' +
+                                    '<td>' + statusHtml + '</td>' +
+                                    '<td style="text-align:center">' + caret + '</td>';
+                                tableBody.appendChild(summary);
+
+                                if (cycle.isMaint) return;
+
+                                const detail = document.createElement('tr');
+                                detail.className = 'cycle-detail';
+                                detail.id = 'detail-' + key;
+                                detail.style.display = expanded ? 'table-row' : 'none';
+                                let inner = '<td colspan="3"><table><thead><tr>'
+                                    + '<th>' + I18N['table.type'] + '</th>'
+                                    + '<th>' + I18N['table.target'] + '</th>'
+                                    + '<th>' + I18N['table.latency'] + '</th>'
+                                    + '<th>' + I18N['table.status'] + '</th>'
+                                    + '<th>' + I18N['table.host'] + '</th>'
+                                    + '<th>' + I18N['table.lanIp'] + '</th>'
+                                    + '</tr></thead><tbody>';
+                                types.forEach(t => {
+                                    const m = cycle.byType[t];
+                                    const latencyClass = m.success
+                                        ? (m.latencyMs < 50 ? 'excellent' : m.latencyMs < 100 ? 'good' : 'poor')
+                                        : 'failure';
+                                    inner += '<tr>'
+                                        + '<td><strong>' + typeLabel(m.type) + '</strong></td>'
+                                        + '<td>' + m.target + '</td>'
+                                        + '<td class="' + latencyClass + '"><strong>' + m.latencyMs.toFixed(2) + '</strong> ms</td>'
+                                        + '<td>' + (m.success ? '✅' : '❌') + '</td>'
+                                        + '<td style="font-family:monospace;font-size:0.85em;">' + m.hostHash.substring(0, 8) + '</td>'
+                                        + '<td style="font-family:monospace;font-size:0.85em;">' + m.localIPv4 + '</td>'
+                                        + '</tr>';
+                                });
+                                inner += '</tbody></table></td>';
+                                detail.innerHTML = inner;
+                                tableBody.appendChild(detail);
+                            });
+
+                            // Aufklapp-Zustand nur fuer aktuell sichtbare Zyklen behalten, sonst waechst die Menge.
+                            const visibleKeys = new Set(cycles.slice(0, MAX_CYCLES).map(c => Math.round(c.tsMax)));
+                            [..._expandedCycles].forEach(k => { if (!visibleKeys.has(k)) _expandedCycles.delete(k); });
+                        }
+
+                        // Detailzeile eines Zyklus ein-/ausklappen und den Zustand merken.
+                        function toggleCycle(key) {
+                            const detail = document.getElementById('detail-' + key);
+                            const caret = document.getElementById('caret-' + key);
+                            if (!detail) return;
+                            const willOpen = !_expandedCycles.has(key);
+                            if (willOpen) { _expandedCycles.add(key); } else { _expandedCycles.delete(key); }
+                            detail.style.display = willOpen ? 'table-row' : 'none';
+                            if (caret) caret.textContent = willOpen ? '▾' : '▸';
+                        }
+
                         // Haupt-Chart laden
                         function loadMeasurements() {
-                            fetch('/api/measurements?limit=20')
+                            fetch('/api/measurements?limit=150')
                                 .then(response => response.json())
                                 .then(data => {
-                                    const tableBody = document.getElementById('measurementsTable');
-                                    tableBody.innerHTML = '';
-                                    data.forEach(m => {
-                                        const row = document.createElement('tr');
-                                        const latencyClass = m.success\s
-                                            ? (m.latencyMs < 50 ? 'excellent' : m.latencyMs < 100 ? 'good' : 'poor')
-                                            : 'failure';
-                                        const statusText = m.success ? '✅' : '❌';
-                                        row.innerHTML = `
-                                            <td>${new Date(m.timestamp * 1000).toLocaleTimeString(LOCALE)}</td>
-                                            <td><strong>${typeLabel(m.type)}</strong></td>
-                                            <td>${m.target}</td>
-                                            <td class="${latencyClass}"><strong>${m.latencyMs.toFixed(2)}</strong> ms</td>
-                                            <td>${statusText}</td>
-                                            <td style="font-family:monospace;font-size:0.8em;">${m.hostHash.substring(0,8)}</td>
-                                            <td style="font-family:monospace;font-size:0.8em;">${m.localIPv4}</td>
-                                        `;
-                                        tableBody.appendChild(row);
-                                    });
+                                    renderCycles(groupIntoCycles(data));
 
                                     const pingData = data.filter(m => m.type === 'PING').slice(0, 10).reverse();
                                     const labels = pingData.map(m => new Date(m.timestamp * 1000).toLocaleTimeString(LOCALE, {hour: '2-digit', minute:'2-digit', second:'2-digit'}));
@@ -743,7 +952,7 @@ public class HtmlPageRenderer
                                 .catch(error => {
                                     console.error('Fehler beim Laden:', error);
                                     document.getElementById('measurementsTable').innerHTML =\s
-                                        '<tr><td colspan="7" style="text-align:center;color:red">' + I18N['common.loadError'] + '</td></tr>';
+                                        '<tr><td colspan="3" style="text-align:center;color:red">' + I18N['common.loadError'] + '</td></tr>';
                                 });
                         }
 
@@ -1023,6 +1232,18 @@ public class HtmlPageRenderer
                                     document.getElementById('config-customer-id').value = ui.customerId || '';
                                     document.getElementById('config-user-name').value = ui.userName || '';
 
+                                    const gw = config.gateway || {};
+                                    document.getElementById('gw-near-current').textContent = gw.near || '--';
+                                    document.getElementById('gw-far-current').textContent = gw.far || '--';
+                                    document.getElementById('gw-near-manual').checked = !!gw.nearManual;
+                                    document.getElementById('gw-far-manual').checked = !!gw.farManual;
+                                    document.getElementById('gw-near-persistent').checked = !!gw.nearPersistent;
+                                    document.getElementById('gw-far-persistent').checked = !!gw.farPersistent;
+                                    document.getElementById('gw-far-noping').checked = gw.farPingEnabled === false;
+                                    document.getElementById('gw-near-ip').value = gw.nearManual ? (gw.near || '') : '';
+                                    document.getElementById('gw-far-ip').value = gw.farManual ? (gw.far || '') : '';
+                                    syncGatewayControls();
+
                                     if (config.language) {
                                         document.getElementById('config-language').value = config.language;
                                     }
@@ -1045,6 +1266,18 @@ public class HtmlPageRenderer
                         document.getElementById('maintenance-enabled').addEventListener('change', function() {
                             document.getElementById('maintenance-fields').style.display = this.checked ? 'block' : 'none';
                         });
+
+                        // Gateway-Steuerelemente je nach Manuell-Schalter aktivieren/deaktivieren
+                        function syncGatewayControls() {
+                            const nm = document.getElementById('gw-near-manual').checked;
+                            document.getElementById('gw-near-ip').disabled = !nm;
+                            document.getElementById('gw-near-persistent').disabled = !nm;
+                            const fm = document.getElementById('gw-far-manual').checked;
+                            document.getElementById('gw-far-ip').disabled = !fm;
+                            document.getElementById('gw-far-persistent').disabled = !fm;
+                        }
+                        document.getElementById('gw-near-manual').addEventListener('change', syncGatewayControls);
+                        document.getElementById('gw-far-manual').addEventListener('change', syncGatewayControls);
 
                         // Push-Checkbox Toggle
                         document.getElementById('push-enabled').addEventListener('change', function() {
@@ -1084,6 +1317,15 @@ public class HtmlPageRenderer
                                     provider: document.getElementById('config-provider').value.trim(),
                                     customerId: document.getElementById('config-customer-id').value.trim(),
                                     userName: document.getElementById('config-user-name').value.trim()
+                                },
+                                gateway: {
+                                    nearManual: document.getElementById('gw-near-manual').checked,
+                                    near: document.getElementById('gw-near-ip').value.trim(),
+                                    nearPersistent: document.getElementById('gw-near-persistent').checked,
+                                    farManual: document.getElementById('gw-far-manual').checked,
+                                    far: document.getElementById('gw-far-ip').value.trim(),
+                                    farPersistent: document.getElementById('gw-far-persistent').checked,
+                                    farPingEnabled: !document.getElementById('gw-far-noping').checked
                                 }
                             };
 

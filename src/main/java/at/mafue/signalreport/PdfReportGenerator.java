@@ -246,7 +246,7 @@ public class PdfReportGenerator
         addConnectivitySection(document, hours, pingStats, statFont, locale);
 
         // === VERFUEGBARKEIT & ZUVERLAESSIGKEIT ===
-        addReliabilitySection(document, filteredMeasurements, hours, statFont, locale);
+        ReliabilityReport reliability = addReliabilitySection(document, filteredMeasurements, hours, statFont, locale);
 
         // === TOP 10 SCHLECHTESTE MESSUNGEN ===
         document.add(new Paragraph(I18n.get("pdf.worstTitle"), fontBold(14)));
@@ -263,22 +263,23 @@ public class PdfReportGenerator
             }
         document.add(Chunk.NEWLINE);
 
-        // === VERBINDUNGSAUSFÄLLE ===
+        // === VERBINDUNGSAUSFÄLLE (aggregiert, gleiche Quelle wie die Verfuegbarkeit) ===
         document.add(new Paragraph(I18n.get("pdf.outagesTitle"), fontBold(14)));
         document.add(Chunk.NEWLINE);
 
-        List<ConnectionOutage> outages = detectConnectionOutages(filteredMeasurements);
-        int totalOutages = outages.size();
-        document.add(new Paragraph(I18n.get("pdf.totalOutages") + ": " + totalOutages, statFont));
+        List<ReliabilityReport.Outage> outages = reliability == null ? java.util.List.of()
+                : reliability.getOutages().stream()
+                        .filter(o -> !o.isExcluded())
+                        .sorted((a, b) -> Long.compare(b.getDurationSeconds(), a.getDurationSeconds()))
+                        .toList();
+        document.add(new Paragraph(I18n.get("pdf.totalOutages") + ": " + outages.size(), statFont));
         document.add(Chunk.NEWLINE);
 
         if (!outages.isEmpty())
             {
             document.add(new Paragraph(I18n.get("pdf.longestOutages"), fontBold(12)));
             document.add(Chunk.NEWLINE);
-
-            List<ConnectionOutage> longestOutages = getLongestOutages(outages, 10);
-            PdfPTable outagesTable = createOutagesTable(longestOutages, locale);
+            PdfPTable outagesTable = createOutagesTable(outages.stream().limit(10).toList(), locale);
             document.add(outagesTable);
             }
 
@@ -312,7 +313,7 @@ public class PdfReportGenerator
         String nearIp = gw.getNear();
         String farIp = gw.getFar();
         boolean hasNear = nearIp != null && !nearIp.isBlank();
-        boolean hasFar = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp);
+        boolean hasFar = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp) && gw.isFarPingEnabled();
         if (!hasNear && !hasFar)
             {
             return; // keine Gateway-Daten -> Abschnitt entfaellt
@@ -346,7 +347,7 @@ public class PdfReportGenerator
      * Verfuegbarkeits-Abschnitt: lücken-saubere Kennzahlen fuer die Internet-
      * Verbindung (PING). Nutzt die bereits geladene Messliste, kein Extra-DB-Zugriff.
      */
-    private void addReliabilitySection(Document document, List<Measurement> allMeasurements,
+    private ReliabilityReport addReliabilitySection(Document document, List<Measurement> allMeasurements,
                                        int hours, Font statFont, Locale locale) throws DocumentException
     {
         List<Measurement> ping = filterByType(allMeasurements, "PING");
@@ -357,7 +358,7 @@ public class PdfReportGenerator
             }
         if (ping.isEmpty())
             {
-            return;
+            return null;
             }
 
         int interval = Config.getInstance().getMeasurement().getIntervalSeconds();
@@ -377,6 +378,7 @@ public class PdfReportGenerator
         document.add(new Paragraph(I18n.get("reliability.mttr") + ": "
                 + formatDuration(r.getMttrSeconds()), statFont));
         document.add(Chunk.NEWLINE);
+        return r;
     }
 
     /** Dauer menschenlesbar: "Xh Ym" / "Ym Zs" / "Zs". */
@@ -439,66 +441,6 @@ public class PdfReportGenerator
             return successful.subList(0, count);
             }
         return successful;
-    }
-
-    private List<ConnectionOutage> detectConnectionOutages(List<Measurement> measurements)
-    {
-        List<ConnectionOutage> outages = new ArrayList<>();
-
-        if (measurements.isEmpty()) return outages;
-
-        // Nach Zeitstempel sortieren
-        measurements.sort(Comparator.comparing(Measurement::getTimestamp));
-
-        List<Measurement> currentOutage = null;
-
-        for (Measurement m : measurements)
-            {
-            if (!m.isSuccess())
-                {
-                if (currentOutage == null)
-                    {
-                    currentOutage = new ArrayList<>();
-                    }
-                currentOutage.add(m);
-                } else
-                {
-                if (currentOutage != null && currentOutage.size() >= 2)
-                    {
-                    outages.add(new ConnectionOutage(
-                            currentOutage.get(0).getTimestamp(),
-                            currentOutage.get(currentOutage.size() - 1).getTimestamp(),
-                            currentOutage.size(),
-                            currentOutage.get(0).getType()
-                    ));
-                    }
-                currentOutage = null;
-                }
-            }
-
-        // Letzten Ausfall speichern, falls am Ende
-        if (currentOutage != null && currentOutage.size() >= 2)
-            {
-            outages.add(new ConnectionOutage(
-                    currentOutage.get(0).getTimestamp(),
-                    currentOutage.get(currentOutage.size() - 1).getTimestamp(),
-                    currentOutage.size(),
-                    currentOutage.get(0).getType()
-            ));
-            }
-
-        return outages;
-    }
-
-    private List<ConnectionOutage> getLongestOutages(List<ConnectionOutage> outages, int count)
-    {
-        outages.sort((a, b) -> Long.compare(b.getDurationSeconds(), a.getDurationSeconds()));
-
-        if (outages.size() > count)
-            {
-            return outages.subList(0, count);
-            }
-        return outages;
     }
 
     private List<TargetChange> detectTargetChanges(List<Measurement> measurements)
@@ -688,28 +630,26 @@ public class PdfReportGenerator
         return table;
     }
 
-    private PdfPTable createOutagesTable(List<ConnectionOutage> outages, Locale locale) throws DocumentException
+    private PdfPTable createOutagesTable(List<ReliabilityReport.Outage> outages, Locale locale) throws DocumentException
     {
-        PdfPTable table = new PdfPTable(4);
+        PdfPTable table = new PdfPTable(3);
         table.setWidthPercentage(100);
-        table.setWidths(new float[]{2, 2, 1, 1});
+        table.setWidths(new float[]{2, 2, 1});
 
         Font headerFont = fontBold(10);
         addTableCell(table, I18n.get("pdf.start"), headerFont, true);
         addTableCell(table, I18n.get("pdf.end"), headerFont, true);
         addTableCell(table, I18n.get("pdf.duration"), headerFont, true);
-        addTableCell(table, I18n.get("table.type"), headerFont, true);
 
         Font contentFont = font(9);
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", locale)
                 .withZone(ZoneId.systemDefault());
 
-        for (ConnectionOutage outage : outages)
+        for (ReliabilityReport.Outage outage : outages)
             {
             addTableCell(table, dtf.format(outage.getStart()), contentFont, false);
             addTableCell(table, dtf.format(outage.getEnd()), contentFont, false);
-            addTableCell(table, outage.getDurationFormatted(), contentFont, false);
-            addTableCell(table, outage.getType(), contentFont, false);
+            addTableCell(table, formatDuration(outage.getDurationSeconds()), contentFont, false);
             }
 
         return table;
@@ -730,55 +670,6 @@ public class PdfReportGenerator
     }
 
     // Hilfsklassen
-    private static class ConnectionOutage
-    {
-        private final Instant start;
-        private final Instant end;
-        private final int measurementCount;
-        private final String type;
-
-        public ConnectionOutage(Instant start, Instant end, int measurementCount, String type)
-        {
-            this.start = start;
-            this.end = end;
-            this.measurementCount = measurementCount;
-            this.type = type;
-        }
-
-        public Instant getStart()
-        {
-            return start;
-        }
-
-        public Instant getEnd()
-        {
-            return end;
-        }
-
-        public int getMeasurementCount()
-        {
-            return measurementCount;
-        }
-
-        public String getType()
-        {
-            return type;
-        }
-
-        public long getDurationSeconds()
-        {
-            return java.time.Duration.between(start, end).getSeconds();
-        }
-
-        public String getDurationFormatted()
-        {
-            long seconds = getDurationSeconds();
-            if (seconds < 60) return seconds + "s";
-            if (seconds < 3600) return (seconds / 60) + "m " + (seconds % 60) + "s";
-            return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
-        }
-    }
-
     private static class PageNumberFooter extends PdfPageEventHelper
     {
         private PdfTemplate totalPages;

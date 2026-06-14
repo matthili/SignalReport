@@ -42,6 +42,7 @@
   "table.status": "Estado",
   "table.host": "Host",
   "table.lanIp": "IP LAN",
+  "table.maintenance": "Manutenção",
 
   "chart.pingLatency": "Latência PING (ms)",
   "chart.pingOverTime": "Latência PING ao longo do tempo",
@@ -119,6 +120,11 @@
   "settings.dnsTarget": "Destino DNS (nome do host)",
   "settings.httpTarget": "Destino HTTP (URL)",
   "settings.interval": "Intervalo (segundos)",
+  "settings.gatewayTitle": "Gateways (localização de falhas)",
+  "settings.gatewayDescription": "O router e o gateway de Internet são normalmente detetados automaticamente. Pode definir os IPs manualmente ou desativar o ping contínuo do gateway de Internet.",
+  "settings.gatewayManual": "Definir IP manualmente",
+  "settings.gatewayPersistent": "Manter ao mudar de IP (caso contrário, detetar novamente)",
+  "settings.gatewayFarNoPing": "Não fazer ping contínuo",
   "settings.maintenanceTitle": "Janela de manutenção (pausa nas medições)",
   "settings.maintenanceDescription": "Defina um período durante o qual não são efetuadas medições.",
   "settings.maintenanceEnable": "Ativar janela de manutenção",
@@ -266,5 +272,13 @@
   "reliability.outages": "Falhas",
   "reliability.longestOutage": "Falha mais longa",
   "reliability.mtbf": "Tempo médio entre falhas",
-  "reliability.mttr": "Tempo médio de recuperação"
+  "reliability.mttr": "Tempo médio de recuperação",
+
+  "outages.start": "Início",
+  "outages.end": "Fim",
+  "outages.duration": "Duração",
+  "outages.exclude": "Não contar",
+  "outages.include": "Contar de novo",
+  "outages.excludedBadge": "excluído",
+  "outages.none": "Sem falhas no período."
 }

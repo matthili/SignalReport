@@ -42,6 +42,7 @@
   "table.status": "Статус",
   "table.host": "Хост",
   "table.lanIp": "IP у LAN",
+  "table.maintenance": "Технічні роботи",
 
   "chart.pingLatency": "Затримка PING (мс)",
   "chart.pingOverTime": "Затримка PING у часі",
@@ -119,6 +120,11 @@
   "settings.dnsTarget": "Ціль DNS (ім'я хоста)",
   "settings.httpTarget": "Ціль HTTP (URL)",
   "settings.interval": "Інтервал (секунди)",
+  "settings.gatewayTitle": "Шлюзи (локалізація збоїв)",
+  "settings.gatewayDescription": "Маршрутизатор та інтернет-шлюз зазвичай визначаються автоматично. Ви можете задати IP-адреси вручну або вимкнути безперервне пінгування інтернет-шлюзу.",
+  "settings.gatewayManual": "Задати IP вручну",
+  "settings.gatewayPersistent": "Зберігати при зміні IP (інакше визначити заново)",
+  "settings.gatewayFarNoPing": "Не пінгувати безперервно",
   "settings.maintenanceTitle": "Вікно обслуговування (пауза вимірювань)",
   "settings.maintenanceDescription": "Визначте проміжок часу, протягом якого вимірювання не виконуються.",
   "settings.maintenanceEnable": "Увімкнути вікно обслуговування",
@@ -266,5 +272,13 @@
   "reliability.outages": "Збої",
   "reliability.longestOutage": "Найдовший збій",
   "reliability.mtbf": "Сер. час між збоями",
-  "reliability.mttr": "Сер. час відновлення"
+  "reliability.mttr": "Сер. час відновлення",
+
+  "outages.start": "Початок",
+  "outages.end": "Кінець",
+  "outages.duration": "Тривалість",
+  "outages.exclude": "Не рахувати",
+  "outages.include": "Рахувати знову",
+  "outages.excludedBadge": "виключено",
+  "outages.none": "Немає збоїв за період."
 }

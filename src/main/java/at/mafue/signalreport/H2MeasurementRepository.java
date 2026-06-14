@@ -334,11 +334,16 @@ public class H2MeasurementRepository
         String indexHostHash = "CREATE INDEX IF NOT EXISTS idx_measurements_host_hash ON measurements(host_hash)";
         String indexIpChangesTimestamp = "CREATE INDEX IF NOT EXISTS idx_ip_changes_timestamp ON ip_changes(timestamp)";
 
+        // Migration: Spalte fuer aus der Ausfalls-Auswertung ausgenommene Messungen.
+        // Idempotent – fuegt die Spalte nur hinzu, wenn sie noch fehlt (bestehende DBs).
+        String addExcluded = "ALTER TABLE measurements ADD COLUMN IF NOT EXISTS excluded BOOLEAN DEFAULT FALSE";
+
         try (Statement stmt = c.createStatement())
             {
             stmt.execute(measurementsTable);
             stmt.execute(hostsTable);
             stmt.execute(ipChangesTable);
+            stmt.execute(addExcluded);
             stmt.execute(indexTimestamp);
             stmt.execute(indexType);
             stmt.execute(indexTypeTimestamp);
@@ -475,6 +480,30 @@ public class H2MeasurementRepository
         });
     }
 
+    /**
+     * Markiert alle Messungen im Zeitfenster [from, to] als (nicht) aus der
+     * Ausfalls-Auswertung ausgenommen. Die Daten bleiben erhalten, werden aber
+     * je nach Flag bei Verfuegbarkeit/Ausfaellen mitgezaehlt oder nicht.
+     * Gibt die Anzahl der betroffenen Zeilen (Primary) zurueck.
+     */
+    public int excludeRange(Instant from, Instant to, boolean excluded) throws SQLException
+    {
+        String sql = "UPDATE measurements SET excluded = ? WHERE timestamp >= ? AND timestamp <= ?";
+        int[] affected = {0};
+        writeOnBoth(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setBoolean(1, excluded);
+            pstmt.setTimestamp(2, Timestamp.from(from));
+            pstmt.setTimestamp(3, Timestamp.from(to));
+            int n = pstmt.executeUpdate();
+            if (c == primary) affected[0] = n;
+            }
+        });
+        return affected[0];
+    }
+
     // ========================================================================
     //  Lese-Operationen (immer auf Primary)
     // ========================================================================
@@ -542,7 +571,7 @@ public class H2MeasurementRepository
         List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
-                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
                 FROM measurements
                 ORDER BY timestamp DESC
                 LIMIT ?
@@ -565,7 +594,7 @@ public class H2MeasurementRepository
         List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
-                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
                 FROM measurements
                 WHERE timestamp >= ?
                 ORDER BY timestamp ASC
@@ -588,7 +617,7 @@ public class H2MeasurementRepository
         List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
-                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
                 FROM measurements
                 ORDER BY timestamp ASC
                 """;
@@ -616,8 +645,10 @@ public class H2MeasurementRepository
         String externalIPv4 = rs.getString(8);
         String externalIPv6 = rs.getString(9);
         String hostHash = rs.getString(10);
-        return new Measurement(target, latency, success, type, timestamp,
+        Measurement m = new Measurement(target, latency, success, type, timestamp,
                 localIPv4, localIPv6, externalIPv4, externalIPv6, hostHash);
+        m.setExcluded(rs.getBoolean(11));
+        return m;
     }
 
     public List<HostInfo> getAllHosts() throws SQLException
@@ -648,6 +679,7 @@ public class H2MeasurementRepository
                 SELECT latency_ms, success
                 FROM measurements
                 WHERE type = ?
+                  AND excluded = FALSE
                   AND timestamp >= DATEADD('HOUR', ?, CURRENT_TIMESTAMP)
                 ORDER BY timestamp ASC
                 """;

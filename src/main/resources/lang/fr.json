@@ -42,6 +42,7 @@
   "table.status": "Statut",
   "table.host": "Hôte",
   "table.lanIp": "IP LAN",
+  "table.maintenance": "Maintenance",
 
   "chart.pingLatency": "Latence PING (ms)",
   "chart.pingOverTime": "Latence PING dans le temps",
@@ -119,6 +120,11 @@
   "settings.dnsTarget": "Cible DNS (nom d'hôte)",
   "settings.httpTarget": "Cible HTTP (URL)",
   "settings.interval": "Intervalle (secondes)",
+  "settings.gatewayTitle": "Passerelles (localisation des pannes)",
+  "settings.gatewayDescription": "Le routeur et la passerelle Internet sont normalement détectés automatiquement. Vous pouvez définir les adresses IP manuellement ou désactiver le ping continu de la passerelle Internet.",
+  "settings.gatewayManual": "Définir l'IP manuellement",
+  "settings.gatewayPersistent": "Conserver lors d'un changement d'IP (sinon redétecter)",
+  "settings.gatewayFarNoPing": "Ne pas pinguer en continu",
   "settings.maintenanceTitle": "Fenêtre de maintenance (pause des mesures)",
   "settings.maintenanceDescription": "Définissez une plage horaire pendant laquelle aucune mesure n'est effectuée.",
   "settings.maintenanceEnable": "Activer la fenêtre de maintenance",
@@ -266,5 +272,13 @@
   "reliability.outages": "Pannes",
   "reliability.longestOutage": "Panne la plus longue",
   "reliability.mtbf": "Temps moyen entre pannes",
-  "reliability.mttr": "Temps moyen de rétablissement"
+  "reliability.mttr": "Temps moyen de rétablissement",
+
+  "outages.start": "Début",
+  "outages.end": "Fin",
+  "outages.duration": "Durée",
+  "outages.exclude": "Ne pas compter",
+  "outages.include": "Recompter",
+  "outages.excludedBadge": "exclu",
+  "outages.none": "Aucune panne sur la période."
 }

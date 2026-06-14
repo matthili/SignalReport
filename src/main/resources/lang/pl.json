@@ -42,6 +42,7 @@
   "table.status": "Status",
   "table.host": "Host",
   "table.lanIp": "IP LAN",
+  "table.maintenance": "Konserwacja",
 
   "chart.pingLatency": "Opóźnienie PING (ms)",
   "chart.pingOverTime": "Opóźnienie PING w czasie",
@@ -119,6 +120,11 @@
   "settings.dnsTarget": "Cel DNS (nazwa hosta)",
   "settings.httpTarget": "Cel HTTP (URL)",
   "settings.interval": "Interwał (sekundy)",
+  "settings.gatewayTitle": "Bramy (lokalizacja awarii)",
+  "settings.gatewayDescription": "Router i brama internetowa są zwykle wykrywane automatycznie. Możesz ustawić adresy IP ręcznie lub wyłączyć ciągłe pingowanie bramy internetowej.",
+  "settings.gatewayManual": "Ustaw IP ręcznie",
+  "settings.gatewayPersistent": "Zachowaj przy zmianie IP (w przeciwnym razie wykryj ponownie)",
+  "settings.gatewayFarNoPing": "Nie pinguj w sposób ciągły",
   "settings.maintenanceTitle": "Okno serwisowe (przerwa w pomiarach)",
   "settings.maintenanceDescription": "Zdefiniuj przedział czasu, w którym pomiary nie są wykonywane.",
   "settings.maintenanceEnable": "Włącz okno serwisowe",
@@ -266,5 +272,13 @@
   "reliability.outages": "Awarie",
   "reliability.longestOutage": "Najdłuższa awaria",
   "reliability.mtbf": "Śr. czas między awariami",
-  "reliability.mttr": "Śr. czas przywracania"
+  "reliability.mttr": "Śr. czas przywracania",
+
+  "outages.start": "Początek",
+  "outages.end": "Koniec",
+  "outages.duration": "Czas trwania",
+  "outages.exclude": "Nie licz",
+  "outages.include": "Licz ponownie",
+  "outages.excludedBadge": "wykluczony",
+  "outages.none": "Brak awarii w okresie."
 }

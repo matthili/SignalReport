@@ -228,6 +228,31 @@ public class Config
         this.gateway = gateway;
     }
 
+    /**
+     * Uebernimmt die Gateway-Einstellungen aus dem Web-UI. Eine manuell gesetzte
+     * IP wird nur uebernommen, wenn das jeweilige Manuell-Flag gesetzt und das Feld
+     * nicht leer ist; andernfalls bleibt die zuletzt bekannte (erkannte) IP erhalten.
+     */
+    public void updateGateway(boolean nearManual, String near, boolean nearPersistent,
+                              boolean farManual, String far, boolean farPersistent,
+                              boolean farPingEnabled)
+    {
+        GatewayConfig gw = getGateway();
+        gw.setNearManual(nearManual);
+        gw.setNearPersistent(nearPersistent);
+        gw.setFarManual(farManual);
+        gw.setFarPersistent(farPersistent);
+        gw.setFarPingEnabled(farPingEnabled);
+        if (nearManual && near != null && !near.isBlank())
+            {
+            gw.setNear(near.trim());
+            }
+        if (farManual && far != null && !far.isBlank())
+            {
+            gw.setFar(far.trim());
+            }
+    }
+
     public static class MeasurementConfig
     {
         @JsonProperty("intervalSeconds")
@@ -299,6 +324,17 @@ public class Config
         private String nearLabel = "";
         private String farLabel = "";
 
+        // Pro Segment: manuell gesetzte IP (nicht durch Auto-Erkennung ueberschreiben)
+        // und ob diese manuelle IP einen lokalen IP-Wechsel ueberdauert (persistent)
+        // oder dann neu ermittelt wird. farPingEnabled schaltet die kontinuierliche
+        // Messung des fernen Gateways ab (z. B. fuer ein Geraet, das nicht dauernd
+        // gepingt werden soll); der Gateway bleibt erkannt und wird angezeigt.
+        private boolean nearManual = false;
+        private boolean farManual = false;
+        private boolean nearPersistent = false;
+        private boolean farPersistent = false;
+        private boolean farPingEnabled = true;
+
         public boolean isAutoDiscover()
         {
             return autoDiscover;
@@ -347,6 +383,56 @@ public class Config
         public void setFarLabel(String farLabel)
         {
             this.farLabel = farLabel != null ? farLabel : "";
+        }
+
+        public boolean isNearManual()
+        {
+            return nearManual;
+        }
+
+        public void setNearManual(boolean nearManual)
+        {
+            this.nearManual = nearManual;
+        }
+
+        public boolean isFarManual()
+        {
+            return farManual;
+        }
+
+        public void setFarManual(boolean farManual)
+        {
+            this.farManual = farManual;
+        }
+
+        public boolean isNearPersistent()
+        {
+            return nearPersistent;
+        }
+
+        public void setNearPersistent(boolean nearPersistent)
+        {
+            this.nearPersistent = nearPersistent;
+        }
+
+        public boolean isFarPersistent()
+        {
+            return farPersistent;
+        }
+
+        public void setFarPersistent(boolean farPersistent)
+        {
+            this.farPersistent = farPersistent;
+        }
+
+        public boolean isFarPingEnabled()
+        {
+            return farPingEnabled;
+        }
+
+        public void setFarPingEnabled(boolean farPingEnabled)
+        {
+            this.farPingEnabled = farPingEnabled;
         }
     }
 
@@ -571,7 +657,7 @@ public class Config
         config.language = I18n.detectOsLanguage();
 
         config.measurement = new MeasurementConfig();
-        config.measurement.intervalSeconds = 10;
+        config.measurement.intervalSeconds = 30;
 
         config.measurement.targets = new Targets();
         config.measurement.targets.ping = "8.8.8.8";

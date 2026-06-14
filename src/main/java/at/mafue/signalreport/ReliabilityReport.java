@@ -37,9 +37,11 @@ public final class ReliabilityReport
     private final int totalSamples;
     private final int failedSamples;
 
+    private final List<Outage> outages;
+
     private ReliabilityReport(double uptimePercent, double coveragePercent, int outageCount,
                               long longestOutageSeconds, long mtbfSeconds, long mttrSeconds,
-                              int totalSamples, int failedSamples)
+                              int totalSamples, int failedSamples, List<Outage> outages)
     {
         this.uptimePercent = uptimePercent;
         this.coveragePercent = coveragePercent;
@@ -49,10 +51,44 @@ public final class ReliabilityReport
         this.mttrSeconds = mttrSeconds;
         this.totalSamples = totalSamples;
         this.failedSamples = failedSamples;
+        this.outages = outages;
+    }
+
+    /**
+     * Ein aggregierter Ausfall: eine zusammenhaengende Folge von Fehlschlaegen
+     * (mind. {@link #OUTAGE_MIN_CONSECUTIVE}) innerhalb eines Mess-Laufs.
+     * {@code excluded} ist true, wenn alle zugehoerigen Messungen aus der
+     * Auswertung ausgenommen wurden.
+     */
+    public static final class Outage
+    {
+        private final Instant start;
+        private final Instant end;
+        private final long durationSeconds;
+        private final int sampleCount;
+        private final boolean excluded;
+
+        Outage(Instant start, Instant end, long durationSeconds, int sampleCount, boolean excluded)
+        {
+            this.start = start;
+            this.end = end;
+            this.durationSeconds = durationSeconds;
+            this.sampleCount = sampleCount;
+            this.excluded = excluded;
+        }
+
+        public Instant getStart()        { return start; }
+        public Instant getEnd()          { return end; }
+        public long getDurationSeconds() { return durationSeconds; }
+        public int  getSampleCount()     { return sampleCount; }
+        public boolean isExcluded()      { return excluded; }
     }
 
     /**
      * Berechnet die Kennzahlen aus den (typgleichen) Messungen eines Zeitfensters.
+     * Liefert auch die Liste der aggregierten Ausfaelle (inkl. ausgenommener, mit Flag).
+     * Kennzahlen (Verfuegbarkeit, Ausfallzahl, MTBF, MTTR) beruhen NUR auf nicht
+     * ausgenommenen Messungen.
      *
      * @param measurements      Messungen genau eines Typs (z. B. PING), beliebige Reihenfolge
      * @param intervalSeconds   konfiguriertes Mess-Intervall (zur Lücken-Erkennung)
@@ -68,13 +104,60 @@ public final class ReliabilityReport
         List<Measurement> sorted = new ArrayList<>(measurements);
         sorted.sort(Comparator.comparing(Measurement::getTimestamp));
 
+        // Vollständige Ausfall-Liste (inkl. ausgenommener, fuer die Anzeige)
+        List<Outage> allOutages = detectOutages(sorted, interval, gapThreshold);
+
+        // Kennzahlen nur ueber nicht ausgenommene Messungen
         int total = 0;
         int failed = 0;
+        int excludedCount = 0;
+        for (Measurement m : sorted)
+            {
+            if (m.isExcluded()) { excludedCount++; continue; }
+            total++;
+            if (!m.isSuccess()) failed++;
+            }
+        int success = total - failed;
+        double uptimePercent = total == 0 ? 0.0 : (success * 100.0 / total);
+
+        // Erwartete Stichproben ohne geplante (Wartung) und ausgenommene Zyklen –
+        // dadurch senkt das Ausschliessen eines Ausfalls die Abdeckung nicht.
+        long expectedSamples = Math.max(0,
+                windowSeconds / interval - Math.max(0, maintenanceSamples) - excludedCount);
+        double coveragePercent = expectedSamples <= 0 ? 0.0
+                : Math.min(100.0, total * 100.0 / expectedSamples);
+
         int outageCount = 0;
         long longestOutageSeconds = 0;
-        long downtimeInOutagesSeconds = 0;
+        long downtimeSeconds = 0;
+        for (Outage o : allOutages)
+            {
+            if (o.isExcluded()) continue;
+            outageCount++;
+            downtimeSeconds += o.getDurationSeconds();
+            longestOutageSeconds = Math.max(longestOutageSeconds, o.getDurationSeconds());
+            }
 
-        int currentFailRun = 0; // Anzahl aufeinanderfolgender Fehlschlaege im laufenden Lauf
+        long measuredSeconds = (long) total * interval;
+        long mtbf = outageCount == 0 ? measuredSeconds : measuredSeconds / outageCount;
+        long mttr = outageCount == 0 ? 0 : downtimeSeconds / outageCount;
+
+        return new ReliabilityReport(uptimePercent, coveragePercent, outageCount,
+                longestOutageSeconds, mtbf, mttr, total, failed, allOutages);
+    }
+
+    /**
+     * Erkennt aggregierte Ausfaelle: zusammenhaengende Fehlschlag-Serien innerhalb
+     * eines Mess-Laufs. Eine Lücke (Abstand &gt; {@code gapThreshold}) beendet einen
+     * Lauf – ein Ausfall wird nie ueber eine Lücke hinweg zusammengezogen.
+     */
+    private static List<Outage> detectOutages(List<Measurement> sorted, int interval, long gapThreshold)
+    {
+        List<Outage> outages = new ArrayList<>();
+        int failRun = 0;
+        Instant runStart = null;
+        Instant runEnd = null;
+        boolean runAllExcluded = true;
         Instant prev = null;
 
         for (Measurement m : sorted)
@@ -83,64 +166,39 @@ public final class ReliabilityReport
             boolean gap = prev != null && Duration.between(prev, t).getSeconds() > gapThreshold;
             if (gap)
                 {
-                // Offene Fehlschlag-Serie an der Lücke beenden – nicht ueber die Luecke ziehen.
-                long[] closed = closeOutage(currentFailRun, interval, longestOutageSeconds);
-                outageCount += (int) closed[0];
-                downtimeInOutagesSeconds += closed[1];
-                longestOutageSeconds = closed[2];
-                currentFailRun = 0;
+                addOutage(outages, failRun, runStart, runEnd, runAllExcluded, interval);
+                failRun = 0; runStart = null; runAllExcluded = true;
                 }
 
-            total++;
             if (!m.isSuccess())
                 {
-                failed++;
-                currentFailRun++;
+                if (failRun == 0) { runStart = t; runAllExcluded = true; }
+                failRun++;
+                runEnd = t;
+                if (!m.isExcluded()) runAllExcluded = false;
                 } else
                 {
-                long[] closed = closeOutage(currentFailRun, interval, longestOutageSeconds);
-                outageCount += (int) closed[0];
-                downtimeInOutagesSeconds += closed[1];
-                longestOutageSeconds = closed[2];
-                currentFailRun = 0;
+                addOutage(outages, failRun, runStart, runEnd, runAllExcluded, interval);
+                failRun = 0; runStart = null; runAllExcluded = true;
                 }
             prev = t;
             }
-        // letzte offene Fehlschlag-Serie abschliessen
-        long[] closed = closeOutage(currentFailRun, interval, longestOutageSeconds);
-        outageCount += (int) closed[0];
-        downtimeInOutagesSeconds += closed[1];
-        longestOutageSeconds = closed[2];
-
-        int success = total - failed;
-        double uptimePercent = total == 0 ? 0.0 : (success * 100.0 / total);
-
-        long expectedSamples = Math.max(0, windowSeconds / interval - Math.max(0, maintenanceSamples));
-        double coveragePercent = expectedSamples <= 0 ? 0.0
-                : Math.min(100.0, total * 100.0 / expectedSamples);
-
-        long measuredSeconds = (long) total * interval;
-        long mtbf = outageCount == 0 ? measuredSeconds : measuredSeconds / outageCount;
-        long mttr = outageCount == 0 ? 0 : downtimeInOutagesSeconds / outageCount;
-
-        return new ReliabilityReport(uptimePercent, coveragePercent, outageCount,
-                longestOutageSeconds, mtbf, mttr, total, failed);
+        addOutage(outages, failRun, runStart, runEnd, runAllExcluded, interval);
+        return outages;
     }
 
-    /**
-     * Schliesst eine Fehlschlag-Serie ab: liefert {@code [istAusfall(0/1), dauerSek, neuesLongest]}.
-     * Eine Serie zaehlt erst ab {@link #OUTAGE_MIN_CONSECUTIVE} aufeinanderfolgenden Fehlschlaegen.
-     */
-    private static long[] closeOutage(int failRun, int interval, long currentLongest)
+    private static void addOutage(List<Outage> outages, int failRun, Instant start, Instant end,
+                                  boolean allExcluded, int interval)
     {
-        if (failRun >= OUTAGE_MIN_CONSECUTIVE)
+        if (failRun >= OUTAGE_MIN_CONSECUTIVE && start != null && end != null)
             {
-            long dur = (long) failRun * interval;
-            return new long[]{1, dur, Math.max(currentLongest, dur)};
+            long span = Duration.between(start, end).getSeconds();
+            long dur = Math.max(span, interval);
+            outages.add(new Outage(start, end, dur, failRun, allExcluded));
             }
-        return new long[]{0, 0, currentLongest};
     }
 
+    public List<Outage> getOutages()      { return outages; }
     public double getUptimePercent()      { return uptimePercent; }
     public double getCoveragePercent()    { return coveragePercent; }
     public int    getOutageCount()        { return outageCount; }

@@ -201,7 +201,7 @@ public class WebServer
             String nearIp = gw.getNear();
             String farIp = gw.getFar();
             boolean hasNearGw = nearIp != null && !nearIp.isBlank();
-            boolean hasFarGw = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp);
+            boolean hasFarGw = farIp != null && !farIp.isBlank() && !farIp.equals(nearIp) && gw.isFarPingEnabled();
 
             ConnectivityAssessment.Verdict verdict = ConnectivityAssessment.assess(
                     hasNearGw ? nearStats : null,
@@ -254,6 +254,19 @@ public class WebServer
                 }
 
             ReliabilityReport r = ReliabilityReport.compute(ping, interval, windowSeconds, maintenanceSamples);
+
+            // Ausfall-Liste (laengste zuerst) fuer die klickbare Detailansicht
+            List<java.util.Map<String, Object>> outages = new java.util.ArrayList<>();
+            r.getOutages().stream()
+                    .sorted((a, b) -> Long.compare(b.getDurationSeconds(), a.getDurationSeconds()))
+                    .forEach(o -> outages.add(Map.of(
+                            "fromEpoch", o.getStart().getEpochSecond(),
+                            "toEpoch", o.getEnd().getEpochSecond(),
+                            "durationSeconds", o.getDurationSeconds(),
+                            "sampleCount", o.getSampleCount(),
+                            "excluded", o.isExcluded()
+                    )));
+
             ctx.json(Map.of(
                     "hasData", r.hasData(),
                     "uptimePercent", r.getUptimePercent(),
@@ -262,12 +275,39 @@ public class WebServer
                     "longestOutageSeconds", r.getLongestOutageSeconds(),
                     "mtbfSeconds", r.getMtbfSeconds(),
                     "mttrSeconds", r.getMttrSeconds(),
-                    "periodHours", hours
+                    "periodHours", hours,
+                    "outages", outages
             ));
             } catch (Exception e)
             {
             ctx.status(500);
             ctx.json(new ErrorResponse("Reliability-Fehler: " + e.getMessage()));
+            }
+        });
+
+        // Einen Ausfall (Zeitfenster) aus der Auswertung aus-/einschliessen
+        app.post("/api/outages/exclude", ctx ->
+        {
+        try
+            {
+            var body = ctx.bodyAsClass(java.util.Map.class);
+            long fromEpoch = Long.parseLong(body.get("fromEpoch").toString());
+            long toEpoch = Long.parseLong(body.get("toEpoch").toString());
+            boolean excluded = Boolean.parseBoolean(body.get("excluded").toString());
+
+            // Die Grenzen kommen als ganze Sekunden; die letzte betroffene Messung kann
+            // Sekundenbruchteile haben. Obergrenze um 1 s erweitern, damit sie sicher
+            // mit erfasst wird (der naechste Messzyklus liegt mind. ein Intervall weiter).
+            int affected = repository.excludeRange(
+                    Instant.ofEpochSecond(fromEpoch),
+                    Instant.ofEpochSecond(toEpoch).plusSeconds(1),
+                    excluded);
+
+            ctx.status(200).json(Map.of("affected", affected, "excluded", excluded));
+            } catch (Exception e)
+            {
+            ctx.status(500);
+            ctx.json(new ErrorResponse("Ausschluss-Fehler: " + e.getMessage()));
             }
         });
 
@@ -514,6 +554,7 @@ public class WebServer
         try
             {
             Config config = Config.getInstance();
+            Config.GatewayConfig gw = config.getGateway();
             ctx.json(Map.of(
                     "ping", config.getMeasurement().getTargets().getPing(),
                     "dns", config.getMeasurement().getTargets().getDns(),
@@ -530,6 +571,15 @@ public class WebServer
                             "provider", config.getUserInfo().getProvider(),
                             "customerId", config.getUserInfo().getCustomerId(),
                             "userName", config.getUserInfo().getUserName()
+                    ),
+                    "gateway", Map.of(
+                            "near", gw.getNear(),
+                            "far", gw.getFar(),
+                            "nearManual", gw.isNearManual(),
+                            "farManual", gw.isFarManual(),
+                            "nearPersistent", gw.isNearPersistent(),
+                            "farPersistent", gw.isFarPersistent(),
+                            "farPingEnabled", gw.isFarPingEnabled()
                     ),
                     "language", config.getLanguage()
             ));
@@ -653,10 +703,28 @@ public class WebServer
                 if (userInfo.get("userName") != null) userName = userInfo.get("userName").toString().trim();
                 }
 
+            // Gateway-Einstellungen (Phase 3): manuelle IPs, Persistenz, Fern-Ping
+            boolean gwNearManual = false, gwFarManual = false;
+            boolean gwNearPersistent = false, gwFarPersistent = false;
+            boolean gwFarPingEnabled = true;
+            String gwNear = "", gwFar = "";
+            if (body.get("gateway") != null)
+                {
+                var g = (java.util.Map<String, Object>) body.get("gateway");
+                if (g.get("nearManual") != null) gwNearManual = Boolean.parseBoolean(g.get("nearManual").toString());
+                if (g.get("farManual") != null) gwFarManual = Boolean.parseBoolean(g.get("farManual").toString());
+                if (g.get("nearPersistent") != null) gwNearPersistent = Boolean.parseBoolean(g.get("nearPersistent").toString());
+                if (g.get("farPersistent") != null) gwFarPersistent = Boolean.parseBoolean(g.get("farPersistent").toString());
+                if (g.get("farPingEnabled") != null) gwFarPingEnabled = Boolean.parseBoolean(g.get("farPingEnabled").toString());
+                if (g.get("near") != null) gwNear = g.get("near").toString().trim();
+                if (g.get("far") != null) gwFar = g.get("far").toString().trim();
+                }
+
             Config currentConfig = Config.getInstance();
             currentConfig.updateTargets(ping, dns, http, interval);
             currentConfig.updateMaintenanceWindow(maintenanceEnabled, startHour, startMinute, endHour, endMinute);
             currentConfig.updateUserInfo(provider, customerId, userName);
+            currentConfig.updateGateway(gwNearManual, gwNear, gwNearPersistent, gwFarManual, gwFar, gwFarPersistent, gwFarPingEnabled);
 
             Config.save("config.json");
 

@@ -42,6 +42,7 @@
   "table.status": "Durum",
   "table.host": "Ana bilgisayar",
   "table.lanIp": "LAN IP",
+  "table.maintenance": "Bakım",
 
   "chart.pingLatency": "PING gecikmesi (ms)",
   "chart.pingOverTime": "Zaman içinde PING gecikmesi",
@@ -119,6 +120,11 @@
   "settings.dnsTarget": "DNS hedefi (ana bilgisayar adı)",
   "settings.httpTarget": "HTTP hedefi (URL)",
   "settings.interval": "Aralık (saniye)",
+  "settings.gatewayTitle": "Ağ geçitleri (arıza yeri tespiti)",
+  "settings.gatewayDescription": "Yönlendirici ve İnternet ağ geçidi normalde otomatik algılanır. IP'leri elle ayarlayabilir veya İnternet ağ geçidinin sürekli ping'ini kapatabilirsiniz.",
+  "settings.gatewayManual": "IP'yi elle ayarla",
+  "settings.gatewayPersistent": "IP değişiminde koru (aksi halde yeniden algıla)",
+  "settings.gatewayFarNoPing": "Sürekli ping atma",
   "settings.maintenanceTitle": "Bakım penceresi (ölçüm duraklatma)",
   "settings.maintenanceDescription": "Ölçüm yapılmayacak bir zaman aralığı tanımlayın.",
   "settings.maintenanceEnable": "Bakım penceresini etkinleştir",
@@ -266,5 +272,13 @@
   "reliability.outages": "Kesintiler",
   "reliability.longestOutage": "En uzun kesinti",
   "reliability.mtbf": "Kesintiler arası ort. süre",
-  "reliability.mttr": "Ort. kurtarma süresi"
+  "reliability.mttr": "Ort. kurtarma süresi",
+
+  "outages.start": "Başlangıç",
+  "outages.end": "Bitiş",
+  "outages.duration": "Süre",
+  "outages.exclude": "Sayma",
+  "outages.include": "Yeniden say",
+  "outages.excludedBadge": "hariç",
+  "outages.none": "Bu dönemde kesinti yok."
 }
