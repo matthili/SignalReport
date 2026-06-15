@@ -5,38 +5,76 @@
 ```
 SignalReport/
 ├── src/
-│   ├── main/java/at/mafue/signalreport/
-│   │   ├── SignalReportApp.java          # Hauptklasse (Entry Point)
-│   │   ├── Config.java                   # Singleton-Konfiguration (JSON)
-│   │   ├── I18n.java                     # Mehrsprachigkeit (9 Sprachen, erweiterbar)
-│   │   ├── Measurement.java              # Datenobjekt (POJO)
-│   │   ├── Measurer.java                 # Interface (Strategy-Pattern)
-│   │   ├── PingMeasurer.java             # ICMP-Ping (System-Ping auf Linux/macOS)
-│   │   ├── DnsMeasurer.java              # DNS-Auflösungs-Messung
-│   │   ├── HttpMeasurer.java             # HTTP-GET-Messung
-│   │   ├── DnsBenchmark.java             # DNS-Server-Vergleich (Virtual Threads)
-│   │   ├── H2MeasurementRepository.java  # Twin-Datenbank-Zugriff (Primary + Shadow)
-│   │   ├── WebServer.java                # Javalin REST-API + Routing
-│   │   ├── HtmlPageRenderer.java         # HTML-Rendering Hauptseite
-│   │   ├── SetupPageRenderer.java        # HTML-Rendering Setup-Wizard
-│   │   ├── LoginPageRenderer.java        # HTML-Rendering Login-Seite
-│   │   ├── SessionManager.java           # Challenge-Response Auth (SHA-256)
-│   │   ├── PdfReportGenerator.java       # PDF-Export (OpenPDF + JFreeChart)
-│   │   ├── PushNotificationService.java  # Browser-Benachrichtigungen
-│   │   ├── NetworkInfo.java              # IP-Adress-Ermittlung (120s Cache)
-│   │   └── HostIdentifier.java           # Host-Hash (stabile ID)
-│   ├── test/java/at/mafue/signalreport/  # 9 Testklassen, 86 Tests
-│   │   ├── MeasurementTest.java          # Unit-Tests Measurement (5)
-│   │   ├── HostIdentifierTest.java       # Unit-Tests Host-Hash (4)
-│   │   ├── StatisticsTest.java           # Integrations-Tests Statistik (8)
-│   │   ├── ConfigTest.java               # Unit-Tests Konfiguration (17)
-│   │   ├── H2MeasurementRepositoryTest.java  # Integration-Tests DB (10)
-│   │   ├── MeasurerInterfaceTest.java    # Unit-Tests Measurer-Interface (6)
-│   │   ├── MaintenanceWindowTest.java    # Unit-Tests Wartungsfenster (7)
-│   │   ├── SessionManagerTest.java       # Unit-Tests Auth/Sessions (19)
-│   │   └── I18nTest.java                 # Unit-Tests Mehrsprachigkeit (10)
+│   ├── main/java/at/mafue/signalreport/  # Geschichtete Pakete (siehe unten)
+│   │   ├── SignalReportApp.java          # Hauptklasse (Entry Point + kontinuierliche Mess-Schleife)
+│   │   ├── config/                       # Konfiguration (Config + je eine Datei pro Aspekt)
+│   │   │   ├── Config.java               # Singleton-Fassade (Laden/Speichern, Passwort-Hash, Defaults)
+│   │   │   ├── MeasurementConfig.java    # Mess-Einstellungen (Intervall, …)
+│   │   │   ├── Targets.java              # Ping-/DNS-/HTTP-Ziele
+│   │   │   ├── GatewayConfig.java        # Gateway-Kette (nah/fern, manuelle IP, Optionen)
+│   │   │   ├── DatabaseConfig.java       # Twin-Datenbank-Einstellungen
+│   │   │   ├── WebserverConfig.java      # Webserver-Einstellungen (Port, …)
+│   │   │   ├── DnsServer.java            # DNS-Server-Eintrag (Benchmark)
+│   │   │   ├── MaintenanceWindow.java    # Geplantes Wartungsfenster
+│   │   │   ├── UserInfo.java             # Benutzer-/Kontodaten
+│   │   │   ├── AuthConfig.java           # Authentifizierungs-Einstellungen
+│   │   │   ├── PushConfig.java           # Push-Benachrichtigungs-Einstellungen
+│   │   │   ├── SetupConfig.java          # Zustand des Setup-Wizards
+│   │   │   └── ThemeConfig.java          # Design (Dark Mode)
+│   │   ├── measurement/                  # Mess-Engine (Strategy-Pattern)
+│   │   │   ├── Measurer.java             # Interface (Strategy-Pattern)
+│   │   │   ├── Measurement.java          # Domänenmodell (ein Zyklus / Einzelwert)
+│   │   │   ├── PingMeasurer.java         # ICMP-Ping (System-Ping auf Linux/macOS)
+│   │   │   ├── DnsMeasurer.java          # DNS-Auflösungs-Messung
+│   │   │   ├── HttpMeasurer.java         # HTTP-GET-Messung
+│   │   │   └── DnsBenchmark.java         # DNS-Server-Vergleich (Virtual Threads)
+│   │   ├── network/                      # Netzwerk-Topologie und -Identität
+│   │   │   ├── GatewayDiscovery.java     # Traceroute-basierte Gateway-Kette (nah/fern)
+│   │   │   ├── NetworkInfo.java          # IP-Adress-Ermittlung (120s Cache)
+│   │   │   └── HostIdentifier.java       # Host-Hash (stabile ID)
+│   │   ├── storage/                      # Persistenz + Lese-DTOs
+│   │   │   ├── H2MeasurementRepository.java  # Twin-Datenbank-Zugriff (Primary + Shadow)
+│   │   │   ├── Statistics.java           # Aggregierte Statistik-DTO
+│   │   │   ├── IpChange.java             # Einzelner IP-Wechsel-Datensatz
+│   │   │   ├── IpChangeStats.java        # IP-Wechsel-Statistik-DTO
+│   │   │   ├── HourlyAverage.java        # Stunden-Mittelwert-DTO (Heatmap)
+│   │   │   └── HostInfo.java             # Host-Metadaten-DTO
+│   │   ├── report/                       # Berichtswesen
+│   │   │   ├── ReliabilityReport.java    # Lückenbewusste Kennzahlen (Verfügbarkeit, Abdeckung, MTBF, MTTR, Ausfälle)
+│   │   │   ├── ConnectivityAssessment.java  # „Wer ist schuld“-Verdikt (Router/Gateway/Internet)
+│   │   │   └── PdfReportGenerator.java   # PDF-Export (OpenPDF + JFreeChart)
+│   │   ├── web/                          # HTTP-Schicht (Javalin)
+│   │   │   ├── WebServer.java            # Orchestrator (Javalin-Setup, Gating-Filter, Routen-Registrierung)
+│   │   │   ├── SessionManager.java       # Challenge-Response Auth (SHA-256)
+│   │   │   ├── ErrorResponse.java        # JSON-Fehlerobjekt
+│   │   │   ├── view/                     # HTML-Renderer
+│   │   │   │   ├── HtmlPageRenderer.java     # HTML-Rendering Hauptseite
+│   │   │   │   ├── SetupPageRenderer.java    # HTML-Rendering Setup-Wizard
+│   │   │   │   └── LoginPageRenderer.java    # HTML-Rendering Login-Seite
+│   │   │   └── api/                      # Routen-Registrar-Klassen (static register(app, …deps))
+│   │   │       ├── PageRoutes.java       # Seiten-Routen (/, Login, Setup)
+│   │   │       ├── MeasurementRoutes.java    # Live-Mess- + Statistik-Endpunkte
+│   │   │       ├── ReliabilityRoutes.java    # Connectivity + Zuverlässigkeit + Ausfall-Ausschluss
+│   │   │       ├── ExportRoutes.java     # PDF-/CSV-Export-Endpunkte
+│   │   │       ├── HostRoutes.java       # Host-Info- + IP-Tracking-Endpunkte
+│   │   │       ├── DnsRoutes.java        # DNS-Benchmark-Endpunkte
+│   │   │       ├── SettingsRoutes.java   # Config-/Theme-/Push-Einstellungs-Endpunkte
+│   │   │       ├── SetupRoutes.java      # Setup-Wizard-Endpunkte
+│   │   │       └── AuthRoutes.java       # Authentifizierungs-Endpunkte (Nonce/Login/Logout)
+│   │   ├── i18n/
+│   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
+│   │   └── notification/
+│   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (12 Klassen, 119 Tests)
+│   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7)
+│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
+│   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8)
+│   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8)
+│   │   ├── web/           # SessionManagerTest (19)
+│   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
-│       ├── web/                          # Statische Dateien (Logos, Favicons, Service Worker)
+│       ├── web/                          # Statische Dateien: app.css, app.js, Logos, Favicons, Service Worker
 │       ├── lang/                         # Sprachdateien (de, en, fr, it, es, pt, tr, pl, uk)
 │       └── fonts/                        # DejaVu-Schriften für PDF (Unicode/Kyrillisch)
 ├── docs/
@@ -44,7 +82,7 @@ SignalReport/
 │   ├── latex/                            # LaTeX-Dokumentation
 │   │   ├── signalreport-dokumentation.tex
 │   │   └── kapitel/                      # Einzelne Kapitel
-│   ├── Architecture.md / Architecture_de.md       # Architektur-Kurzübersicht (EN/DE)
+│   ├── Architecture.md / Architecture_de.md       # Architektur-Übersicht (EN/DE)
 │   └── ProjectStructure.md / ProjectStructure_de.md  # Projektstruktur (EN/DE, diese Datei)
 ├── deployment/
 │   ├── windows/

@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-86%20passing-brightgreen" alt="JUnit Tests"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-119%20passing-brightgreen" alt="JUnit Tests"></a>
 </p>
 
 <p align="center">
@@ -26,8 +26,9 @@ A professional, open-source monitoring tool for the continuous supervision of yo
 
 | Category | Functions |
 |----------|-----------|
-| **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP)<br>⏱️ Configurable interval (5s–1h)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
-| **Visualisation** | 📊 Live charts with Chart.js<br>🌡️ Hourly heatmap<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
+| **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP + gateways)<br>⏱️ Configurable interval (5s–1h, default 30s)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
+| **Fault localisation & reliability** | 🛰️ Pinpoint router vs. internet gateway vs. ISP (traceroute gateway chain)<br>🐳 Virtual-gateway detection in VM/Docker<br>📈 Availability, coverage, MTBF & MTTR (gap-aware)<br>📉 Aggregated connection outages, individually excludable from the rating |
+| **Visualisation** | 📊 Live charts with Chart.js<br>📋 Per-cycle measurement table (collapsible)<br>🌡️ Hourly heatmap<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
 | **Reports** | 📄 PDF export (24h / 7 days / 12 months)<br>📈 3 charts (PING/DNS/HTTP) with target-change markers<br>🏆 Top 10 worst measurements<br>⚠️ Connection-outage analysis<br>📤 CSV export (complete or filtered) |
 | **Security** | 🔐 Setup wizard (web-based, no CLI)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles with session management<br>🛡️ Password is never transmitted in plaintext |
 | **Data safety** | 🛟 Twin database (synchronous mirroring)<br>🔄 Auto-recovery on startup (corruption → reconstruction from the intact copy)<br>⚡ Synchronous writes (`WRITE_DELAY=0`)<br>🛡️ Protection against crashes from update reboots / power failures |
@@ -53,7 +54,7 @@ http://localhost:4567
 # 3. Run through the setup wizard (set an admin password)
 ```
 
-✅ **Done!** Measurement starts automatically – ping, DNS and HTTP are tested every 10 seconds.
+✅ **Done!** Measurement starts automatically – by default ping, DNS and HTTP (and the gateways, if set) are tested every 30 seconds.
 
 ---
 
@@ -96,7 +97,7 @@ After the first start a `config.json` is created. Important settings:
 {
   "language": "en",
   "measurement": {
-    "intervalSeconds": 10,
+    "intervalSeconds": 30,
     "targets": {
       "ping": "8.8.8.8",
       "dns": "google.com",
@@ -172,24 +173,18 @@ A compact overview of the directories and classes is available in [`docs/Project
 signalreport/
 ├── src/main/java/at/mafue/signalreport/
 │   ├── SignalReportApp.java              # Main class (entry point)
-│   ├── Config.java                       # Singleton configuration (JSON)
-│   ├── I18n.java                         # Internationalisation (9 languages, extensible)
-│   ├── Measurer.java                     # Interface (strategy pattern)
-│   ├── PingMeasurer.java                 # ICMP ping measurement
-│   ├── DnsMeasurer.java                  # DNS resolution measurement
-│   ├── HttpMeasurer.java                 # HTTP GET measurement
-│   ├── DnsBenchmark.java                 # DNS server comparison
-│   ├── H2MeasurementRepository.java      # Twin-database access (H2)
-│   ├── WebServer.java                    # Javalin REST API + routing
-│   ├── HtmlPageRenderer.java             # HTML rendering of the main page
-│   ├── SetupPageRenderer.java            # HTML rendering of the setup wizard
-│   ├── LoginPageRenderer.java            # Login page (challenge-response)
-│   ├── SessionManager.java               # Session & nonce management
-│   ├── PdfReportGenerator.java           # PDF export (OpenPDF + JFreeChart)
-│   ├── NetworkInfo.java                  # IP address discovery (with cache)
-│   └── HostIdentifier.java               # Host hash (stable ID)
-├── src/test/java/at/mafue/signalreport/  # 9 test classes, 86 tests
-├── src/main/resources/web/               # Static files (logos, favicons)
+│   ├── config/                           # Slim Config + one file per area (Measurement, Gateway, Maintenance, Auth, Theme, …)
+│   ├── measurement/                      # Measurer interface + Ping/Dns/Http, Measurement, DnsBenchmark
+│   ├── network/                          # GatewayDiscovery (traceroute), NetworkInfo, HostIdentifier
+│   ├── storage/                          # H2MeasurementRepository (twin DB) + DTOs (Statistics, IpChange, …)
+│   ├── report/                           # ReliabilityReport, ConnectivityAssessment, PdfReportGenerator
+│   ├── web/                              # WebServer (Javalin orchestrator), SessionManager
+│   │   ├── view/                         #   HtmlPageRenderer, SetupPageRenderer, LoginPageRenderer
+│   │   └── api/                          #   9 route registrars (Measurement, Reliability, Settings, …)
+│   ├── i18n/                             # I18n (9 languages, extensible)
+│   └── notification/                     # PushNotificationService
+├── src/test/java/at/mafue/signalreport/  # 12 test classes, 119 tests (mirror the packages above)
+├── src/main/resources/web/               # Static assets: app.css, app.js, logos, favicons
 ├── src/main/resources/lang/              # Language files (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/fonts/             # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/

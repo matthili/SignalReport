@@ -1,4 +1,4 @@
-@startuml SignalReport - Use-Case-Diagramm
+@startuml usecase-diagram
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width
@@ -23,9 +23,14 @@ rectangle "SignalReport" {
   usecase "IP-Änderungen tracken" as UC11
   usecase "Push-Benachrichtigungen erhalten" as UC12
   usecase "Authentifizierung verwalten" as UC13
+  usecase "Kontinuierliche Messung durchführen" as UC14
   usecase "Dark Mode umschalten" as UC15
   usecase "Wartungsfenster konfigurieren" as UC16
-  usecase "Kontinuierliche Messung durchführen" as UC14
+  usecase "Störungs-Lokalisierung anzeigen" as UC17
+  usecase "Verfügbarkeit & Zuverlässigkeit anzeigen" as UC18
+  usecase "Verbindungsausfälle anzeigen / aus Wertung nehmen" as UC19
+  usecase "Gateways konfigurieren\n(manuelle IP, nicht pingen)" as UC20
+  usecase "Sprache umschalten (9 Sprachen)" as UC21
 }
 
 Benutzer --> UC2
@@ -41,6 +46,11 @@ Benutzer --> UC11
 Benutzer --> UC12
 Benutzer --> UC15
 Benutzer --> UC16
+Benutzer --> UC17
+Benutzer --> UC18
+Benutzer --> UC19
+Benutzer --> UC20
+Benutzer --> UC21
 
 Administrator --> UC1
 Administrator --> UC13
@@ -49,68 +59,55 @@ System --> UC14
 
 UC4 .> UC5 : <<include>>
 UC4 .> UC6 : <<include>>
-UC7 .> UC5 : <<include>>
-UC7 .> UC11 : <<include>>
+UC4 .> UC17 : <<include>>
+UC7 .> UC18 : <<include>>
+UC7 .> UC17 : <<include>>
 UC12 .> UC14 : <<extend>>
 UC3 .> UC16 : <<include>>
-
-note right of UC1
-  **Erstmaliges Setup**
-  * Admin-Passwort festlegen
-  * Authentifizierung optional aktivieren
-  * User-Passwort setzen (falls aktiviert)
-  * Wird nur einmal beim ersten Start durchgeführt
-end note
-
-note right of UC3
-  **Messungen konfigurieren**
-  * Ping-Ziel (IP) ändern
-  * DNS-Ziel (Hostname) ändern
-  * HTTP-Ziel (URL) ändern
-  * Messintervall einstellen (5s-1h)
-  * Benutzer-Info eingeben
-end note
+UC3 .> UC20 : <<include>>
+UC17 .> UC14 : <<extend>>
 
 note right of UC7
   **PDF-Bericht generieren**
   * Zeiträume: 24h, 7 Tage, 12 Monate
-  * Enthalt:
+  * Enthält:
     - Kundendaten + Host-Info
     - 3 Charts (PING/DNS/HTTP)
     - Top 10 schlechteste Messungen
-    - Verbindungsausfälle
+    - Störungs-Lokalisierung (Verdikt)
+    - Verfügbarkeit & Zuverlässigkeit
+    - aggregierte Verbindungsausfälle
 end note
 
-note right of UC9
-  **DNS-Benchmark**
-  * Vergleich globaler DNS-Server
-  * Regionen: Europa, Nordamerika, Asien
-  * Ergebnisse sortiert nach Latenz
-  * 30-Sekunden-Cooldown
+note right of UC17
+  **Störungs-Lokalisierung**
+  * Traceroute-Gateway-Kette
+    (nah = Router, fern = Internet-Gateway)
+  * Verdikt: Router / Gateway / Internet
+  * virtuelle-Gateway-Erkennung (VM/Docker)
 end note
 
-note right of UC15
-  **Dark Mode**
-  * Toggle-Button im Header
-  * Persistente Speicherung in config.json
-  * Server-seitige Injection (kein Flackern)
-  * Chart.js-Farben werden angepasst
+note right of UC18
+  **Verfügbarkeit & Zuverlässigkeit**
+  * lückenbewusste Uptime + Abdeckung
+  * MTBF / MTTR
+  * Wartungs-Marker zählen nicht als Ausfall
 end note
 
-note right of UC16
-  **Wartungsfenster**
-  * Start- und Endzeit konfigurierbar
-  * Unterstützt Mitternachts-Übergang
-  * Messungen werden pausiert
-  * Status im UI sichtbar
+note right of UC20
+  **Gateways konfigurieren**
+  * manuelle Router-/Gateway-IP
+  * Internet-Gateway nicht pingen
+  * persistent vs. neu ermitteln bei IP-Wechsel
 end note
 
 note right of UC14
   **Kontinuierliche Messung**
-  * Automatisch alle X Sekunden
+  * automatisch alle X Sekunden (Standard 30 s)
+  * Ping/DNS/HTTP + Gateway-Pings
   * IP-Tracking bei jeder Messung
-  * Überspringt Maintenance-Fenster
-  * Speichert in H2-Twin-Datenbank
+  * Wartungsfenster: Marker statt Messung
+  * speichert in H2-Twin-Datenbank
     (Primary + Shadow, crash-resistent)
 end note
 @enduml

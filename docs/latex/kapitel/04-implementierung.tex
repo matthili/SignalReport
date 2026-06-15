@@ -84,16 +84,18 @@ Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenständige Klass
 ausgelagert:
 
 \begin{description}
-  \item[WebServer] (ca.\ 850 Zeilen) -- Verwaltet Javalin-Routen, REST-API-Endpunkte,
-    Session-basierte Authentifizierungs-Middleware und Setup-Logik. Delegiert die
-    HTML-Generierung an die Renderer.
-  \item[HtmlPageRenderer] (ca.\ 1125 Zeilen) -- Generiert die Hauptseite mit allen
-    UI-Komponenten: Live-Chart (Chart.js), Statistik-Panel, Heatmap, DNS-Benchmark,
-    Konfigurations-Tabs, IP-Tracking und Logout-Funktion.
-  \item[SetupPageRenderer] (ca.\ 200 Zeilen) -- Generiert den Setup-Assistenten für die
-    Ersteinrichtung mit client-seitigem Passwort-Hashing.
-  \item[LoginPageRenderer] (ca.\ 120 Zeilen) -- Generiert die Login-Seite mit eingebettetem
-    JavaScript für die Challenge-Response-Berechnung (Web Crypto API).
+  \item[WebServer] (ca.\ 140 Zeilen) -- Orchestrator: richtet Javalin ein, installiert zwei
+    \texttt{before}-Filter (Setup- und Auth-Gating) und delegiert die Routen an die neun
+    Registrar-Klassen im Paket \texttt{web.api} (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
+    \texttt{ReliabilityRoutes}, \dots), die je eine statische \texttt{register(app, \dots)}-Methode
+    bereitstellen.
+  \item[web.view-Renderer] -- \texttt{HtmlPageRenderer} (ca.\ 490 Zeilen) generiert die
+    Hauptseite, \texttt{SetupPageRenderer} den Setup-Assistenten und \texttt{LoginPageRenderer}
+    die Login-Seite. Das umfangreiche CSS und JavaScript wurde aus dem \texttt{HtmlPageRenderer}
+    in statische Ressourcen (\texttt{app.css}, \texttt{app.js}) ausgelagert; im Renderer
+    verbleiben die HTML-Struktur mit \texttt{\{\{key\}\}}-Platzhaltern und ein kleines
+    Inline-Skript mit den server-injizierten Globals (\texttt{I18N}, \texttt{LOCALE},
+    \texttt{GW\_LABELS}).
   \item[SessionManager] (ca.\ 140 Zeilen) -- Verwaltet Nonces (Single-Use, 60\,s TTL),
     Sessions (24\,h Timeout) und verifiziert Challenge-Responses.
 \end{description}
@@ -183,12 +185,14 @@ Berichte können für drei Zeiträume generiert werden: 24 Stunden, 7 Tage und
 
 \subsection{Konfigurationsmanagement}
 
-Die \texttt{Config}-Klasse ist als Singleton implementiert und verwaltet alle
-Einstellungen in verschachtelten statischen Klassen:
+Die \texttt{Config}-Klasse ist als Singleton implementiert; jeder Konfigurationsbereich
+liegt seit dem Refactoring in einer eigenen Datei im Paket \texttt{config} (statt als
+verschachtelte statische Klasse):
 
 \begin{lstlisting}[language=Java, caption={Config-Struktur (Auszug)}]
 public class Config {
     private MeasurementConfig measurement;
+    private GatewayConfig gateway;       // Stoerungs-Lokalisierung
     private MaintenanceWindow maintenanceWindow;
     private UserInfo userInfo;
     private SetupConfig setup;
@@ -223,8 +227,9 @@ Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
 \hline
 \textbf{Tabelle} & \textbf{Primärschlüssel} & \textbf{Inhalt} \\
 \hline
-\texttt{measurements} & id (BIGINT) & Zeitstempel, Ziel, Latenz, Erfolg, Typ,
-  IPv4/v6, Host-Hash \\
+\texttt{measurements} & id (BIGINT) & Zeitstempel, Ziel, Latenz, Erfolg, Typ
+  (PING/DNS/HTTP/GATEWAY\_NEAR/GATEWAY\_FAR/MAINTENANCE), IPv4/v6, Host-Hash,
+  \texttt{excluded} (aus der Wertung genommen) \\
 \hline
 \texttt{hosts} & host\_hash (VARCHAR) & Hostname, Betriebssystem, Erstregistrierung,
   letzte Aktivität \\

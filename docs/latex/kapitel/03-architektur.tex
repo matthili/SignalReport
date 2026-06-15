@@ -21,26 +21,40 @@ externen Dienste (DNS-Server, Web-Server, ipify.org).
 
 \subsection{Komponenten-Design}
 
-Die Anwendung gliedert sich in sieben Haupt-Packages (Abbildung \ref{fig:component}):
+Die Anwendung gliedert sich in zehn geschichtete Packages unterhalb von
+\texttt{at.mafue.signalreport} (Abbildung \ref{fig:component}):
 
 \begin{description}
+  \item[config] Schlanke \texttt{Config}-Fassade (JSON-Persistenz, Passwort-Hashing,
+    Defaults) sowie je eine eigene Datei pro Konfigurationsbereich (\texttt{MeasurementConfig},
+    \texttt{Targets}, \texttt{GatewayConfig}, \texttt{MaintenanceWindow}, \texttt{AuthConfig},
+    \texttt{ThemeConfig}, \dots).
   \item[measurement] Mess-Engine mit dem \texttt{Measurer}-Interface und drei
-    Implementierungen (Ping, DNS, HTTP) sowie dem DNS-Benchmark.
-  \item[model] Das \texttt{Measurement}-Datenobjekt als zentrales Transferobjekt.
-  \item[persistence] \texttt{H2MeasurementRepository} für die embedded Datenbank
-    in Twin-Architektur (Primary + Shadow). Tabellen: Messungen, Hosts, IP-Änderungen.
-    Siehe Abschnitt \ref{subsec:twindb}.
-  \item[config] Singleton-Konfiguration mit JSON-Persistenz und verschachtelten
-    Konfigurations-Klassen (Targets, MaintenanceWindow, Auth, Theme, etc.).
-  \item[web] \texttt{WebServer} (Javalin) mit ausgelagertem HTML-Rendering in
-    \texttt{HtmlPageRenderer}, \texttt{SetupPageRenderer} und
-    \texttt{LoginPageRenderer}. Session-Verwaltung und
-    Challenge-Response-Verifikation über \texttt{SessionManager}.
-  \item[export] \texttt{PdfReportGenerator} (OpenPDF + JFreeChart) und
-    \texttt{PushNotificationService} für Browser-Benachrichtigungen.
-  \item[network] \texttt{HostIdentifier} (stabiler Host-Hash) und \texttt{NetworkInfo}
-    (lokale/externe IP-Ermittlung).
+    Implementierungen (Ping, DNS, HTTP), dem DNS-Benchmark sowie dem zentralen
+    Transferobjekt \texttt{Measurement}.
+  \item[network] \texttt{GatewayDiscovery} (Traceroute-Gateway-Kette nah/fern,
+    virtuelle-Gateway-Erkennung), \texttt{NetworkInfo} (lokale/externe IP) und
+    \texttt{HostIdentifier} (stabiler Host-Hash).
+  \item[storage] \texttt{H2MeasurementRepository} für die embedded Datenbank in
+    Twin-Architektur (Primary + Shadow) samt eigenen Lese-DTOs (\texttt{Statistics},
+    \texttt{IpChange}, \texttt{IpChangeStats}, \texttt{HourlyAverage}, \texttt{HostInfo}).
+    Tabellen: Messungen, Hosts, IP-Änderungen. Siehe Abschnitt \ref{subsec:twindb}.
+  \item[report] \texttt{ReliabilityReport} (lückenbewusste Kennzahlen),
+    \texttt{ConnectivityAssessment} (Schuld-Verdikt) und \texttt{PdfReportGenerator}
+    (OpenPDF + JFreeChart).
+  \item[web] \texttt{WebServer} als Javalin-Orchestrator (Setup, Setup-/Auth-Gating-Filter,
+    Registrierung der Routen), \texttt{SessionManager} und \texttt{ErrorResponse}.
+  \item[web.view] HTML-Renderer \texttt{HtmlPageRenderer}, \texttt{SetupPageRenderer} und
+    \texttt{LoginPageRenderer}.
+  \item[web.api] Neun Routen-Registrar-Klassen (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
+    \texttt{ReliabilityRoutes}, \dots) mit je einer statischen \texttt{register(app, \dots)}-Methode.
+  \item[i18n] \texttt{I18n} für die Mehrsprachigkeit (9 Sprachen).
+  \item[notification] \texttt{PushNotificationService} für Browser-Benachrichtigungen.
 \end{description}
+
+Den Einstiegspunkt bildet \texttt{SignalReportApp} mit der kontinuierlichen
+Mess-Schleife. Das CSS und JavaScript der Oberfläche sind in statische Ressourcen
+(\texttt{src/main/resources/web/app.css} und \texttt{app.js}) ausgelagert.
 
 \begin{figure}[H]
     \centering
@@ -59,13 +73,19 @@ Besonders hervorzuheben sind:
     implementieren das gleiche Interface \texttt{Measurer} mit der Methode
     \texttt{measure(String target)}. Dadurch können neue Messtypen hinzugefügt werden,
     ohne bestehenden Code zu ändern (Open/Closed Principle).
-  \item Die \textbf{Renderer-Klassen}: Das HTML-Rendering wurde aus dem WebServer in
-    eigenständige Klassen ausgelagert (\texttt{HtmlPageRenderer},
-    \texttt{SetupPageRenderer}), um die Trennung von Verantwortlichkeiten (Separation of
-    Concerns) zu wahren. Der WebServer schrumpfte dadurch von über 2100 auf ca.\ 800
-    Zeilen.
-  \item Die \textbf{Config-Hierarchie}: Verschachtelte statische Klassen für verschiedene
-    Konfigurationsbereiche; zentrale \texttt{hashPassword()}-Methode statt dupliziertem Code.
+  \item Die \textbf{Renderer- und Routen-Aufteilung}: Das HTML-Rendering wurde in
+    eigenständige Klassen ausgelagert (Paket \texttt{web.view}), und die Routen wurden
+    nach Domäne in neun Registrar-Klassen (Paket \texttt{web.api}) zerlegt. Der
+    \texttt{WebServer} schrumpfte dadurch auf einen reinen Orchestrator von ca.\ 140 Zeilen;
+    zusätzlich wurden CSS und JavaScript in statische Ressourcen (\texttt{app.css}/\texttt{app.js})
+    ausgelagert.
+  \item Die \textbf{aufgeteilte Konfiguration}: Statt verschachtelter Klassen liegt jeder
+    Konfigurationsbereich in einer eigenen Datei im Paket \texttt{config}; die zentrale
+    \texttt{hashPassword()}-Methode vermeidet duplizierten Code.
+  \item Die \textbf{Störungs-Lokalisierung}: \texttt{GatewayDiscovery} und
+    \texttt{ConnectivityAssessment} bestimmen, ob Router, Internet-Gateway oder Provider
+    für eine Störung verantwortlich ist; \texttt{ReliabilityReport} liefert lückenbewusste
+    Verfügbarkeits-Kennzahlen (Uptime, Abdeckung, MTBF, MTTR).
 \end{itemize}
 
 \begin{figure}[H]

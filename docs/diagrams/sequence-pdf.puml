@@ -1,4 +1,4 @@
-@startuml SignalReport - Sequenz PDF-Export
+@startuml sequence-pdf
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width
@@ -9,136 +9,84 @@ skinparam roundcorner 10
 
 actor Benutzer
 participant Browser
-participant WebServer
+participant "ExportRoutes\n(web.api)" as Export
 participant PdfReportGenerator
 participant Config
 participant H2MeasurementRepository
 database "H2 Primary" as DB
+participant ReliabilityReport
+participant ConnectivityAssessment
 participant JFreeChart
 participant OpenPDF
 
 Benutzer -> Browser : Klicke "PDF-Bericht (24h)"
-Browser -> WebServer : GET /api/report?hours=24
+Browser -> Export : GET /api/report?hours=24
+Export -> PdfReportGenerator : new PdfReportGenerator(repo)
+Export -> PdfReportGenerator : generateReport(24)
 
-WebServer -> PdfReportGenerator : new PdfReportGenerator(repo)
-WebServer -> PdfReportGenerator : generateReport(24)
+PdfReportGenerator -> Config : getInstance() / getUserInfo()
+Config --> PdfReportGenerator : Config + UserInfo
+PdfReportGenerator -> HostIdentifier : getHostname() / getHostHash()
+PdfReportGenerator -> NetworkInfo : getLocalIPv4() / getExternalIPv4()
 
-PdfReportGenerator -> Config : getInstance()
-Config --> PdfReportGenerator : Config-Objekt
+group Statistik je Typ
+  PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("PING"/"DNS"/"HTTP", 24)
+  H2MeasurementRepository -> DB : SELECT ... WHERE type = ? (excluded = FALSE)
+  DB --> H2MeasurementRepository : Ergebnisse
+  H2MeasurementRepository --> PdfReportGenerator : Statistics (avg, p95, max, loss, jitter)
+end
 
-PdfReportGenerator -> Config : getUserInfo()
-Config --> PdfReportGenerator : UserInfo (Provider, Kundennummer, Name)
+PdfReportGenerator -> H2MeasurementRepository : findSince(since)
+H2MeasurementRepository -> DB : SELECT * FROM measurements WHERE timestamp >= ...
+DB --> H2MeasurementRepository : List<Measurement>
+H2MeasurementRepository --> PdfReportGenerator : Messungen (inkl. PING + MAINTENANCE-Marker)
 
-PdfReportGenerator -> HostIdentifier : getHostname()
-HostIdentifier --> PdfReportGenerator : "MyPC"
+group Charts (PING/DNS/HTTP)
+  PdfReportGenerator -> PdfReportGenerator : filterByType + detectTargetChanges
+  PdfReportGenerator -> JFreeChart : createLatencyChart(...)
+  JFreeChart --> PdfReportGenerator : BufferedImage (rote Linien bei Ziel-Änderungen)
+end
 
-PdfReportGenerator -> HostIdentifier : getHostHash()
-HostIdentifier --> PdfReportGenerator : "a3f8b2c1..."
+PdfReportGenerator -> PdfReportGenerator : Top 10 schlechteste Messungen
 
-PdfReportGenerator -> NetworkInfo : getLocalIPv4()
-NetworkInfo --> PdfReportGenerator : "192.168.1.100"
+group Störungs-Lokalisierung
+  PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("GATEWAY_NEAR"/"GATEWAY_FAR", 24)
+  H2MeasurementRepository --> PdfReportGenerator : Statistics (nah/fern)
+  PdfReportGenerator -> ConnectivityAssessment : assess(near, far, internet)
+  ConnectivityAssessment --> PdfReportGenerator : Verdikt (Router / Internet-Gateway / Internet)
+end
 
-PdfReportGenerator -> NetworkInfo : getExternalIPv4()
-NetworkInfo --> PdfReportGenerator : "85.182.xxx.xxx"
+group Verfügbarkeit & Zuverlässigkeit
+  PdfReportGenerator -> ReliabilityReport : compute(pingMessungen, interval, fenster, maintenanceSamples)
+  ReliabilityReport --> PdfReportGenerator : uptime, coverage, MTBF, MTTR + aggregierte Ausfälle
+end
 
-PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("PING", 24)
-H2MeasurementRepository -> DB : SELECT latency_ms, success FROM measurements WHERE timestamp >= ... AND type = 'PING'
-DB --> H2MeasurementRepository : Ergebnisse
-H2MeasurementRepository --> PdfReportGenerator : Statistics (avg, p95, max, loss, jitter)
+group PDF-Dokument
+  PdfReportGenerator -> OpenPDF : new Document(A4) + Kopf (Kunde, Host, IPs)
+  PdfReportGenerator -> OpenPDF : Statistik-Blöcke (PING/DNS/HTTP) + Charts
+  PdfReportGenerator -> OpenPDF : Top 10 schlechteste Messungen (Tabelle)
+  PdfReportGenerator -> OpenPDF : Störungs-Lokalisierung (Verdikt + Segmente)
+  PdfReportGenerator -> OpenPDF : Verfügbarkeit & Zuverlässigkeit (Kennzahlen)
+  PdfReportGenerator -> OpenPDF : Verbindungsausfälle (aggregiert, längste zuerst)
+  OpenPDF --> PdfReportGenerator : PDF-Bytes
+end
 
-PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("DNS", 24)
-H2MeasurementRepository -> DB : SELECT ... WHERE type = 'DNS'
-DB --> H2MeasurementRepository : Ergebnisse
-H2MeasurementRepository --> PdfReportGenerator : Statistics
-
-PdfReportGenerator -> H2MeasurementRepository : calculateStatistics("HTTP", 24)
-H2MeasurementRepository -> DB : SELECT ... WHERE type = 'HTTP'
-DB --> H2MeasurementRepository : Ergebnisse
-H2MeasurementRepository --> PdfReportGenerator : Statistics
-
-PdfReportGenerator -> H2MeasurementRepository : findLastN(144)
-H2MeasurementRepository -> DB : SELECT * FROM measurements WHERE timestamp >= ... ORDER BY timestamp DESC LIMIT 144
-DB --> H2MeasurementRepository : 144 Messungen
-H2MeasurementRepository --> PdfReportGenerator : List<Measurement>
-
-PdfReportGenerator -> PdfReportGenerator : filterByType(measurements, "PING")
-PdfReportGenerator -> PdfReportGenerator : detectTargetChanges(pingMeasurements)
-PdfReportGenerator -> JFreeChart : createXYLineChart("PING Latenz über Zeit")
-JFreeChart --> PdfReportGenerator : JFreeChart-Objekt
-PdfReportGenerator -> JFreeChart : render als BufferedImage (mit roten Linien bei Ziel-Änderungen)
-JFreeChart --> PdfReportGenerator : BufferedImage
-
-PdfReportGenerator -> PdfReportGenerator : filterByType(measurements, "DNS")
-PdfReportGenerator -> PdfReportGenerator : detectTargetChanges(dnsMeasurements)
-PdfReportGenerator -> JFreeChart : createXYLineChart("DNS Latenz über Zeit")
-JFreeChart --> PdfReportGenerator : BufferedImage
-
-PdfReportGenerator -> PdfReportGenerator : filterByType(measurements, "HTTP")
-PdfReportGenerator -> PdfReportGenerator : detectTargetChanges(httpMeasurements)
-PdfReportGenerator -> JFreeChart : createXYLineChart("HTTP Latenz über Zeit")
-JFreeChart --> PdfReportGenerator : BufferedImage
-
-PdfReportGenerator -> PdfReportGenerator : getWorstMeasurements(measurements, 10)
-PdfReportGenerator --> PdfReportGenerator : Top 10 schlechteste Messungen
-
-PdfReportGenerator -> PdfReportGenerator : detectConnectionOutages(measurements)
-PdfReportGenerator --> PdfReportGenerator : Liste der Verbindungsausfälle
-
-PdfReportGenerator -> PdfReportGenerator : getLongestOutages(outages, 10)
-PdfReportGenerator --> PdfReportGenerator : Top 10 längste Ausfälle
-
-PdfReportGenerator -> OpenPDF : new Document(PageSize.A4)
-PdfReportGenerator -> OpenPDF : add(Paragraph "SignalReport – Bericht")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Kunde: Name, Provider, Kundennummer")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Zeitraum: 24 Stunden")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Host: MyPC | Hash: a3f8b2c1")
-PdfReportGenerator -> OpenPDF : add(Paragraph "LAN IP: 192.168.1.100 | Externe IP: 85.182.xxx.xxx")
-
-PdfReportGenerator -> OpenPDF : add(Paragraph "PING-Messungen")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Durchschnittliche Latenz: 23.5 ms")
-PdfReportGenerator -> OpenPDF : add(Paragraph "95th Percentile: 45.2 ms")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Paketverlust: 0.1 %")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Jitter: 3.2 ms")
-
-PdfReportGenerator -> OpenPDF : add(Image pingChart)
-PdfReportGenerator -> OpenPDF : add(Paragraph "⚠️ Gemessene Ziele (chronologisch): 8.8.8.8, 1.1.1.1")
-
-PdfReportGenerator -> OpenPDF : add(Paragraph "DNS-Messungen")
-PdfReportGenerator -> OpenPDF : add(Image dnsChart)
-PdfReportGenerator -> OpenPDF : add(Paragraph "Gemessenes Ziel: google.com")
-
-PdfReportGenerator -> OpenPDF : add(Paragraph "HTTP-Messungen")
-PdfReportGenerator -> OpenPDF : add(Image httpChart)
-PdfReportGenerator -> OpenPDF : add(Paragraph "⚠️ Gemessene Ziele (chronologisch): https://example.com, https://heise.de")
-
-PdfReportGenerator -> OpenPDF : add(Paragraph "Top 10 schlechteste Messungen")
-PdfReportGenerator -> OpenPDF : add(Table mit 10 Zeilen)
-
-PdfReportGenerator -> OpenPDF : add(Paragraph "Verbindungsausfälle")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Gesamtanzahl: 5")
-PdfReportGenerator -> OpenPDF : add(Paragraph "Top 10 längste Verbindungsausfälle")
-PdfReportGenerator -> OpenPDF : add(Table mit 10 Zeilen)
-
-OpenPDF --> PdfReportGenerator : PDF-Bytes
-
-PdfReportGenerator --> WebServer : byte[] pdfBytes
-WebServer -> Browser : HTTP 200 + Content-Disposition: attachment
+PdfReportGenerator --> Export : byte[] pdfBytes
+Export -> Browser : HTTP 200 + Content-Disposition: attachment
 Browser -> Benutzer : Speichere PDF-Datei
 
 note over PdfReportGenerator, OpenPDF
-  PDF enthält:
-  • Kundendaten (Name, Provider, Kundennummer)
-  • Host-Informationen (Hostname, Hash, IPs)
-  • 3 Charts (PING/DNS/HTTP) mit roten Linien bei Ziel-Änderungen
-  • Ziel-Informationen unter jedem Chart
-  • Top 10 schlechteste Messungen
-  • Top 10 längste Verbindungsausfälle
-  • Gesamtanzahl der Ausfälle
+  PDF enthält: Kunden-/Host-Daten, 3 Charts (PING/DNS/HTTP)
+  mit Ziel-Änderungs-Markierung, Top 10 schlechteste Messungen,
+  Störungs-Lokalisierung (ConnectivityAssessment),
+  Verfügbarkeit & Zuverlässigkeit (ReliabilityReport:
+  uptime/coverage/MTBF/MTTR) und die aggregierte
+  Ausfallliste. DejaVu-Schrift fuer Unicode eingebettet.
 end note
 
 note right of DB
-  Lese-Operationen gehen
-  immer auf die Primary-DB
-  der Twin-Architektur.
+  Lese-Operationen gehen immer auf die Primary-DB.
+  Aus der Wertung ausgeschlossene Messungen
+  (Spalte excluded) fliessen nicht in die Kennzahlen ein.
 end note
 @enduml

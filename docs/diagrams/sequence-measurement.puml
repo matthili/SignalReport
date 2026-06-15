@@ -1,4 +1,4 @@
-@startuml SignalReport - Sequenz Messungsablauf
+@startuml sequence-measurement
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width
@@ -10,10 +10,10 @@ skinparam roundcorner 10
 actor Benutzer
 participant SignalReportApp
 participant Config
+participant GatewayDiscovery
 participant PingMeasurer
 participant DnsMeasurer
 participant HttpMeasurer
-participant HostIdentifier
 participant NetworkInfo
 participant H2MeasurementRepository
 database "H2 Primary" as Primary
@@ -31,77 +31,72 @@ note right of H2MeasurementRepository
   aus der intakten rekonstruiert.
 end note
 SignalReportApp -> WebServer : start(port)
-SignalReportApp -> HostIdentifier : getHostHash()
-HostIdentifier --> SignalReportApp : "a3f8b2c1..."
-SignalReportApp -> H2MeasurementRepository : registerHost(hash, hostname, os)
-H2MeasurementRepository -> Primary : MERGE INTO hosts
-H2MeasurementRepository -> Shadow  : MERGE INTO hosts
 
-SignalReportApp -> SignalReportApp : Starte Mess-Schleife (alle X Sekunden)
+alt gateway.autoDiscover und Segment nicht manuell
+  SignalReportApp -> GatewayDiscovery : discoverLocalChain()
+  GatewayDiscovery --> SignalReportApp : nah=Router, fern=Internet-Gateway
+  note right of GatewayDiscovery
+    Traceroute -> RFC-1918-Kette.
+    Docker-Bridge (172.17/16) wird uebersprungen;
+    bei VM/Container-NAT Warnhinweis.
+  end note
+end
+
+SignalReportApp -> SignalReportApp : Starte Mess-Schleife (alle X Sekunden, Standard 30 s)
 
 loop Alle X Sekunden (konfigurierbar)
-  SignalReportApp -> Config : getInstance()
-  Config --> SignalReportApp : Aktuelle Config
-
-  SignalReportApp -> Config : getMaintenanceWindow()
-  Config --> SignalReportApp : MaintenanceWindow
+  SignalReportApp -> Config : getInstance() / getMaintenanceWindow()
+  Config --> SignalReportApp : aktuelle Config
 
   alt Maintenance-Fenster aktiv
-    SignalReportApp -> SignalReportApp : Überspringe Messung
+    SignalReportApp -> H2MeasurementRepository : save(Marker Typ=MAINTENANCE)
+    H2MeasurementRepository -> Primary : INSERT INTO measurements
+    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
     SignalReportApp --> Benutzer : "⏸️ Maintenance-Fenster aktiv"
   else Normale Messung
-    SignalReportApp -> Config : getTargets()
-    Config --> SignalReportApp : ping="8.8.8.8", dns="google.com", http="https://example.com"
-
     SignalReportApp -> NetworkInfo : getExternalIPv4()
-    NetworkInfo --> SignalReportApp : "85.182.xxx.xxx"
+    NetworkInfo --> SignalReportApp : aktuelle externe IP
+    SignalReportApp -> H2MeasurementRepository : trackIpChange(ip, hostHash)
 
-    SignalReportApp -> HostIdentifier : getHostHash()
-    HostIdentifier --> SignalReportApp : "a3f8b2c1..."
+    SignalReportApp -> PingMeasurer : measure(ping-Ziel)
+    PingMeasurer --> SignalReportApp : Measurement(PING)
+    SignalReportApp -> H2MeasurementRepository : save(measurement)
 
-    SignalReportApp -> H2MeasurementRepository : trackIpChange("85.182.xxx.xxx", "a3f8b2c1...")
-    H2MeasurementRepository -> H2MeasurementRepository : getLastKnownIp("a3f8b2c1...")
-    H2MeasurementRepository -> Primary : SELECT new_ip FROM ip_changes WHERE host_hash = ?
-    Primary --> H2MeasurementRepository : "85.182.yyy.yyy"
+    SignalReportApp -> DnsMeasurer : measure(dns-Ziel)
+    DnsMeasurer --> SignalReportApp : Measurement(DNS)
+    SignalReportApp -> H2MeasurementRepository : save(measurement)
 
-    alt IP hat sich geändert
-      H2MeasurementRepository -> H2MeasurementRepository : recordIpChange("85.182.yyy.yyy", "85.182.xxx.xxx", "CHANGE")
-      H2MeasurementRepository -> Primary : INSERT INTO ip_changes
-      H2MeasurementRepository -> Shadow  : INSERT INTO ip_changes
+    SignalReportApp -> HttpMeasurer : measure(http-Ziel)
+    HttpMeasurer --> SignalReportApp : Measurement(HTTP)
+    SignalReportApp -> H2MeasurementRepository : save(measurement)
+
+    alt naher Gateway gesetzt
+      SignalReportApp -> PingMeasurer : measure(near, GATEWAY_NEAR)
+      PingMeasurer --> SignalReportApp : Measurement(GATEWAY_NEAR)
+      SignalReportApp -> H2MeasurementRepository : save(measurement)
+    end
+    alt ferner Gateway gesetzt und farPingEnabled
+      SignalReportApp -> PingMeasurer : measure(far, GATEWAY_FAR)
+      PingMeasurer --> SignalReportApp : Measurement(GATEWAY_FAR)
+      SignalReportApp -> H2MeasurementRepository : save(measurement)
     end
 
-    SignalReportApp -> PingMeasurer : measure("8.8.8.8")
-    PingMeasurer -> PingMeasurer : InetAddress.isReachable()
-    PingMeasurer --> SignalReportApp : Measurement(latency=23.5, success=true)
-    SignalReportApp -> H2MeasurementRepository : save(measurement)
     H2MeasurementRepository -> Primary : INSERT INTO measurements
     H2MeasurementRepository -> Shadow  : INSERT INTO measurements
+    SignalReportApp --> Benutzer : "✅ N Messungen gespeichert | IP: ..."
+  end
 
-    SignalReportApp -> DnsMeasurer : measure("google.com")
-    DnsMeasurer -> DnsMeasurer : InetAddress.getByName()
-    DnsMeasurer --> SignalReportApp : Measurement(latency=12.3, success=true)
-    SignalReportApp -> H2MeasurementRepository : save(measurement)
-    H2MeasurementRepository -> Primary : INSERT INTO measurements
-    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
-
-    SignalReportApp -> HttpMeasurer : measure("https://example.com")
-    HttpMeasurer -> HttpMeasurer : HttpClient.send()
-    HttpMeasurer --> SignalReportApp : Measurement(latency=145.2, success=true)
-    SignalReportApp -> H2MeasurementRepository : save(measurement)
-    H2MeasurementRepository -> Primary : INSERT INTO measurements
-    H2MeasurementRepository -> Shadow  : INSERT INTO measurements
-
-    SignalReportApp --> Benutzer : "✅ 3 Messungen gespeichert | IP: 85.182.xxx.xxx"
+  alt lokaler IP-Wechsel erkannt
+    SignalReportApp -> GatewayDiscovery : Gateways neu ermitteln (nicht-persistente Segmente)
   end
 
   SignalReportApp -> SignalReportApp : Warte X Sekunden
 end
 
 note over SignalReportApp, Shadow
-  Parallel dazu: Webserver läuft und
-  beantwortet API-Anfragen von der UI
-  (Live-Updates alle 5 Sekunden).
-  Lese-Operationen aus der UI gehen
-  immer auf die Primary-DB.
+  Parallel: der Webserver beantwortet API-Anfragen der UI
+  (Live-Updates alle 5 s). Lese-Operationen gehen immer
+  auf die Primary-DB. Gateway-Messungen (GATEWAY_NEAR/FAR)
+  fliessen NICHT in die Internet-PING-Statistik ein.
 end note
 @enduml

@@ -1,4 +1,4 @@
-@startuml SignalReport - Klassen-Diagramm
+@startuml class-diagram
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width
@@ -7,34 +7,23 @@ skinparam classFontSize 13
 skinparam packageStyle rectangle
 skinparam linetype ortho
 
+' ============================================================
+'  at.mafue.signalreport  (Einstiegspunkt)
+' ============================================================
+package "signalreport" {
+  class SignalReportApp {
+    {static} +void main(String[] args)
+    -{static} void rediscoverGatewaysAfterIpChange(Config cfg, String oldIp, String newIp)
+  }
+}
+
+' ============================================================
+'  .measurement
+' ============================================================
 package "measurement" {
   interface Measurer <<interface>> {
     +Measurement measure(String target)
   }
-
-  class PingMeasurer {
-    +Measurement measure(String target)
-  }
-
-  class DnsMeasurer {
-    +Measurement measure(String hostname)
-  }
-
-  class HttpMeasurer {
-    -HttpClient client
-    +Measurement measure(String url)
-  }
-
-  class DnsBenchmark {
-    -List<DnsServer> dnsServers
-    -String hostname
-    -int timeoutMs
-    +List<DnsResult> benchmark()
-    -DnsResult measureDnsServer(DnsServer server)
-  }
-}
-
-package "model" {
   class Measurement {
     -Instant timestamp
     -String target
@@ -42,330 +31,312 @@ package "model" {
     -boolean success
     -String type
     -String localIPv4
-    -String localIPv6
-    -String externalIPv4
-    -String externalIPv6
     -String hostHash
-    +Instant getTimestamp()
-    +String getTarget()
-    +double getLatencyMs()
+    -boolean excluded
     +boolean isSuccess()
     +String getType()
-    +String getHostHash()
+    +boolean isExcluded()
+  }
+  class PingMeasurer {
+    +Measurement measure(String target)
+    +Measurement measure(String target, String type)
+  }
+  class DnsMeasurer {
+    +Measurement measure(String hostname)
+  }
+  class HttpMeasurer {
+    -HttpClient client
+    +Measurement measure(String url)
+  }
+  class DnsBenchmark {
+    -List<DnsServer> dnsServers
+    +List<DnsResult> benchmark()
   }
 }
 
-package "persistence" {
+' ============================================================
+'  .network
+' ============================================================
+package "network" {
+  class GatewayDiscovery {
+    +{static} List<String> discoverLocalChain()
+    +{static} boolean runningInContainer()
+    +{static} boolean isVirtualGatewayRange(String ip)
+    +{static} boolean isDockerLikeRange(String ip)
+    ~{static} List<String> extractLocalChain(List<String> hops)
+    ~{static} List<String> stripVirtualLeadingHops(List<String> chain)
+    ~{static} boolean isPrivateLan(String ip)
+  }
+  class NetworkInfo {
+    +{static} String getLocalIPv4()
+    +{static} String getExternalIPv4()
+  }
+  class HostIdentifier {
+    +{static} String getHostHash()
+    +{static} String getHostname()
+    +{static} String getOperatingSystem()
+  }
+}
+
+' ============================================================
+'  .storage  (Twin-DB + DTOs)
+' ============================================================
+package "storage" {
   class H2MeasurementRepository {
-    -String primaryDbPath
-    -String shadowDbPath
-    -String primaryJdbcUrl
-    -String shadowJdbcUrl
     -Connection primary
     -Connection shadow
     +void save(Measurement m)
     +List<Measurement> findLastN(int n)
     +List<Measurement> findSince(Instant since)
-    +List<Measurement> findAll()
     +Statistics calculateStatistics(String type, int hours)
-    +List<HourlyAverage> calculateHourlyAverages(String type, int days)
-    +void trackIpChange(String currentIp, String hostHash)
+    +int excludeRange(Instant from, Instant to, boolean excluded)
     +List<IpChange> getIpChanges(int limit)
-    +List<IpChangeStats> getIpChangeStatistics()
-    +void registerHost(String hostHash, String hostname, String os)
     +List<HostInfo> getAllHosts()
-    +void close()
-    -void openTwins()
     -void writeOnBoth(ConnectionAction action)
-    -void quarantineFile(Path file)
   }
-
-  class "H2MeasurementRepository.Statistics" as RepoStats {
+  class Statistics {
     -double avgLatency
     -double p95Latency
-    -double maxLatency
     -double packetLossPercent
     -double jitter
   }
+  class HourlyAverage
+  class HostInfo
+  class IpChange
+  class IpChangeStats
+}
 
-  class "H2MeasurementRepository.HourlyAverage" as RepoHourlyAvg {
-    -int hourOfDay
-    -double avgLatency
-    -int count
+' ============================================================
+'  .report  (Auswertung + Berichte)
+' ============================================================
+package "report" {
+  class ReliabilityReport {
+    +{static} ReliabilityReport compute(List<Measurement> ping, int interval, long windowSeconds, int maintenanceSamples)
+    +double getUptimePercent()
+    +double getCoveragePercent()
+    +long getMtbfSeconds()
+    +long getMttrSeconds()
+    +List<Outage> getOutages()
   }
-
-  class "H2MeasurementRepository.HostInfo" as RepoHostInfo {
-    -String hostHash
-    -String hostname
-    -String operatingSystem
-    -Instant firstSeen
-    -Instant lastSeen
+  class "ReliabilityReport.Outage" as Outage {
+    -Instant start
+    -Instant end
+    -long durationSeconds
+    -int sampleCount
+    -boolean excluded
   }
-
-  class "H2MeasurementRepository.IpChange" as RepoIpChange {
-    -Instant timestamp
-    -String oldIp
-    -String newIp
-    -String changeType
-    -String hostHash
+  class ConnectivityAssessment {
+    +{static} Verdict assess(Statistics near, Statistics far, Statistics net)
+    +{static} boolean isHealthy(Statistics s)
   }
-
-  class "H2MeasurementRepository.IpChangeStats" as RepoIpChangeStats {
-    -String hostHash
-    -int changeCount
-    -Instant firstChange
-    -Instant lastChange
+  class PdfReportGenerator {
+    -H2MeasurementRepository repository
+    +byte[] generateReport(int hours)
+    -ReliabilityReport addReliabilitySection(...)
+    -void addConnectivitySection(...)
   }
 }
 
+' ============================================================
+'  .config  (Config schlank + je eigene Datei)
+' ============================================================
 package "config" {
   class Config <<Singleton>> {
     -{static} volatile Config instance
     -MeasurementConfig measurement
-    -DatabaseConfig database
-    -WebserverConfig webserver
-    -List<DnsServer> dnsServers
+    -GatewayConfig gateway
     -MaintenanceWindow maintenanceWindow
-    -UserInfo userInfo
-    -SetupConfig setup
-    -AuthConfig auth
-    -ThemeConfig theme
     +{static} Config load(String path)
     +{static} void save(String path)
     +{static} Config getInstance()
     +{static} String hashPassword(String password)
+    +void updateGateway(...)
   }
-
-  class "Config.MeasurementConfig" as ConfigMeas {
+  class MeasurementConfig {
     -int intervalSeconds
     -Targets targets
   }
-
-  class "Config.Targets" as ConfigTargets {
+  class Targets {
     -String ping
     -String dns
     -String http
   }
-
-  class "Config.MaintenanceWindow" as ConfigMaint {
+  class GatewayConfig {
+    -boolean autoDiscover
+    -String near
+    -String far
+    -boolean nearManual
+    -boolean farManual
+    -boolean nearPersistent
+    -boolean farPersistent
+    -boolean farPingEnabled
+  }
+  class MaintenanceWindow {
     -boolean enabled
-    -int startHour
-    -int startMinute
-    -int endHour
-    -int endMinute
     +boolean isMaintenanceTime()
   }
-
-  class "Config.UserInfo" as ConfigUser {
-    -String provider
-    -String customerId
-    -String userName
-  }
-
-  class "Config.SetupConfig" as ConfigSetup {
-    -boolean setupCompleted
-    -String adminPasswordHash
-    +boolean verifyAdminPassword(String pw)
-  }
-
-  class "Config.AuthConfig" as ConfigAuth {
-    -boolean enabled
-    -String adminPasswordHash
-    -String userPasswordHash
-    +boolean verifyAdminPassword(String pw)
-    +boolean verifyUserPassword(String pw)
-  }
-
-  class "Config.ThemeConfig" as ConfigTheme {
-    -boolean darkMode
-    +boolean isDarkMode()
-    +void setDarkMode(boolean darkMode)
-  }
-
-  class "Config.DnsServer" as ConfigDnsServer {
-    -String name
-    -String address
-    -String region
-    -String provider
-  }
+  class DnsServer
+  class DatabaseConfig
+  class WebserverConfig
+  class UserInfo
+  class AuthConfig
+  class SetupConfig
+  class PushConfig
+  class ThemeConfig
 }
 
+' ============================================================
+'  .web  (Orchestrator + Auth)
+' ============================================================
 package "web" {
   class WebServer {
     -H2MeasurementRepository repository
-    -HtmlPageRenderer htmlPageRenderer
-    -SetupPageRenderer setupPageRenderer
-    -LoginPageRenderer loginPageRenderer
     -SessionManager sessionManager
     -Javalin app
     +void start(int port)
     +void stop()
   }
+  class SessionManager {
+    +String createSession(String role)
+    +Session getSession(String token)
+  }
+  class ErrorResponse {
+    +String error
+  }
+}
 
+' ============================================================
+'  .web.view  (HTML-Renderer)
+' ============================================================
+package "web.view" {
   class HtmlPageRenderer {
     +String render()
   }
-
   class SetupPageRenderer {
     +String render()
   }
-
   class LoginPageRenderer {
     +String render()
   }
-
-  class SessionManager {
-    -ConcurrentHashMap<String, Session> sessions
-    -ConcurrentHashMap<String, Instant> nonces
-    -SecureRandom random
-    +String generateNonce()
-    +boolean validateNonce(String nonce)
-    +String createSession(String role)
-    +Session getSession(String token)
-    +void invalidateSession(String token)
-    +boolean verifyChallengeResponse(String storedHash, String nonce, String response)
-  }
-
-  class "SessionManager.Session" as SMSession {
-    -String role
-    -Instant createdAt
-    -Instant lastAccess
-    +boolean isAdmin()
-    +void touch()
-  }
 }
 
-package "export" {
-  class PdfReportGenerator {
-    -H2MeasurementRepository repository
-    +byte[] generateReport(int hours)
-    -BufferedImage createLatencyChart(...)
-    -List<String> getTargetsChronological(...)
-    -List<ConnectionOutage> detectConnectionOutages(...)
-  }
-
-  class PushNotificationService <<Singleton>> {
-    -List<String> subscribedClients
-    -boolean enabled
-    -double latencyThreshold
-    -int consecutiveBadMeasurements
-    +{static} PushNotificationService getInstance()
-    +void checkAndNotify(...)
-  }
+' ============================================================
+'  .web.api  (Routen-Registrare, je static register(...))
+' ============================================================
+package "web.api" {
+  class PageRoutes
+  class MeasurementRoutes
+  class ReliabilityRoutes
+  class ExportRoutes
+  class HostRoutes
+  class DnsRoutes
+  class SettingsRoutes
+  class SetupRoutes
+  class AuthRoutes
 }
 
-package "network" {
-  class HostIdentifier {
-    -{static} String cachedHash
-    +{static} String getHostHash()
-    +{static} String getHostname()
-    +{static} String getOperatingSystem()
-  }
-
-  class NetworkInfo {
-    -{static} HttpClient HTTP_CLIENT
-    -{static} long CACHE_DURATION_SECONDS
-    -{static} String cachedExternalIPv4
-    -{static} String cachedExternalIPv6
-    -{static} String cachedLocalIPv4
-    -{static} String cachedLocalIPv6
-    -{static} Instant cacheTimestamp
-    -{static} synchronized void refreshCacheIfNeeded()
-    +{static} synchronized String getLocalIPv4()
-    +{static} synchronized String getExternalIPv4()
-    +{static} synchronized String getLocalIPv6()
-    +{static} synchronized String getExternalIPv6()
+' ============================================================
+'  .i18n  /  .notification
+' ============================================================
+package "i18n" {
+  class I18n {
+    +{static} void load(String code)
+    +{static} String get(String key)
+    +{static} String resolve(String html)
   }
 }
-
-package "main" {
-  class SignalReportApp {
-    {static} +void main(String[] args)
-  }
+package "notification" {
+  class PushNotificationService <<Singleton>>
 }
 
-' --- Vererbung / Interface ---
+' --- Strategy-Pattern ---
 Measurer <|.. PingMeasurer
 Measurer <|.. DnsMeasurer
 Measurer <|.. HttpMeasurer
 
 ' --- Messung ---
 PingMeasurer --> Measurement : erzeugt
-DnsMeasurer --> Measurement : erzeugt
+DnsMeasurer  --> Measurement : erzeugt
 HttpMeasurer --> Measurement : erzeugt
-DnsBenchmark --> ConfigDnsServer : verwendet
+Measurement  --> NetworkInfo : liest IPs
+Measurement  --> HostIdentifier : liest Host-Hash
+DnsBenchmark --> DnsServer : verwendet
 
 ' --- Repository ---
-H2MeasurementRepository --> RepoStats
-H2MeasurementRepository --> RepoHourlyAvg
-H2MeasurementRepository --> RepoHostInfo
-H2MeasurementRepository --> RepoIpChange
-H2MeasurementRepository --> RepoIpChangeStats
+H2MeasurementRepository --> Measurement
+H2MeasurementRepository --> Statistics
+H2MeasurementRepository --> HourlyAverage
+H2MeasurementRepository --> HostInfo
+H2MeasurementRepository --> IpChange
+H2MeasurementRepository --> IpChangeStats
+
+' --- Auswertung ---
+ReliabilityReport --> Outage
+ReliabilityReport ..> Measurement
+ConnectivityAssessment ..> Statistics
+PdfReportGenerator --> H2MeasurementRepository
+PdfReportGenerator --> ReliabilityReport
+PdfReportGenerator --> ConnectivityAssessment
 
 ' --- Config ---
-Config --> ConfigMeas
-ConfigMeas --> ConfigTargets
-Config --> ConfigMaint
-Config --> ConfigUser
-Config --> ConfigSetup
-Config --> ConfigAuth
-Config --> ConfigTheme
-Config --> ConfigDnsServer
+Config --> MeasurementConfig
+MeasurementConfig --> Targets
+Config --> GatewayConfig
+Config --> MaintenanceWindow
 
 ' --- Web ---
-WebServer --> H2MeasurementRepository
-WebServer --> HtmlPageRenderer : delegiert HTML-Rendering
-WebServer --> SetupPageRenderer : delegiert Setup-Rendering
-WebServer --> Config
-HtmlPageRenderer --> Config : liest Theme
-SetupPageRenderer --> Config : liest Theme
-WebServer --> LoginPageRenderer : delegiert Login-Rendering
-WebServer --> SessionManager : verwaltet Sessions
-SessionManager --> SMSession
-LoginPageRenderer --> Config : liest Theme
+WebServer --> SessionManager
+WebServer --> HtmlPageRenderer
+WebServer --> SetupPageRenderer
+WebServer --> LoginPageRenderer
+WebServer --> PageRoutes : register(app, ...)
+WebServer --> MeasurementRoutes
+WebServer --> ReliabilityRoutes
+WebServer --> ExportRoutes
+WebServer --> HostRoutes
+WebServer --> DnsRoutes
+WebServer --> SettingsRoutes
+WebServer --> SetupRoutes
+WebServer --> AuthRoutes
+web.api ..> H2MeasurementRepository : Routen-Handler
+web.api ..> ErrorResponse
+HtmlPageRenderer ..> I18n
+HtmlPageRenderer ..> Config : liest Theme/Gateway-Labels
 
-' --- Export ---
-PdfReportGenerator --> H2MeasurementRepository
-PdfReportGenerator --> Measurement
-
-' --- Main ---
-SignalReportApp --> PingMeasurer
-SignalReportApp --> DnsMeasurer
-SignalReportApp --> HttpMeasurer
+' --- Discovery / Main ---
+SignalReportApp --> Measurer
+SignalReportApp --> GatewayDiscovery
 SignalReportApp --> H2MeasurementRepository
 SignalReportApp --> WebServer
-SignalReportApp --> HostIdentifier
-SignalReportApp --> NetworkInfo
 SignalReportApp --> Config
 
 note top of H2MeasurementRepository
-  Embedded H2-Datenbank (Twin-DB-Architektur)
-  Primary: ./data/signalreport.mv.db
-  Shadow:  ./data/signalreport-shadow.mv.db
-  Tabellen: measurements, hosts, ip_changes
-  Schreiboperationen --> beide DBs
-  Lese-Operationen   --> nur Primary
-  Auto-Recovery beim Start: korrupte DB
-  wird aus der intakten rekonstruiert
+  Embedded H2 (Twin-DB):
+  Primary + Shadow, synchrones Schreiben (WRITE_DELAY=0).
+  Lesen nur aus Primary. Auto-Recovery: korrupte DB
+  wird beim Start aus der intakten rekonstruiert.
+  Tabellen: measurements (+ Spalte excluded), hosts, ip_changes
 end note
 
-note right of WebServer
-  Javalin Web-Framework (Port 4567)
-  REST-API + HTML-UI
-  HTML-Rendering ausgelagert in
-  HtmlPageRenderer / SetupPageRenderer / LoginPageRenderer
-  Challenge-Response Authentifizierung (SHA-256)
+note right of GatewayDiscovery
+  Traceroute -> lokale Gateway-Kette (RFC 1918):
+  nah = Router, fern = Internet-Gateway.
+  Docker-Bridge (172.17/16) wird uebersprungen;
+  VM/Container-NAT (10.0.2.x) -> "virtuell"-Warnung.
 end note
 
-note right of Measurer
-  Strategy-Pattern:
-  Einheitliches Interface
-  für alle Messtypen
+note right of ReliabilityReport
+  Luecken-bewusst: uptime = erfolgreiche/gemessene
+  (nicht /Wanduhrzeit). Abdeckung, MTBF, MTTR.
+  >=2 aufeinanderfolgende Fehlmessungen in einem
+  zusammenhaengenden Lauf = EIN aggregierter Ausfall.
+  Ausschluss aus der Wertung via Spalte "excluded".
 end note
 
-note bottom of Config
-  Zentrale Konfigurationsverwaltung
-  JSON-Persistenz (config.json)
-  hashPassword() zentral dedupliziert
+note bottom of WebServer
+  Javalin-Orchestrator: Setup + 2 before-Filter
+  (Setup-/Auth-Gating), delegiert die Routen an die
+  9 Registrare im Paket web.api. Statische Assets
+  (app.css/app.js) aus /web. Challenge-Response (SHA-256).
 end note
 @enduml

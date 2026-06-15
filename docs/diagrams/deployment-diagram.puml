@@ -1,4 +1,4 @@
-@startuml SignalReport - Deployment-Diagramm
+@startuml deployment-diagram
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width

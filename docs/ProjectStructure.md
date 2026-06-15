@@ -5,38 +5,76 @@
 ```
 SignalReport/
 ├── src/
-│   ├── main/java/at/mafue/signalreport/
-│   │   ├── SignalReportApp.java          # Main class (entry point)
-│   │   ├── Config.java                   # Singleton configuration (JSON)
-│   │   ├── I18n.java                     # Internationalisation (9 languages, extensible)
-│   │   ├── Measurement.java              # Data object (POJO)
-│   │   ├── Measurer.java                 # Interface (strategy pattern)
-│   │   ├── PingMeasurer.java             # ICMP ping (system ping on Linux/macOS)
-│   │   ├── DnsMeasurer.java              # DNS resolution measurement
-│   │   ├── HttpMeasurer.java             # HTTP GET measurement
-│   │   ├── DnsBenchmark.java             # DNS server comparison (virtual threads)
-│   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow)
-│   │   ├── WebServer.java                # Javalin REST API + routing
-│   │   ├── HtmlPageRenderer.java         # HTML rendering of the main page
-│   │   ├── SetupPageRenderer.java        # HTML rendering of the setup wizard
-│   │   ├── LoginPageRenderer.java        # HTML rendering of the login page
-│   │   ├── SessionManager.java           # Challenge-response auth (SHA-256)
-│   │   ├── PdfReportGenerator.java       # PDF export (OpenPDF + JFreeChart)
-│   │   ├── PushNotificationService.java  # Browser notifications
-│   │   ├── NetworkInfo.java              # IP address discovery (120s cache)
-│   │   └── HostIdentifier.java           # Host hash (stable ID)
-│   ├── test/java/at/mafue/signalreport/  # 9 test classes, 86 tests
-│   │   ├── MeasurementTest.java          # Unit tests Measurement (5)
-│   │   ├── HostIdentifierTest.java       # Unit tests host hash (4)
-│   │   ├── StatisticsTest.java           # Integration tests statistics (8)
-│   │   ├── ConfigTest.java               # Unit tests configuration (17)
-│   │   ├── H2MeasurementRepositoryTest.java  # Integration tests DB (10)
-│   │   ├── MeasurerInterfaceTest.java    # Unit tests Measurer interface (6)
-│   │   ├── MaintenanceWindowTest.java    # Unit tests maintenance window (7)
-│   │   ├── SessionManagerTest.java       # Unit tests auth/sessions (19)
-│   │   └── I18nTest.java                 # Unit tests internationalisation (10)
+│   ├── main/java/at/mafue/signalreport/  # Layered packages (see below)
+│   │   ├── SignalReportApp.java          # Main class (entry point + continuous measurement loop)
+│   │   ├── config/                       # Configuration (Config + one file per aspect)
+│   │   │   ├── Config.java               # Singleton facade (load/save, password hashing, defaults)
+│   │   │   ├── MeasurementConfig.java    # Measurement settings (interval, …)
+│   │   │   ├── Targets.java              # Ping/DNS/HTTP targets
+│   │   │   ├── GatewayConfig.java        # Gateway chain (near/far, manual IP, options)
+│   │   │   ├── DatabaseConfig.java       # Twin-database settings
+│   │   │   ├── WebserverConfig.java      # Web server settings (port, …)
+│   │   │   ├── DnsServer.java            # DNS server entry (benchmark)
+│   │   │   ├── MaintenanceWindow.java    # Scheduled maintenance window
+│   │   │   ├── UserInfo.java             # User/account data
+│   │   │   ├── AuthConfig.java           # Authentication settings
+│   │   │   ├── PushConfig.java           # Push notification settings
+│   │   │   ├── SetupConfig.java          # Setup-wizard state
+│   │   │   └── ThemeConfig.java          # Theme (dark mode)
+│   │   ├── measurement/                  # Measurement engine (strategy pattern)
+│   │   │   ├── Measurer.java             # Interface (strategy pattern)
+│   │   │   ├── Measurement.java          # Domain model (one cycle / single value)
+│   │   │   ├── PingMeasurer.java         # ICMP ping (system ping on Linux/macOS)
+│   │   │   ├── DnsMeasurer.java          # DNS resolution measurement
+│   │   │   ├── HttpMeasurer.java         # HTTP GET measurement
+│   │   │   └── DnsBenchmark.java         # DNS server comparison (virtual threads)
+│   │   ├── network/                      # Network topology and identity
+│   │   │   ├── GatewayDiscovery.java     # Traceroute-based gateway chain (near/far)
+│   │   │   ├── NetworkInfo.java          # IP address discovery (120s cache)
+│   │   │   └── HostIdentifier.java       # Host hash (stable ID)
+│   │   ├── storage/                      # Persistence + read DTOs
+│   │   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow)
+│   │   │   ├── Statistics.java           # Aggregated statistics DTO
+│   │   │   ├── IpChange.java             # Single IP change record
+│   │   │   ├── IpChangeStats.java        # IP change statistics DTO
+│   │   │   ├── HourlyAverage.java        # Hourly average DTO (heatmap)
+│   │   │   └── HostInfo.java             # Host metadata DTO
+│   │   ├── report/                       # Reporting
+│   │   │   ├── ReliabilityReport.java    # Gap-aware metrics (uptime, coverage, MTBF, MTTR, outages)
+│   │   │   ├── ConnectivityAssessment.java  # "Who is to blame" verdict (router/gateway/internet)
+│   │   │   └── PdfReportGenerator.java   # PDF export (OpenPDF + JFreeChart)
+│   │   ├── web/                          # HTTP layer (Javalin)
+│   │   │   ├── WebServer.java            # Orchestrator (Javalin setup, gating filters, route registration)
+│   │   │   ├── SessionManager.java       # Challenge-response auth (SHA-256)
+│   │   │   ├── ErrorResponse.java        # JSON error payload
+│   │   │   ├── view/                     # HTML renderers
+│   │   │   │   ├── HtmlPageRenderer.java     # HTML rendering of the main page
+│   │   │   │   ├── SetupPageRenderer.java    # HTML rendering of the setup wizard
+│   │   │   │   └── LoginPageRenderer.java    # HTML rendering of the login page
+│   │   │   └── api/                      # Route registrars (static register(app, …deps))
+│   │   │       ├── PageRoutes.java       # Page routes (/, login, setup)
+│   │   │       ├── MeasurementRoutes.java    # Live measurement + statistics endpoints
+│   │   │       ├── ReliabilityRoutes.java    # Connectivity + reliability + outage exclusion
+│   │   │       ├── ExportRoutes.java     # PDF/CSV export endpoints
+│   │   │       ├── HostRoutes.java       # Host info + IP-tracking endpoints
+│   │   │       ├── DnsRoutes.java        # DNS benchmark endpoints
+│   │   │       ├── SettingsRoutes.java   # Config/theme/push settings endpoints
+│   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints
+│   │   │       └── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
+│   │   ├── i18n/
+│   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
+│   │   └── notification/
+│   │       └── PushNotificationService.java  # Browser notifications
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (12 classes, 119 tests)
+│   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7)
+│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
+│   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8)
+│   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8)
+│   │   ├── web/           # SessionManagerTest (19)
+│   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
-│       ├── web/                          # Static files (logos, favicons, service worker)
+│       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker
 │       ├── lang/                         # Language files (de, en, fr, it, es, pt, tr, pl, uk)
 │       └── fonts/                        # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/

@@ -12,7 +12,7 @@ Die Teststrategie umfasste:
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die 9 Testklassen mit insgesamt 86 Tests decken folgende Bereiche ab:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 12 Testklassen -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 119 Tests decken folgende Bereiche ab:
 
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
@@ -23,7 +23,10 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 9 Testklassen mit insgesa
     \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
     \item \textbf{MaintenanceWindowTest} (7 Tests): Deaktiviert, ganztägig, aktuelle Zeit, Mitternachtsübergang, Standardwerte
     \item \textbf{SessionManagerTest} (19 Tests): Nonce-Generierung und -Validierung (Single-Use, Ablauf), Session-Erstellung und -Timeout (24\,h), Rollen\-unter\-schei\-dung (Admin/User), Challenge-Response-Verifikation, Replay-Schutz
-    \item \textbf{I18nTest} (10 Tests): Schlüssel-Parität aller neun Sprachdateien gegen die Referenz (de.json), Existenz aller im Quellcode verwendeten Platzhalter, Fallback-Verhalten, Sprach-Erkennung
+    \item \textbf{I18nTest} (10 Tests): Schlüssel-Parität aller neun Sprachdateien gegen die Referenz (de.json), Existenz aller im Quellcode verwendeten Platzhalter (inkl. \texttt{app.js}), Fallback-Verhalten, Sprach-Erkennung
+    \item \textbf{GatewayDiscoveryTest} (15 Tests): Traceroute-Parsing, RFC-1918-Klassifizierung, Gateway-Kette (nah/fern), Erkennung virtueller Gateways (Docker-Bridge, VM-NAT) und Überspringen der Docker-Bridge
+    \item \textbf{ConnectivityAssessmentTest} (8 Tests): Schuld-Verdikt (Router / Internet-Gateway / Internet) auf Basis des Paketverlusts je Segment
+    \item \textbf{ReliabilityReportTest} (10 Tests): lückenbewusste Verfügbarkeit/Abdeckung/MTBF/MTTR, Aggregation aufeinanderfolgender Fehlmessungen zu einem Ausfall, Ausschluss via \texttt{excluded}-Spalte
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
@@ -56,13 +59,13 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n) & 68 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport) & 101 & 100\% \\
 \hline
 Integrationstests (Statistics, H2MeasurementRepository) & 18 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
-\textbf{Gesamt} & \textbf{86 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{119 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -87,5 +90,5 @@ SignalReport verwendet eine gezielte Test-Strategie:
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 86 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 119 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

@@ -1,4 +1,4 @@
-@startuml SignalReport - Komponenten-Diagramm
+@startuml component-diagram
 !pragma layout smetana
 skinparam dpi 150
 scale max 16384 width
@@ -6,148 +6,85 @@ scale max 16384 width
 skinparam componentFontSize 13
 skinparam componentStyle rectangle
 
-package "SignalReport Anwendung" {
+package "signalreport" {
   [SignalReportApp] as App
-  [WebServer\n(Javalin)] as Web
-  [HtmlPageRenderer] as HtmlRenderer
-  [SetupPageRenderer] as SetupRenderer
-  [PdfReportGenerator] as PDF
-  [PushNotificationService] as Push
-  [LoginPageRenderer] as LoginRenderer
+}
+package "web" {
+  [WebServer] as Web
+  [web.api: 9 Registrare] as Api
+  [web.view: Renderer] as View
   [SessionManager] as SessionMgr
 }
-
-package "Mess-Engine" {
+package "measurement" {
   [PingMeasurer] as Ping
   [DnsMeasurer] as DNS
   [HttpMeasurer] as HTTP
   [DnsBenchmark] as Benchmark
-
-  interface "Measurer" as IMeasurer
-  IMeasurer <|.. Ping
-  IMeasurer <|.. DNS
-  IMeasurer <|.. HTTP
 }
-
-package "Persistenz (Twin-DB)" {
-  [H2MeasurementRepository] as Repo
-  database "H2 Primary\n./data/signalreport.mv.db" as PrimaryDB
-  database "H2 Shadow\n./data/signalreport-shadow.mv.db" as ShadowDB
-}
-
-package "Konfiguration" {
-  [Config\n(JSON-basiert)] as Config
-  [ThemeConfig\n(Dark Mode)] as Theme
-}
-
-package "Netzwerk" {
-  [HostIdentifier] as HostID
+package "network" {
+  [GatewayDiscovery] as GwDisc
   [NetworkInfo] as NetInfo
+  [HostIdentifier] as HostID
+}
+package "storage" {
+  [H2MeasurementRepository] as Repo
+  database "H2 Primary" as PrimaryDB
+  database "H2 Shadow" as ShadowDB
+}
+package "report" {
+  [ReliabilityReport] as Reliability
+  [ConnectivityAssessment] as Connectivity
+  [PdfReportGenerator] as PDF
+}
+package "config / i18n / notification" {
+  [Config] as Config
+  [I18n] as I18n
+  [PushNotificationService] as Push
 }
 
-package "Visualisierung" {
-  [JFreeChart\n(PDF-Charts)] as Chart
-  [OpenPDF\n(PDF-Dokument)] as OpenPDF
-  [Chart.js\n(Live-Charts im Browser)] as ChartJS
-}
+App --> Web
+App --> Ping
+App --> GwDisc
+App --> Repo
+App --> Config
 
-package "Externe Dienste" {
-  [Google DNS\n8.8.8.8] as GoogleDNS
-  [Cloudflare DNS\n1.1.1.1] as CloudflareDNS
-  [Konfig. Webserver\n(HTTPS)] as WebTarget
-  [ipify.org\n(externe IP)] as Ipify
-}
+Web --> Api
+Web --> View
+Web --> SessionMgr
+Api --> Repo
+Api --> Reliability
+Api --> Connectivity
+Api --> PDF
+View --> I18n
+View --> Config
 
-App --> Web : startet
-App --> IMeasurer : verwendet
-App --> Repo : speichert Messungen
-App --> HostID : Host-Identifikation
-App --> NetInfo : IP-Adressen ermitteln
-App --> Config : liest Konfiguration
+Reliability --> Repo
+Connectivity --> Repo
+PDF --> Repo
+PDF --> Reliability
+Push --> Repo
 
-Web --> HtmlRenderer : delegiert HTML-Rendering
-Web --> SetupRenderer : delegiert Setup-Rendering
-Web --> Repo : liest Messungen für API
-Web --> PDF : generiert Bericht bei Anfrage
-Web --> Push : verwaltet Push-Clients
-Web --> Config : liest/aktualisiert Einstellungen
-Web --> LoginRenderer : delegiert Login-Rendering
-Web --> SessionMgr : verwaltet Sessions/Nonces
+Ping --> Repo
+DNS --> Repo
+HTTP --> Repo
+Benchmark --> Config
+GwDisc --> Config
+NetInfo --> HostID
 
-HtmlRenderer --> Config : liest Theme-Einstellungen
-HtmlRenderer --> ChartJS : eingebettet im HTML
-SetupRenderer --> Config : liest Theme-Einstellungen
+Repo --> PrimaryDB
+Repo --> ShadowDB
 
-Config --> Theme : verwaltet
-
-PDF --> Repo : holt Statistiken + Messungen
-PDF --> Chart : erstellt Chart-Bilder
-PDF --> OpenPDF : erstellt PDF-Dokument
-
-Push --> Repo : überwacht Messungen
-
-Ping --> GoogleDNS : pingt
-DNS --> GoogleDNS : resolved
-DNS --> CloudflareDNS : resolved
-HTTP --> WebTarget : HTTP GET
-Benchmark --> GoogleDNS : DNS-Abfrage
-Benchmark --> CloudflareDNS : DNS-Abfrage
-NetInfo --> Ipify : externe IP ermitteln
-
-note bottom of Benchmark
-  Verwendet Virtual Threads
-  (Executors.newVirtualThreadPerTaskExecutor)
-  fuer parallele DNS-Abfragen
+note bottom of Web
+  Javalin (Port 4567): Setup + 2 before-Filter
+  (Setup-/Auth-Gating), register() der 9 web.api-Klassen,
+  statische Assets /app.css + /app.js, SHA-256-Auth.
 end note
-
-note bottom of NetInfo
-  IP-Adressen werden für 120s gecacht
-  (lokal + extern, IPv4 + IPv6)
+note bottom of GwDisc
+  nah = Router, fern = Internet-Gateway (RFC 1918).
+  Docker-Bridge uebersprungen; VM/NAT -> Warnung.
 end note
-
-Repo --> PrimaryDB : Schreibt + liest
-Repo --> ShadowDB  : Schreibt (Spiegelung)
-
-note top of App
-  Hauptklasse mit main()-Methode
-  Startet alle Komponenten
-  Führt kontinuierliche Messung durch
-  IP-Tracking bei jeder Messung
-end note
-
-note right of Web
-  Webserver auf Port 4567
-  * REST-API (/api/*)
-  * HTML-Rendering delegiert
-  * Setup-Wizard (/setup)
-  * Challenge-Response Auth (SHA-256)
-  * Theme-API (/api/theme/*)
-end note
-
-note bottom of PrimaryDB
-  Embedded H2-Datenbank (Primary)
-  Lese- und Schreibziel
-  Tabellen:
-  * measurements
-  * hosts
-  * ip_changes
-end note
-
 note bottom of ShadowDB
-  Embedded H2-Datenbank (Shadow)
-  Synchrone Spiegelung der Primary
-  Bei Korruption einer der beiden:
-  Auto-Rekonstruktion aus der intakten
-  Datei beim naechsten Start
-end note
-
-note left of Config
-  config.json
-  * Messintervall + Ziele
-  * Maintenance-Fenster
-  * DNS-Server-Liste
-  * Benutzer-Info
-  * Authentifizierung
-  * Theme (Dark Mode)
+  Synchrone Spiegelung (WRITE_DELAY=0),
+  Auto-Recovery bei Korruption (H2 90030).
 end note
 @enduml

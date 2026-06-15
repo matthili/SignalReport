@@ -38,12 +38,12 @@ Schreibende Endpunkte (POST) erfordern Admin-Rechte (Admin-Session).
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
 GET & \texttt{/api/measurements} & Letzte Messungen abrufen.
-  Parameter: \texttt{limit} (Anzahl, Standard: 50) \\
+  Parameter: \texttt{limit} (Anzahl, Standard: 10) \\
 \hline
 GET & \texttt{/api/statistics} & Statistiken für einen Messtyp.
   Parameter: \texttt{type} (PING|DNS|HTTP), \texttt{hours} (Zeitraum) \\
 \hline
-GET & \texttt{/api/hourly} & Stündliche Durchschnittswerte für Heatmap.
+GET & \texttt{/api/hourly-averages} & Stündliche Durchschnittswerte für Heatmap.
   Parameter: \texttt{type}, \texttt{days} \\
 \hline
 \end{tabular}
@@ -63,6 +63,30 @@ GET & \texttt{/api/hourly} & Stündliche Durchschnittswerte für Heatmap.
   "hostHash": "a3f8b2c1..."
 }]
 \end{lstlisting}
+
+\subsection{Verfügbarkeit und Störungs-Lokalisierung}
+
+Diese Endpunkte werden serverseitig von \texttt{ReliabilityRoutes} (Paket \texttt{web.api}) registriert; Pfade und Verhalten sind gegenüber der monolithischen Variante unverändert.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/connectivity} & Störungs-Lokalisierung: vergleicht nahen/fernen Gateway mit dem Internet-Ping.
+  Parameter: \texttt{hours}. Liefert \texttt{verdict} (Router/Gateway/Internet) und \texttt{segments} \\
+\hline
+GET & \texttt{/api/reliability} & Lückenbewusste Kennzahlen.
+  Parameter: \texttt{hours}. Liefert Verfügbarkeit, Abdeckung, MTBF, MTTR und die aggregierte Ausfallliste \\
+\hline
+POST & \texttt{/api/outages/exclude} & Ausfallfenster aus der Wertung nehmen bzw.\ wieder aufnehmen.
+  Body: \texttt{\{fromEpoch, toEpoch, excluded\}} (setzt die DB-Spalte \texttt{excluded}) \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Verfügbarkeit und Störungs-Lokalisierung}
+\end{table}
 
 \subsection{Berichte und Export}
 
@@ -153,10 +177,13 @@ persistiert. Änderungen werden sofort wirksam, ohne Neustart.
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
 GET & \texttt{/api/config/current} & Aktuelle Konfiguration abrufen
-  (Messziele, Intervall, Maintenance, Benutzer-Info) \\
+  (Messziele, Intervall, Maintenance, Benutzer-Info, Gateway-Objekt inkl.\ \texttt{virtualSuspected}, Sprache) \\
 \hline
 POST & \texttt{/api/config/update} & Konfiguration aktualisieren.
-  Body: JSON mit ping, dns, http, intervalSeconds, maintenance, userInfo \\
+  Body: JSON mit ping, dns, http, intervalSeconds, maintenance, userInfo sowie \texttt{gateway}
+  (nearManual, near, nearPersistent, farManual, far, farPersistent, farPingEnabled) \\
+\hline
+POST & \texttt{/api/config/language} & UI-Sprache umstellen. Body: \texttt{\{language\}} (ISO-Code) \\
 \hline
 GET & \texttt{/api/theme/settings} & Theme-Einstellungen abrufen \\
 \hline
@@ -190,6 +217,8 @@ POST & \texttt{/api/auth/login} & Login via Challenge-Response.
 POST & \texttt{/api/auth/logout} & Session beenden (Cookie wird gelöscht) \\
 \hline
 GET & \texttt{/api/auth/status} & Auth-Status abfragen (aktiviert/deaktiviert) \\
+\hline
+GET & \texttt{/api/setup/status} & Status der Ersteinrichtung abfragen (abgeschlossen: ja/nein) \\
 \hline
 POST & \texttt{/api/setup/complete} & Ersteinrichtung abschließen.
   Body: \texttt{\{adminPasswordHash, enableAuth, userPasswordHash\}} \\

@@ -69,14 +69,15 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
 
 \subsection{FR-05: Traceroute-Analyse}
 \begin{description}
-  \item[Priorität:] Won't (yet)
-  \item[Beschreibung:] Zusätzlich zur reinen Latenz-Messung soll ein Traceroute zum Ziel
-    durchgeführt und visualisiert werden können, um den genauen Punkt im Netzwerkpfad zu
-    identifizieren, an dem Verzögerungen entstehen.
+  \item[Status:] \textbf{Umgesetzt} (Kernidee) -- siehe \texttt{network.GatewayDiscovery} und \texttt{report.ConnectivityAssessment}.
+  \item[Beschreibung:] Statt einer vollständigen Pfad-Visualisierung wird per Traceroute die
+    lokale Gateway-Kette ermittelt (nahes = Router, fernes = Internet-Gateway) und daraus eine
+    Störungs-Lokalisierung abgeleitet. Eine vollständige Hop-für-Hop-Visualisierung bleibt offen.
   \item[Motivation:] Hilft bei der Diagnose, ob das Problem beim eigenen Router, beim
-    Provider oder auf dem Weg zum Zielserver liegt.
-  \item[Technische Überlegungen:] Plattformabhängig (traceroute/tracert); erfordert
-    erhöhte Rechte auf manchen Systemen; lange Laufzeit.
+    Internet-Gateway oder beim Provider liegt.
+  \item[Umsetzung:] \texttt{GatewayDiscovery} (Traceroute mit RFC-1918-Filter, Erkennung
+    virtueller Gateways in VM/Docker), \texttt{ConnectivityAssessment} (Schuld-Verdikt) sowie
+    der zugehörige UI- und PDF-Abschnitt; plattformabhängig (traceroute/tracert).
 \end{description}
 
 \subsection{FR-06: Speedtest-Integration}
@@ -176,7 +177,7 @@ FR-01 & Automatischer PDF-Versand per E-Mail & Should \\
 FR-02 & Prometheus-Exporter (Grafana) & Could \\
 FR-03 & Multi-Host-Vergleich & Could \\
 FR-04 & Docker-Container & Should \\
-FR-05 & Traceroute-Analyse & Won't (yet) \\
+FR-05 & Traceroute-Analyse (Störungs-Lokalisierung) & \textbf{Umgesetzt} \\
 FR-06 & Speedtest-Integration & Won't (yet) \\
 FR-07 & Verbesserte Verschlüsselung & Could \\
 FR-08 & Messenger-Benachrichtigungen bei Ausfällen & Could \\
@@ -187,3 +188,22 @@ FR-10 & Home Assistant Add-on & Could \\
 \caption{Feature Requests mit MoSCoW-Priorisierung}
 \label{tab:featurerequests}
 \end{table}
+
+\subsection{Bereits umgesetzte Erweiterungen}
+
+Über die obige Wunschliste hinaus wurden seit der Diplomprüfung mehrere Erweiterungen
+umgesetzt, die nicht Teil des ursprünglichen FR-Katalogs waren:
+
+\begin{itemize}
+  \item \textbf{Störungs-Lokalisierung} (FR-05, Kernidee): Gateway-Kette per Traceroute,
+    Schuld-Verdikt (Router / Internet-Gateway / Internet) sowie Erkennung virtueller
+    Gateways in VM/Docker.
+  \item \textbf{Verfügbarkeit \& Zuverlässigkeit}: lückenbewusste Kennzahlen (Uptime,
+    Abdeckung, MTBF, MTTR) und aggregierte Verbindungsausfälle, einzeln aus der Wertung
+    nehmbar (DB-Spalte \texttt{excluded}).
+  \item \textbf{Gateway-Einstellungen}: manuelle Router-/Gateway-IP, das Abschalten des
+    kontinuierlichen Pings für das Internet-Gateway sowie persistent-vs-neu-ermitteln bei
+    lokalem IP-Wechsel.
+  \item \textbf{Mess-Tabelle pro Messzyklus} (aufklappbar) sowie ein Refactoring in eine
+    geschichtete 10-Paket-Struktur mit ausgelagerten statischen Web-Assets (\texttt{app.css}/\texttt{app.js}).
+\end{itemize}
