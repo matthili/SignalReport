@@ -1,8 +1,5 @@
 package at.mafue.signalreport.i18n;
 
-import at.mafue.signalreport.web.view.HtmlPageRenderer;
-import at.mafue.signalreport.web.view.LoginPageRenderer;
-import at.mafue.signalreport.web.view.SetupPageRenderer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -112,9 +109,10 @@ class I18nTest
         Pattern jsReference = Pattern.compile("I18N\\['([a-zA-Z0-9_.]+)']");
 
         String[] sourceFiles = {
-                "src/main/java/at/mafue/signalreport/HtmlPageRenderer.java",
-                "src/main/java/at/mafue/signalreport/LoginPageRenderer.java",
-                "src/main/java/at/mafue/signalreport/SetupPageRenderer.java"
+                "src/main/java/at/mafue/signalreport/web/view/HtmlPageRenderer.java",
+                "src/main/java/at/mafue/signalreport/web/view/LoginPageRenderer.java",
+                "src/main/java/at/mafue/signalreport/web/view/SetupPageRenderer.java",
+                "src/main/resources/web/app.js"
         };
 
         for (String sourceFile : sourceFiles)

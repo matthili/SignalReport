@@ -8,7 +8,6 @@ import at.mafue.signalreport.i18n.I18n;
 import at.mafue.signalreport.measurement.DnsMeasurer;
 import at.mafue.signalreport.measurement.HttpMeasurer;
 import at.mafue.signalreport.measurement.Measurement;
-import at.mafue.signalreport.measurement.Measurer;
 import at.mafue.signalreport.measurement.PingMeasurer;
 import at.mafue.signalreport.network.GatewayDiscovery;
 import at.mafue.signalreport.network.HostIdentifier;

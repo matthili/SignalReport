@@ -5,7 +5,6 @@ import at.mafue.signalreport.measurement.Measurement;
 import org.junit.jupiter.api.*;
 
 import java.sql.SQLException;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

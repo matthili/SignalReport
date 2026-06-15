@@ -2,7 +2,6 @@ package at.mafue.signalreport.measurement;
 
 import at.mafue.signalreport.config.DnsServer;
 
-import at.mafue.signalreport.config.Config;
 
 import org.xbill.DNS.*;
 import org.xbill.DNS.Record;
