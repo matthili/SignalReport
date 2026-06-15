@@ -120,6 +120,16 @@ After the first start a `config.json` is created. Important settings:
 
 💡 **Tip**: Changes made via the web interface (tab *⚙️ Settings*) are applied and persisted immediately!
 
+### 🛰️ Fault localization & virtual gateways
+
+For **fault localization** (your own router vs. provider), SignalReport runs a traceroute at startup to find the nearest router and the gateway to the internet. When SignalReport runs inside a **VM or container**, the detected "router" may be a virtual NAT device rather than your real hardware:
+
+- The **Docker default bridge** (`172.17.0.0/16`) is skipped automatically when the real router is visible as the next hop behind it.
+- **VirtualBox/QEMU NAT** (`10.0.2.0/24`) and Docker bridges inside a container are recognised as virtual → a **warning** appears in the *⚙️ Settings* tab under *Gateways*.
+- **VMware NAT** (`192.168.x.2`) and similar NATs in real home-network ranges cannot be told apart from a genuine router by IP, so they are deliberately **not** flagged automatically (to avoid false alarms).
+
+**Fix** in such cases: in the *⚙️ Settings* tab under *Gateways*, set the real router IP **manually**, or enable *"do not ping continuously"* for the internet gateway. Manually set IPs can optionally be kept across an IP change.
+
 ---
 
 ## 🌐 Internationalisation

@@ -125,6 +125,7 @@
   "settings.gatewayManual": "IP'yi elle ayarla",
   "settings.gatewayPersistent": "IP değişiminde koru (aksi halde yeniden algıla)",
   "settings.gatewayFarNoPing": "Sürekli ping atma",
+  "settings.gatewayVirtualWarning": "SignalReport bir VM veya container içinde çalışıyor görünüyor — otomatik algılanan ağ geçidi gerçek yönlendiriciniz/modeminiz yerine sanal (NAT) olabilir. Doğru arıza tespiti için gerçek yönlendirici IP'sini elle ayarlayın veya ağ geçidi ölçümünü devre dışı bırakın.",
   "settings.maintenanceTitle": "Bakım penceresi (ölçüm duraklatma)",
   "settings.maintenanceDescription": "Ölçüm yapılmayacak bir zaman aralığı tanımlayın.",
   "settings.maintenanceEnable": "Bakım penceresini etkinleştir",

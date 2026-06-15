@@ -125,6 +125,7 @@
   "settings.gatewayManual": "Définir l'IP manuellement",
   "settings.gatewayPersistent": "Conserver lors d'un changement d'IP (sinon redétecter)",
   "settings.gatewayFarNoPing": "Ne pas pinguer en continu",
+  "settings.gatewayVirtualWarning": "SignalReport semble fonctionner dans une VM ou un conteneur — la passerelle détectée automatiquement est peut-être virtuelle (NAT) et non votre véritable routeur/modem. Pour une localisation correcte des pannes, définissez l'IP réelle du routeur manuellement ou désactivez la mesure de la passerelle.",
   "settings.maintenanceTitle": "Fenêtre de maintenance (pause des mesures)",
   "settings.maintenanceDescription": "Définissez une plage horaire pendant laquelle aucune mesure n'est effectuée.",
   "settings.maintenanceEnable": "Activer la fenêtre de maintenance",

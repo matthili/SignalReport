@@ -555,6 +555,10 @@ public class WebServer
             {
             Config config = Config.getInstance();
             Config.GatewayConfig gw = config.getGateway();
+            boolean gwContainer = GatewayDiscovery.runningInContainer();
+            boolean gwVirtualSuspected =
+                    (!gw.isNearManual() && (GatewayDiscovery.isVirtualGatewayRange(gw.getNear()) || (gwContainer && GatewayDiscovery.isDockerLikeRange(gw.getNear()))))
+                 || (!gw.isFarManual() && (GatewayDiscovery.isVirtualGatewayRange(gw.getFar()) || (gwContainer && GatewayDiscovery.isDockerLikeRange(gw.getFar()))));
             ctx.json(Map.of(
                     "ping", config.getMeasurement().getTargets().getPing(),
                     "dns", config.getMeasurement().getTargets().getDns(),
@@ -579,7 +583,8 @@ public class WebServer
                             "farManual", gw.isFarManual(),
                             "nearPersistent", gw.isNearPersistent(),
                             "farPersistent", gw.isFarPersistent(),
-                            "farPingEnabled", gw.isFarPingEnabled()
+                            "farPingEnabled", gw.isFarPingEnabled(),
+                            "virtualSuspected", gwVirtualSuspected
                     ),
                     "language", config.getLanguage()
             ));

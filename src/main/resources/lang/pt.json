@@ -125,6 +125,7 @@
   "settings.gatewayManual": "Definir IP manualmente",
   "settings.gatewayPersistent": "Manter ao mudar de IP (caso contrário, detetar novamente)",
   "settings.gatewayFarNoPing": "Não fazer ping contínuo",
+  "settings.gatewayVirtualWarning": "O SignalReport parece estar a ser executado numa VM ou contentor — o gateway detetado automaticamente pode ser virtual (NAT) e não o seu router/modem real. Para uma localização de falhas correta, defina o IP real do router manualmente ou desative a medição do gateway.",
   "settings.maintenanceTitle": "Janela de manutenção (pausa nas medições)",
   "settings.maintenanceDescription": "Defina um período durante o qual não são efetuadas medições.",
   "settings.maintenanceEnable": "Ativar janela de manutenção",

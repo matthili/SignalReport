@@ -156,4 +156,72 @@ class GatewayDiscoveryTest
         List<String> chain = GatewayDiscovery.extractLocalChain(GatewayDiscovery.parseHops(output));
         assertTrue(chain.isEmpty());
     }
+
+    // --- Virtuelle Gateway-Bereiche (VM/Docker-NAT) ---
+
+    @Test
+    void testVirtualGatewayRanges()
+    {
+        assertTrue(GatewayDiscovery.isVirtualGatewayRange("172.17.0.1"));    // Docker Default-Bridge
+        assertTrue(GatewayDiscovery.isVirtualGatewayRange("10.0.2.2"));      // VirtualBox/QEMU NAT
+        assertTrue(GatewayDiscovery.isVirtualGatewayRange("10.0.2.3"));
+        assertFalse(GatewayDiscovery.isVirtualGatewayRange("192.168.20.1")); // echtes Heimnetz
+        assertFalse(GatewayDiscovery.isVirtualGatewayRange("172.16.0.1"));   // 172.16, nicht .17
+        assertFalse(GatewayDiscovery.isVirtualGatewayRange("10.0.3.1"));     // nicht 10.0.2.x
+        assertFalse(GatewayDiscovery.isVirtualGatewayRange("8.8.8.8"));
+    }
+
+    @Test
+    void testDockerLikeRange()
+    {
+        assertTrue(GatewayDiscovery.isDockerLikeRange("172.17.0.1"));
+        assertTrue(GatewayDiscovery.isDockerLikeRange("172.18.0.1"));        // user-defined bridge
+        assertTrue(GatewayDiscovery.isDockerLikeRange("172.31.255.254"));
+        assertFalse(GatewayDiscovery.isDockerLikeRange("172.15.0.1"));
+        assertFalse(GatewayDiscovery.isDockerLikeRange("172.32.0.1"));
+        assertFalse(GatewayDiscovery.isDockerLikeRange("192.168.1.1"));
+    }
+
+    // --- stripVirtualLeadingHops: Docker-Bridge ueberspringen ---
+
+    @Test
+    void testStripDockerBridgeKeepsRealRouter()
+    {
+        // Container sieht zuerst die docker0-Bridge, dann den echten Router
+        assertEquals(List.of("192.168.20.1"),
+                GatewayDiscovery.stripVirtualLeadingHops(List.of("172.17.0.1", "192.168.20.1")));
+    }
+
+    @Test
+    void testStripKeepsLastHopEvenIfVirtual()
+    {
+        // Reine NAT-Pforte ohne sichtbaren Router (z. B. VirtualBox): bleibt als einziger Hop
+        assertEquals(List.of("10.0.2.2"),
+                GatewayDiscovery.stripVirtualLeadingHops(List.of("10.0.2.2")));
+        assertEquals(List.of("172.17.0.1"),
+                GatewayDiscovery.stripVirtualLeadingHops(List.of("172.17.0.1")));
+    }
+
+    @Test
+    void testStripLeavesRealChainUntouched()
+    {
+        List<String> chain = List.of("192.168.20.1", "192.168.0.1");
+        assertEquals(chain, GatewayDiscovery.stripVirtualLeadingHops(chain));
+    }
+
+    @Test
+    void testDockerTraceEndToEnd()
+    {
+        // Simulierte Container-Traceroute: docker0-Bridge, echter Router, ISP
+        List<String> output = Arrays.asList(
+                "traceroute to 1.1.1.1 (1.1.1.1), 8 hops max, 60 byte packets",
+                " 1  172.17.0.1  0.1 ms  0.1 ms  0.1 ms",
+                " 2  192.168.20.1  0.5 ms  0.4 ms  0.4 ms",
+                " 3  217.25.120.3  8.0 ms  7.5 ms  7.8 ms"
+        );
+        List<String> chain = GatewayDiscovery.stripVirtualLeadingHops(
+                GatewayDiscovery.extractLocalChain(GatewayDiscovery.parseHops(output)));
+        // Bridge entfernt, echter Router bleibt als nah == fern
+        assertEquals(List.of("192.168.20.1"), chain);
+    }
 }

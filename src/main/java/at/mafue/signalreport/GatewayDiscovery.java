@@ -69,7 +69,7 @@ public final class GatewayDiscovery
         try
             {
             List<String> hops = parseHops(runCommand(traceCommand(), 25));
-            List<String> chain = extractLocalChain(hops);
+            List<String> chain = stripVirtualLeadingHops(extractLocalChain(hops));
             if (!chain.isEmpty())
                 {
                 return chain;
@@ -174,6 +174,45 @@ public final class GatewayDiscovery
         return lines;
     }
 
+    private static Boolean inContainerCache;
+
+    /**
+     * Best-Effort-Erkennung, ob SignalReport in einem Container laeuft
+     * (Docker/Podman/LXC/Kubernetes). Nur unter Linux aussagekraeftig; auf
+     * anderen Systemen immer {@code false}. Das Ergebnis wird gecacht, da es
+     * sich zur Laufzeit nicht aendert.
+     */
+    static boolean runningInContainer()
+    {
+        if (inContainerCache != null)
+            {
+            return inContainerCache;
+            }
+        boolean result = false;
+        try
+            {
+            if (new java.io.File("/.dockerenv").exists()
+                    || new java.io.File("/run/.containerenv").exists())
+                {
+                result = true;
+                } else
+                {
+                java.nio.file.Path cgroup = java.nio.file.Path.of("/proc/1/cgroup");
+                if (java.nio.file.Files.exists(cgroup))
+                    {
+                    String content = java.nio.file.Files.readString(cgroup);
+                    result = content.contains("docker") || content.contains("kubepods")
+                            || content.contains("containerd") || content.contains("/lxc");
+                    }
+                }
+            } catch (Exception ignored)
+            {
+            // Best effort - im Zweifel "kein Container"
+            }
+        inContainerCache = result;
+        return result;
+    }
+
     // ========================================================================
     //  Reine Logik (statisch, ohne Systemaufruf - voll testbar)
     // ========================================================================
@@ -265,5 +304,58 @@ public final class GatewayDiscovery
         if (o0 == 172 && o1 >= 16 && o1 <= 31) return true;
         if (o0 == 192 && o1 == 168) return true;
         return false;
+    }
+
+    /**
+     * Bekannte virtuelle NAT-Bereiche, die in VMs/Containern als Gateway
+     * auftauchen, aber NICHT den echten Router/Modem widerspiegeln:
+     * Docker-Default-Bridge (172.17.0.0/16) sowie das User-Mode-NAT von
+     * VirtualBox/QEMU (10.0.2.0/24). Andere NAT-Setups (z. B. VMware-NAT auf
+     * 192.168.x.2) sind per IP-Bereich nicht von echten Heimnetzen zu
+     * unterscheiden und werden hier bewusst nicht erfasst.
+     */
+    static boolean isVirtualGatewayRange(String ip)
+    {
+        if (!isValidIPv4(ip)) return false;
+        String[] p = ip.split("\\.");
+        int o0 = Integer.parseInt(p[0]);
+        int o1 = Integer.parseInt(p[1]);
+        int o2 = Integer.parseInt(p[2]);
+        if (o0 == 172 && o1 == 17) return true;            // Docker Default-Bridge
+        if (o0 == 10 && o1 == 0 && o2 == 2) return true;   // VirtualBox/QEMU User-Mode-NAT
+        return false;
+    }
+
+    /**
+     * 172.16.0.0/12 - der Bereich, aus dem Docker seine Bridge-Netze vergibt.
+     * Nur in Kombination mit einer erkannten Container-Umgebung aussagekraeftig:
+     * dort ist ein 172.x-Gateway so gut wie immer eine Docker-Bridge und nicht
+     * der echte Router. Heimnetze nutzen 172.x sehr selten.
+     */
+    static boolean isDockerLikeRange(String ip)
+    {
+        if (!isValidIPv4(ip)) return false;
+        String[] p = ip.split("\\.");
+        int o0 = Integer.parseInt(p[0]);
+        int o1 = Integer.parseInt(p[1]);
+        return o0 == 172 && o1 >= 16 && o1 <= 31;
+    }
+
+    /**
+     * Entfernt fuehrende virtuelle Hops (z. B. die Docker-Bridge), solange
+     * danach noch ein echter privater Hop folgt. So wird in einem Container
+     * der dahinterliegende echte Router als "nah" gewaehlt statt der Bridge.
+     * Der letzte Hop bleibt immer erhalten - reicht eine reine NAT-Pforte ohne
+     * sichtbaren Router (z. B. VirtualBox), bleibt sie als einziger Hop stehen
+     * (und wird spaeter als "virtuell verdaechtig" markiert).
+     */
+    static List<String> stripVirtualLeadingHops(List<String> chain)
+    {
+        int start = 0;
+        while (start < chain.size() - 1 && isVirtualGatewayRange(chain.get(start)))
+            {
+            start++;
+            }
+        return start == 0 ? chain : new ArrayList<>(chain.subList(start, chain.size()));
     }
 }

@@ -396,6 +396,8 @@ public class HtmlPageRenderer
                             <h3>🛰️ {{settings.gatewayTitle}}</h3>
                             <p style="color:var(--color-text-secondary); font-size:0.9em; margin-top:5px;">{{settings.gatewayDescription}}</p>
 
+                            <div id="gw-virtual-warning" style="display:none; background:var(--bg-card-warn); border-left:4px solid #ffc107; padding:10px 14px; border-radius:6px; margin-top:12px; font-size:0.9em;">⚠️ {{settings.gatewayVirtualWarning}}</div>
+
                             <div style="margin-top:15px; padding:15px; background:var(--bg-body); border-radius:8px;">
                                 <div style="margin-bottom:8px;"><strong>{{gateway.near}}:</strong> <span id="gw-near-current" style="font-family:monospace;">--</span></div>
                                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -1242,6 +1244,7 @@ public class HtmlPageRenderer
                                     document.getElementById('gw-far-noping').checked = gw.farPingEnabled === false;
                                     document.getElementById('gw-near-ip').value = gw.nearManual ? (gw.near || '') : '';
                                     document.getElementById('gw-far-ip').value = gw.farManual ? (gw.far || '') : '';
+                                    document.getElementById('gw-virtual-warning').style.display = gw.virtualSuspected ? 'block' : 'none';
                                     syncGatewayControls();
 
                                     if (config.language) {

@@ -120,6 +120,16 @@ Nach dem ersten Start wird `config.json` erstellt. Wichtige Einstellungen:
 
 💡 **Tipp**: Änderungen über die Web-Oberfläche (Tab *⚙️ Einstellungen*) werden sofort übernommen und persistiert!
 
+### 🛰️ Störungs-Lokalisierung & virtuelle Gateways
+
+Für die **Störungs-Lokalisierung** (eigener Router vs. Provider) ermittelt SignalReport beim Start per Traceroute den nächsten Router und das Gateway ins Internet. Läuft SignalReport in einer **VM oder einem Container**, kann der erkannte „Router" allerdings ein virtuelles NAT-Gerät sein statt der echten Hardware:
+
+- **Docker-Standard-Bridge** (`172.17.0.0/16`) wird automatisch übersprungen, sofern der echte Router als nächster Hop dahinter sichtbar ist.
+- **VirtualBox-/QEMU-NAT** (`10.0.2.0/24`) sowie Docker-Bridges innerhalb eines Containers werden als virtuell erkannt → ein **Warnhinweis** erscheint im Tab *⚙️ Einstellungen* unter *Gateways*.
+- **VMware-NAT** (`192.168.x.2`) und ähnliche NATs in echten Heimnetz-Bereichen lassen sich per IP nicht von einem echten Router unterscheiden und werden bewusst **nicht** automatisch markiert (sonst Fehlalarme).
+
+**Lösung** in solchen Fällen: im Tab *⚙️ Einstellungen* unter *Gateways* die echte Router-IP **manuell** setzen, oder für das Internet-Gateway *„nicht kontinuierlich pingen"* aktivieren. Manuell gesetzte IPs lassen sich optional auch über einen IP-Wechsel hinweg beibehalten.
+
 ---
 
 ## 🌐 Mehrsprachigkeit

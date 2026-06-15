@@ -125,6 +125,7 @@
   "settings.gatewayManual": "Ustaw IP ręcznie",
   "settings.gatewayPersistent": "Zachowaj przy zmianie IP (w przeciwnym razie wykryj ponownie)",
   "settings.gatewayFarNoPing": "Nie pinguj w sposób ciągły",
+  "settings.gatewayVirtualWarning": "SignalReport prawdopodobnie działa w maszynie wirtualnej lub kontenerze — automatycznie wykryta brama może być wirtualna (NAT), a nie Twoim prawdziwym routerem/modemem. Aby poprawnie lokalizować awarie, ustaw prawdziwy adres IP routera ręcznie lub wyłącz pomiar bramy.",
   "settings.maintenanceTitle": "Okno serwisowe (przerwa w pomiarach)",
   "settings.maintenanceDescription": "Zdefiniuj przedział czasu, w którym pomiary nie są wykonywane.",
   "settings.maintenanceEnable": "Włącz okno serwisowe",

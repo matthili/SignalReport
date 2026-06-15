@@ -125,6 +125,7 @@
   "settings.gatewayManual": "IP manuell festlegen",
   "settings.gatewayPersistent": "Bei IP-Wechsel beibehalten (sonst neu ermitteln)",
   "settings.gatewayFarNoPing": "Nicht kontinuierlich pingen",
+  "settings.gatewayVirtualWarning": "SignalReport läuft vermutlich in einer VM oder einem Container — der automatisch erkannte Gateway ist möglicherweise virtuell (NAT) und nicht dein echter Router/Modem. Für eine korrekte Störungs-Lokalisierung setze die echte Router-IP manuell oder deaktiviere die Gateway-Messung.",
   "settings.maintenanceTitle": "Maintenance-Fenster (Messungsunterbrechung)",
   "settings.maintenanceDescription": "Definiere ein Zeitfenster, in dem keine Messungen durchgeführt werden.",
   "settings.maintenanceEnable": "Maintenance-Fenster aktivieren",

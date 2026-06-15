@@ -125,6 +125,7 @@
   "settings.gatewayManual": "Set IP manually",
   "settings.gatewayPersistent": "Keep on IP change (otherwise re-detect)",
   "settings.gatewayFarNoPing": "Do not ping continuously",
+  "settings.gatewayVirtualWarning": "SignalReport appears to be running in a VM or container — the auto-detected gateway may be virtual (NAT) rather than your real router/modem. For accurate fault localization, set the real router IP manually or disable gateway monitoring.",
   "settings.maintenanceTitle": "Maintenance window (measurement pause)",
   "settings.maintenanceDescription": "Define a time window during which no measurements are taken.",
   "settings.maintenanceEnable": "Enable maintenance window",
