@@ -13,7 +13,7 @@ class MaintenanceWindowTest
     @Test
     void testDisabledWindowIsNeverActive()
     {
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(false);
         mw.setStartHour(0);
         mw.setStartMinute(0);
@@ -29,7 +29,7 @@ class MaintenanceWindowTest
     void testFullDayWindowIsAlwaysActive()
     {
         // Fenster von 00:00 bis 23:59 muss immer aktiv sein
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(true);
         mw.setStartHour(0);
         mw.setStartMinute(0);
@@ -58,7 +58,7 @@ class MaintenanceWindowTest
             distantEndHour = (distantHour + 1) % 24;
             }
 
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(true);
         mw.setStartHour(distantHour);
         mw.setStartMinute(0);
@@ -77,7 +77,7 @@ class MaintenanceWindowTest
         int currentHour = java.time.LocalTime.now().getHour();
         int endHour = (currentHour + 2) % 24;
 
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(true);
         mw.setStartHour(currentHour);
         mw.setStartMinute(0);
@@ -96,7 +96,7 @@ class MaintenanceWindowTest
     {
         // Teste die Mitternachts-Logik direkt:
         // Ein Fenster von 23:00-01:00 hat start > end
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(true);
         mw.setStartHour(23);
         mw.setStartMinute(0);
@@ -116,7 +116,7 @@ class MaintenanceWindowTest
     void testDefaultValuesAreDisabled()
     {
         // Frisch erstelltes MaintenanceWindow muss deaktiviert sein
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         assertFalse(mw.isMaintenanceTime(),
                 "Neu erstelltes MaintenanceWindow muss inaktiv sein");
     }
@@ -124,7 +124,7 @@ class MaintenanceWindowTest
     @Test
     void testSetterGetterRoundtrip()
     {
-        Config.MaintenanceWindow mw = new Config.MaintenanceWindow();
+        MaintenanceWindow mw = new MaintenanceWindow();
         mw.setEnabled(true);
         mw.setStartHour(3);
         mw.setStartMinute(45);

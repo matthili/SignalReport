@@ -2,7 +2,6 @@ package at.mafue.signalreport.config;
 
 import at.mafue.signalreport.i18n.I18n;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.slf4j.Logger;
@@ -183,10 +182,10 @@ public class Config
     // Setter für dynamische Updates
     public void updateTargets(String ping, String dns, String http, int intervalSeconds)
     {
-        this.measurement.targets.ping = ping;
-        this.measurement.targets.dns = dns;
-        this.measurement.targets.http = http;
-        this.measurement.intervalSeconds = intervalSeconds;
+        this.measurement.getTargets().setPing(ping);
+        this.measurement.getTargets().setDns(dns);
+        this.measurement.getTargets().setHttp(http);
+        this.measurement.setIntervalSeconds(intervalSeconds);
     }
 
     public void updateMaintenanceWindow(boolean enabled, int startHour, int startMinute, int endHour, int endMinute)
@@ -195,11 +194,11 @@ public class Config
             {
             this.maintenanceWindow = new MaintenanceWindow();
             }
-        this.maintenanceWindow.enabled = enabled;
-        this.maintenanceWindow.startHour = startHour;
-        this.maintenanceWindow.startMinute = startMinute;
-        this.maintenanceWindow.endHour = endHour;
-        this.maintenanceWindow.endMinute = endMinute;
+        this.maintenanceWindow.setEnabled(enabled);
+        this.maintenanceWindow.setStartHour(startHour);
+        this.maintenanceWindow.setStartMinute(startMinute);
+        this.maintenanceWindow.setEndHour(endHour);
+        this.maintenanceWindow.setEndMinute(endMinute);
     }
 
     public void updateUserInfo(String provider, String customerId, String userName)
@@ -208,9 +207,9 @@ public class Config
             {
             this.userInfo = new UserInfo();
             }
-        this.userInfo.provider = provider;
-        this.userInfo.customerId = customerId;
-        this.userInfo.userName = userName;
+        this.userInfo.setProvider(provider);
+        this.userInfo.setCustomerId(customerId);
+        this.userInfo.setUserName(userName);
     }
 
     // Lokale Gateway-Ueberwachung (naechster Router + Pforte ins Internet)
@@ -255,400 +254,6 @@ public class Config
             }
     }
 
-    public static class MeasurementConfig
-    {
-        @JsonProperty("intervalSeconds")
-        private int intervalSeconds;
-        private Targets targets;
-
-        public int getIntervalSeconds()
-        {
-            return intervalSeconds;
-        }
-
-        public Targets getTargets()
-        {
-            return targets;
-        }
-    }
-
-    public static class Targets
-    {
-        private String ping;
-        private String dns;
-        private String http;
-
-        public String getPing()
-        {
-            return ping;
-        }
-
-        public void setPing(String ping)
-        {
-            this.ping = ping;
-        }
-
-        public String getDns()
-        {
-            return dns;
-        }
-
-        public void setDns(String dns)
-        {
-            this.dns = dns;
-        }
-
-        public String getHttp()
-        {
-            return http;
-        }
-
-        public void setHttp(String http)
-        {
-            this.http = http;
-        }
-    }
-
-    /**
-     * Konfiguration der lokalen Gateway-Ueberwachung.
-     * <p>
-     * Bei {@code autoDiscover=true} ermittelt SignalReport beim Start per
-     * Traceroute den naechsten ({@code near}) und den weitesten lokalen
-     * ({@code far}) Gateway. Beide Felder lassen sich auch manuell setzen
-     * (dann {@code autoDiscover=false}), z. B. fuer ungewoehnliche Netze.
-     * Bei nur einem Gateway ist {@code far} leer oder gleich {@code near}.
-     */
-    public static class GatewayConfig
-    {
-        private boolean autoDiscover = true;
-        private String near = "";
-        private String far = "";
-        private String nearLabel = "";
-        private String farLabel = "";
-
-        // Pro Segment: manuell gesetzte IP (nicht durch Auto-Erkennung ueberschreiben)
-        // und ob diese manuelle IP einen lokalen IP-Wechsel ueberdauert (persistent)
-        // oder dann neu ermittelt wird. farPingEnabled schaltet die kontinuierliche
-        // Messung des fernen Gateways ab (z. B. fuer ein Geraet, das nicht dauernd
-        // gepingt werden soll); der Gateway bleibt erkannt und wird angezeigt.
-        private boolean nearManual = false;
-        private boolean farManual = false;
-        private boolean nearPersistent = false;
-        private boolean farPersistent = false;
-        private boolean farPingEnabled = true;
-
-        public boolean isAutoDiscover()
-        {
-            return autoDiscover;
-        }
-
-        public void setAutoDiscover(boolean autoDiscover)
-        {
-            this.autoDiscover = autoDiscover;
-        }
-
-        public String getNear()
-        {
-            return near;
-        }
-
-        public void setNear(String near)
-        {
-            this.near = near != null ? near : "";
-        }
-
-        public String getFar()
-        {
-            return far;
-        }
-
-        public void setFar(String far)
-        {
-            this.far = far != null ? far : "";
-        }
-
-        public String getNearLabel()
-        {
-            return nearLabel;
-        }
-
-        public void setNearLabel(String nearLabel)
-        {
-            this.nearLabel = nearLabel != null ? nearLabel : "";
-        }
-
-        public String getFarLabel()
-        {
-            return farLabel;
-        }
-
-        public void setFarLabel(String farLabel)
-        {
-            this.farLabel = farLabel != null ? farLabel : "";
-        }
-
-        public boolean isNearManual()
-        {
-            return nearManual;
-        }
-
-        public void setNearManual(boolean nearManual)
-        {
-            this.nearManual = nearManual;
-        }
-
-        public boolean isFarManual()
-        {
-            return farManual;
-        }
-
-        public void setFarManual(boolean farManual)
-        {
-            this.farManual = farManual;
-        }
-
-        public boolean isNearPersistent()
-        {
-            return nearPersistent;
-        }
-
-        public void setNearPersistent(boolean nearPersistent)
-        {
-            this.nearPersistent = nearPersistent;
-        }
-
-        public boolean isFarPersistent()
-        {
-            return farPersistent;
-        }
-
-        public void setFarPersistent(boolean farPersistent)
-        {
-            this.farPersistent = farPersistent;
-        }
-
-        public boolean isFarPingEnabled()
-        {
-            return farPingEnabled;
-        }
-
-        public void setFarPingEnabled(boolean farPingEnabled)
-        {
-            this.farPingEnabled = farPingEnabled;
-        }
-    }
-
-    public static class DatabaseConfig
-    {
-        private String path;
-
-        public String getPath()
-        {
-            return path;
-        }
-    }
-
-    public static class WebserverConfig
-    {
-        private int port;
-
-        public int getPort()
-        {
-            return port;
-        }
-    }
-
-    public static class DnsServer
-    {
-        private String name;
-        private String address;
-        private String region;
-        private String provider;
-
-        // Jackson benötigt no-arg Konstruktor
-        public DnsServer()
-        {
-            this.provider = "Unknown";
-        }
-
-        // Konstruktor mit 3 Parametern (für createDefault())
-        public DnsServer(String name, String address, String region)
-        {
-            this.name = name;
-            this.address = address;
-            this.region = region;
-            this.provider = "Unknown";
-        }
-
-        // Vollständiger Konstruktor mit 4 Parametern
-        public DnsServer(String name, String address, String region, String provider)
-        {
-            this.name = name;
-            this.address = address;
-            this.region = region;
-            this.provider = provider != null && !provider.isEmpty() ? provider : "Unknown";
-        }
-
-        // Getter + Setter
-        public String getName()
-        {
-            return name;
-        }
-
-        public void setName(String name)
-        {
-            this.name = name;
-        }
-
-        public String getAddress()
-        {
-            return address;
-        }
-
-        public void setAddress(String address)
-        {
-            this.address = address;
-        }
-
-        public String getRegion()
-        {
-            return region;
-        }
-
-        public void setRegion(String region)
-        {
-            this.region = region;
-        }
-
-        public String getProvider()
-        {
-            return provider;
-        }
-
-        public void setProvider(String provider)
-        {
-            this.provider = provider != null && !provider.isEmpty() ? provider : "Unknown";
-        }
-    }
-
-    // MaintenanceWindow-Klasse
-    public static class MaintenanceWindow
-    {
-        private boolean enabled = false;
-        private int startHour = 4;
-        private int startMinute = 0;
-        private int endHour = 4;
-        private int endMinute = 10;
-
-        public boolean isEnabled()
-        {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled)
-        {
-            this.enabled = enabled;
-        }
-
-        public int getStartHour()
-        {
-            return startHour;
-        }
-
-        public void setStartHour(int startHour)
-        {
-            this.startHour = startHour;
-        }
-
-        public int getStartMinute()
-        {
-            return startMinute;
-        }
-
-        public void setStartMinute(int startMinute)
-        {
-            this.startMinute = startMinute;
-        }
-
-        public int getEndHour()
-        {
-            return endHour;
-        }
-
-        public void setEndHour(int endHour)
-        {
-            this.endHour = endHour;
-        }
-
-        public int getEndMinute()
-        {
-            return endMinute;
-        }
-
-        public void setEndMinute(int endMinute)
-        {
-            this.endMinute = endMinute;
-        }
-
-        // Prüft, ob aktuelle Zeit im Maintenance-Fenster liegt
-        public boolean isMaintenanceTime()
-        {
-            if (!enabled) return false;
-
-            java.time.LocalTime now = java.time.LocalTime.now();
-            java.time.LocalTime start = java.time.LocalTime.of(startHour, startMinute);
-            java.time.LocalTime end = java.time.LocalTime.of(endHour, endMinute);
-
-            if (start.isBefore(end))
-                {
-                // Normales Fenster (z.B. 04:00–04:10)
-                return !now.isBefore(start) && now.isBefore(end);
-                } else
-                {
-                // Über Mitternacht (z.B. 23:00–01:00)
-                return !now.isBefore(start) || now.isBefore(end);
-                }
-        }
-    }
-
-    // UserInfo-Klasse
-    public static class UserInfo
-    {
-        private String provider = "";
-        private String customerId = "";
-        private String userName = "";
-
-        public String getProvider()
-        {
-            return provider;
-        }
-
-        public void setProvider(String provider)
-        {
-            this.provider = provider;
-        }
-
-        public String getCustomerId()
-        {
-            return customerId;
-        }
-
-        public void setCustomerId(String customerId)
-        {
-            this.customerId = customerId;
-        }
-
-        public String getUserName()
-        {
-            return userName;
-        }
-
-        public void setUserName(String userName)
-        {
-            this.userName = userName;
-        }
-    }
-
     // Standard-Konfiguration erstellen
     public static Config createDefault()
     {
@@ -659,18 +264,19 @@ public class Config
         config.language = I18n.detectOsLanguage();
 
         config.measurement = new MeasurementConfig();
-        config.measurement.intervalSeconds = 30;
+        config.measurement.setIntervalSeconds(30);
 
-        config.measurement.targets = new Targets();
-        config.measurement.targets.ping = "8.8.8.8";
-        config.measurement.targets.dns = "google.com";
-        config.measurement.targets.http = "https://example.com";
+        Targets targets = new Targets();
+        targets.setPing("8.8.8.8");
+        targets.setDns("google.com");
+        targets.setHttp("https://example.com");
+        config.measurement.setTargets(targets);
 
         config.database = new DatabaseConfig();
-        config.database.path = "./data/signalreport";
+        config.database.setPath("./data/signalreport");
 
         config.webserver = new WebserverConfig();
-        config.webserver.port = 4567;
+        config.webserver.setPort(4567);
 
         config.dnsServers = new ArrayList<>();
         config.dnsServers.add(new DnsServer("Google Primary", "8.8.8.8", "Nordamerika", "Google"));
@@ -732,121 +338,4 @@ public class Config
         instance = config;
         return config;
     }
-
-    public static class AuthConfig
-    {
-        private boolean enabled = false;
-        private String adminPasswordHash = "";
-        private String userPasswordHash = "";
-
-        public boolean isEnabled()
-        {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled)
-        {
-            this.enabled = enabled;
-        }
-
-        public String getAdminPasswordHash()
-        {
-            return adminPasswordHash;
-        }
-
-        public void setAdminPasswordHash(String hash)
-        {
-            this.adminPasswordHash = hash;
-        }
-
-        public String getUserPasswordHash()
-        {
-            return userPasswordHash;
-        }
-
-        public void setUserPasswordHash(String hash)
-        {
-            this.userPasswordHash = hash;
-        }
-
-    }
-
-    public static class PushConfig
-    {
-        private boolean enabled = false;
-        private double latencyThreshold = 100.0; // ms
-        private int consecutiveBadMeasurements = 2;
-
-        public boolean isEnabled()
-        {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled)
-        {
-            this.enabled = enabled;
-        }
-
-        public double getLatencyThreshold()
-        {
-            return latencyThreshold;
-        }
-
-        public void setLatencyThreshold(double threshold)
-        {
-            this.latencyThreshold = threshold;
-        }
-
-        public int getConsecutiveBadMeasurements()
-        {
-            return consecutiveBadMeasurements;
-        }
-
-        public void setConsecutiveBadMeasurements(int count)
-        {
-            this.consecutiveBadMeasurements = count;
-        }
-    }
-
-    public static class SetupConfig
-    {
-        private boolean setupCompleted = false;
-        private String adminPasswordHash = "";
-
-        public boolean isSetupCompleted()
-        {
-            return setupCompleted;
-        }
-
-        public void setSetupCompleted(boolean completed)
-        {
-            this.setupCompleted = completed;
-        }
-
-        public String getAdminPasswordHash()
-        {
-            return adminPasswordHash;
-        }
-
-        public void setAdminPasswordHash(String hash)
-        {
-            this.adminPasswordHash = hash;
-        }
-    }
-
-    public static class ThemeConfig
-    {
-        private boolean darkMode = false;
-
-        public boolean isDarkMode()
-        {
-            return darkMode;
-        }
-
-        public void setDarkMode(boolean darkMode)
-        {
-            this.darkMode = darkMode;
-        }
-    }
-
 }

@@ -1,5 +1,7 @@
 package at.mafue.signalreport.measurement;
 
+import at.mafue.signalreport.config.DnsServer;
+
 import at.mafue.signalreport.config.Config;
 
 import org.xbill.DNS.*;
@@ -11,11 +13,11 @@ import java.util.concurrent.*;
 
 public class DnsBenchmark
 {
-    private final List<Config.DnsServer> dnsServers;
+    private final List<DnsServer> dnsServers;
     private final String hostname;
     private final int timeoutMs;
 
-    public DnsBenchmark(List<Config.DnsServer> dnsServers, String hostname, int timeoutMs)
+    public DnsBenchmark(List<DnsServer> dnsServers, String hostname, int timeoutMs)
     {
         this.dnsServers = dnsServers;
         this.hostname = hostname;
@@ -29,7 +31,7 @@ public class DnsBenchmark
 
         List<Future<DnsResult>> futures = new ArrayList<>();
 
-        for (Config.DnsServer server : dnsServers)
+        for (DnsServer server : dnsServers)
             {
             futures.add(executor.submit(() -> measureDnsServer(server)));
             }
@@ -53,7 +55,7 @@ public class DnsBenchmark
         return results;
     }
 
-    private DnsResult measureDnsServer(Config.DnsServer server)
+    private DnsResult measureDnsServer(DnsServer server)
     {
         long start = System.nanoTime();
 

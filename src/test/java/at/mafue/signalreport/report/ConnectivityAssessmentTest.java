@@ -1,6 +1,6 @@
 package at.mafue.signalreport.report;
 
-import at.mafue.signalreport.storage.H2MeasurementRepository.Statistics;
+import at.mafue.signalreport.storage.Statistics;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

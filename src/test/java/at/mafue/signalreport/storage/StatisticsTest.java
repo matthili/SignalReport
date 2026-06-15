@@ -58,8 +58,8 @@ class StatisticsTest
     void testStatisticsObjectCreation()
     {
         // Direkter Konstruktor-Test: Alle Felder korrekt gespeichert?
-        H2MeasurementRepository.Statistics stats =
-                new H2MeasurementRepository.Statistics(23.5, 45.2, 89.7, 0.5, 3.2);
+        Statistics stats =
+                new Statistics(23.5, 45.2, 89.7, 0.5, 3.2);
 
         assertEquals(23.5, stats.getAvgLatency(), 0.01);
         assertEquals(45.2, stats.getP95Latency(), 0.01);
@@ -78,7 +78,7 @@ class StatisticsTest
             sleepBriefly();
             }
 
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
 
         // 95th Percentile bei 20 Werten = 19. Wert = 190.0
         assertTrue(stats.getP95Latency() >= 180.0,
@@ -97,7 +97,7 @@ class StatisticsTest
             sleepBriefly();
             }
 
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
         assertEquals(0.0, stats.getJitter(), 1.0,
                 "Jitter bei konstanter Latenz muss nahe 0 sein, war: " + stats.getJitter());
     }
@@ -115,7 +115,7 @@ class StatisticsTest
             sleepBriefly();
             }
 
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
         assertTrue(stats.getJitter() > 0.0,
                 "Jitter bei unterschiedlichen Latenzen muss > 0 sein, war: " + stats.getJitter());
         // Bei steigenden Werten (10, 50, 100, 200, 500) ist der Jitter
@@ -139,7 +139,7 @@ class StatisticsTest
             sleepBriefly();
             }
 
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
         assertEquals(20.0, stats.getPacketLossPercent(), 1.0,
                 "Paketverlust sollte ~20% sein");
     }
@@ -148,7 +148,7 @@ class StatisticsTest
     void testStatisticsWithEmptyDatabase() throws SQLException
     {
         // Leere Datenbank: Alle Werte muessen 0 sein, kein Fehler
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
 
         assertEquals(0.0, stats.getAvgLatency(), 0.01, "Durchschnitt bei 0 Messungen muss 0 sein");
         assertEquals(0.0, stats.getP95Latency(), 0.01, "P95 bei 0 Messungen muss 0 sein");
@@ -171,8 +171,8 @@ class StatisticsTest
             sleepBriefly();
             }
 
-        H2MeasurementRepository.Statistics pingStats = repo.calculateStatistics("PING", 1);
-        H2MeasurementRepository.Statistics dnsStats = repo.calculateStatistics("DNS", 1);
+        Statistics pingStats = repo.calculateStatistics("PING", 1);
+        Statistics dnsStats = repo.calculateStatistics("DNS", 1);
 
         assertTrue(pingStats.getAvgLatency() > 90.0,
                 "PING-Durchschnitt sollte ~100ms sein");
@@ -190,7 +190,7 @@ class StatisticsTest
         repo.save(new Measurement("8.8.8.8", 25.0, true, "PING"));
         sleepBriefly();
 
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
         assertEquals(500.0, stats.getMaxLatency(), 1.0,
                 "Maximum muss die hoechste Latenz sein");
     }

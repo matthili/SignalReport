@@ -218,14 +218,14 @@ class ConfigTest
     @Test
     void testThemeConfigDefault()
     {
-        Config.ThemeConfig theme = new Config.ThemeConfig();
+        ThemeConfig theme = new ThemeConfig();
         assertFalse(theme.isDarkMode(), "Dark Mode muss standardmaessig deaktiviert sein");
     }
 
     @Test
     void testThemeConfigToggle()
     {
-        Config.ThemeConfig theme = new Config.ThemeConfig();
+        ThemeConfig theme = new ThemeConfig();
 
         theme.setDarkMode(true);
         assertTrue(theme.isDarkMode(), "Dark Mode muss aktivierbar sein");

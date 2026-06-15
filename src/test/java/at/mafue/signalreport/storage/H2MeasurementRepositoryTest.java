@@ -113,7 +113,7 @@ class H2MeasurementRepositoryTest
             }
 
         // Act
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
 
         // Assert
         assertEquals(55.0, stats.getAvgLatency(), 1.0, "Durchschnitt sollte ~55ms sein");
@@ -139,7 +139,7 @@ class H2MeasurementRepositoryTest
         repo.save(new Measurement("8.8.8.8", 5000.0, false, "PING")); // Timeout
 
         // Act
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
 
         // Assert
         assertEquals(10.0, stats.getPacketLossPercent(), 1.0, "Paketverlust sollte ~10% sein");
@@ -169,11 +169,11 @@ class H2MeasurementRepositoryTest
             }
 
         // Act
-        List<H2MeasurementRepository.HourlyAverage> averages = repo.calculateHourlyAverages("PING", 1);
+        List<HourlyAverage> averages = repo.calculateHourlyAverages("PING", 1);
 
         // Assert
         assertFalse(averages.isEmpty(), "Es sollten stündliche Durchschnitte berechnet werden");
-        for (H2MeasurementRepository.HourlyAverage avg : averages)
+        for (HourlyAverage avg : averages)
             {
             assertTrue(avg.getAvgLatency() >= 20.0, "Latenz sollte >=20ms sein");
             assertEquals(5, avg.getCount(), "Jede Stunde sollte 5 Messungen haben");
@@ -185,7 +185,7 @@ class H2MeasurementRepositoryTest
     {
         // Act
         repo.registerHost("testhash123", "testhost", "Windows 11");
-        List<H2MeasurementRepository.HostInfo> hosts = repo.getAllHosts();
+        List<HostInfo> hosts = repo.getAllHosts();
 
         // Assert
         assertEquals(1, hosts.size(), "Es sollte 1 Host registriert sein");
@@ -209,8 +209,8 @@ class H2MeasurementRepositoryTest
             }
         repo.trackIpChange("5.6.7.8", host); // IP-Wechsel → CHANGE
 
-        List<H2MeasurementRepository.IpChange> allChanges = repo.getIpChanges(100);
-        List<H2MeasurementRepository.IpChange> changes = allChanges.stream()
+        List<IpChange> allChanges = repo.getIpChanges(100);
+        List<IpChange> changes = allChanges.stream()
                 .filter(c -> host.equals(c.getHostHash()))
                 .toList();
 
@@ -223,9 +223,9 @@ class H2MeasurementRepositoryTest
         assertTrue(types.contains("CHANGE"), "Es muss einen CHANGE-Eintrag geben");
 
         // Pruefe IPs: INITIAL hat 1.2.3.4, CHANGE hat 5.6.7.8
-        H2MeasurementRepository.IpChange initial = changes.stream()
+        IpChange initial = changes.stream()
                 .filter(c -> "INITIAL".equals(c.getChangeType())).findFirst().orElseThrow();
-        H2MeasurementRepository.IpChange change = changes.stream()
+        IpChange change = changes.stream()
                 .filter(c -> "CHANGE".equals(c.getChangeType())).findFirst().orElseThrow();
 
         assertEquals("1.2.3.4", initial.getNewIp(), "INITIAL-IP sollte 1.2.3.4 sein");
@@ -240,7 +240,7 @@ class H2MeasurementRepositoryTest
         repo.trackIpChange("1.2.3.4", "testhash456"); // Gleiche IP → kein neuer Eintrag
         repo.trackIpChange("1.2.3.4", "testhash456"); // Gleiche IP → kein neuer Eintrag
 
-        List<H2MeasurementRepository.IpChange> changes = repo.getIpChanges(10);
+        List<IpChange> changes = repo.getIpChanges(10);
 
         // Es darf nur der INITIAL-Eintrag existieren
         long countForHost = changes.stream()
@@ -254,7 +254,7 @@ class H2MeasurementRepositoryTest
     void testStatisticsWithEmptyDatabase() throws SQLException
     {
         // Leere Datenbank (nach clearTestData): Darf keinen Fehler werfen
-        H2MeasurementRepository.Statistics stats = repo.calculateStatistics("PING", 1);
+        Statistics stats = repo.calculateStatistics("PING", 1);
 
         assertNotNull(stats, "Statistik-Objekt darf auch bei leerer DB nicht null sein");
         assertEquals(0.0, stats.getAvgLatency(), 0.01, "Durchschnitt bei 0 Messungen muss 0 sein");
@@ -276,7 +276,7 @@ class H2MeasurementRepositoryTest
             }
         repo.registerHost("testhash789", "myhost", "Linux");
 
-        List<H2MeasurementRepository.HostInfo> hosts = repo.getAllHosts();
+        List<HostInfo> hosts = repo.getAllHosts();
         long count = hosts.stream()
                 .filter(h -> "testhash789".equals(h.getHostHash()))
                 .count();

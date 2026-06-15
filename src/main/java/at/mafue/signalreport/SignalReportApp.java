@@ -1,5 +1,8 @@
 package at.mafue.signalreport;
 
+import at.mafue.signalreport.config.GatewayConfig;
+import at.mafue.signalreport.config.MaintenanceWindow;
+
 import at.mafue.signalreport.config.Config;
 import at.mafue.signalreport.i18n.I18n;
 import at.mafue.signalreport.measurement.DnsMeasurer;
@@ -109,7 +112,7 @@ public class SignalReportApp
 
         // Lokale Gateways ermitteln (naechster Router + Pforte ins Internet).
         // Per Traceroute beim Start; das Ergebnis wird in config.json hinterlegt.
-        Config.GatewayConfig gwCfg = config.getGateway();
+        GatewayConfig gwCfg = config.getGateway();
         boolean discoverNear = !gwCfg.isNearManual();
         boolean discoverFar = !gwCfg.isFarManual();
         if (gwCfg.isAutoDiscover() && (discoverNear || discoverFar))
@@ -158,11 +161,11 @@ public class SignalReportApp
                 }
             lastLocalIp = curLocalIp;
 
-            Config.MaintenanceWindow maintenance = currentConfig.getMaintenanceWindow();
+            MaintenanceWindow maintenance = currentConfig.getMaintenanceWindow();
 
             if (maintenance == null)
                 {
-                maintenance = new Config.MaintenanceWindow();
+                maintenance = new MaintenanceWindow();
                 }
 
             // Wartungsfenster-Prüfung
@@ -207,7 +210,7 @@ public class SignalReportApp
                     // Lokale Gateways messen (eigene Typen, fliessen NICHT in die
                     // Internet-PING-Statistik ein). Lokalisiert eine Stoerung:
                     // ist der eigene Router/das Modem schuld oder der Provider?
-                    Config.GatewayConfig gw = currentConfig.getGateway();
+                    GatewayConfig gw = currentConfig.getGateway();
                     String nearGw = gw.getNear();
                     String farGw = gw.getFar();
                     int gwCount = 0;
@@ -247,7 +250,7 @@ public class SignalReportApp
      */
     private static void rediscoverGatewaysAfterIpChange(Config cfg, String oldIp, String newIp)
     {
-        Config.GatewayConfig gw = cfg.getGateway();
+        GatewayConfig gw = cfg.getGateway();
         if (!gw.isAutoDiscover())
             {
             return; // Auto-Erkennung global deaktiviert

@@ -1,5 +1,10 @@
 package at.mafue.signalreport.report;
 
+import at.mafue.signalreport.storage.Statistics;
+
+import at.mafue.signalreport.config.GatewayConfig;
+import at.mafue.signalreport.config.UserInfo;
+
 import at.mafue.signalreport.config.Config;
 import at.mafue.signalreport.i18n.I18n;
 import at.mafue.signalreport.measurement.Measurement;
@@ -149,7 +154,7 @@ public class PdfReportGenerator
 
         // Benutzer-Informationen
         Config config = Config.getInstance();
-        Config.UserInfo userInfo = config.getUserInfo();
+        UserInfo userInfo = config.getUserInfo();
         boolean hasUserInfo = userInfo != null &&
                 (!userInfo.getProvider().isEmpty() ||
                         !userInfo.getCustomerId().isEmpty() ||
@@ -194,7 +199,7 @@ public class PdfReportGenerator
         // === PING STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.pingMeasurements"), fontBold(14)));
 
-        H2MeasurementRepository.Statistics pingStats = repository.calculateStatistics("PING", hours);
+        Statistics pingStats = repository.calculateStatistics("PING", hours);
         Font statFont = font(11);
         addStatisticsBlock(document, pingStats, statFont, locale);
         document.add(Chunk.NEWLINE);
@@ -217,7 +222,7 @@ public class PdfReportGenerator
         // === DNS STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.dnsMeasurements"), fontBold(14)));
 
-        H2MeasurementRepository.Statistics dnsStats = repository.calculateStatistics("DNS", hours);
+        Statistics dnsStats = repository.calculateStatistics("DNS", hours);
         addStatisticsBlock(document, dnsStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
@@ -235,7 +240,7 @@ public class PdfReportGenerator
         // === HTTP STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.httpMeasurements"), fontBold(14)));
 
-        H2MeasurementRepository.Statistics httpStats = repository.calculateStatistics("HTTP", hours);
+        Statistics httpStats = repository.calculateStatistics("HTTP", hours);
         addStatisticsBlock(document, httpStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
@@ -296,7 +301,7 @@ public class PdfReportGenerator
     }
 
     /** Schreibt den Statistik-Block (5 Kennzahlen) lokalisiert ins Dokument. */
-    private void addStatisticsBlock(Document document, H2MeasurementRepository.Statistics stats,
+    private void addStatisticsBlock(Document document, Statistics stats,
                                     Font statFont, Locale locale) throws DocumentException
     {
         document.add(new Paragraph(I18n.get("pdf.avgLatency") + ": " + String.format(locale, "%.1f ms", stats.getAvgLatency()), statFont));
@@ -312,11 +317,11 @@ public class PdfReportGenerator
      * keine lokalen Gateways konfiguriert/entdeckt sind.
      */
     private void addConnectivitySection(Document document, int hours,
-                                        H2MeasurementRepository.Statistics internetStats,
+                                        Statistics internetStats,
                                         Font statFont, Locale locale) throws Exception
     {
         Config cfg = Config.getInstance();
-        Config.GatewayConfig gw = cfg.getGateway();
+        GatewayConfig gw = cfg.getGateway();
 
         String nearIp = gw.getNear();
         String farIp = gw.getFar();
@@ -327,8 +332,8 @@ public class PdfReportGenerator
             return; // keine Gateway-Daten -> Abschnitt entfaellt
             }
 
-        H2MeasurementRepository.Statistics nearStats = repository.calculateStatistics(GatewayDiscovery.TYPE_NEAR, hours);
-        H2MeasurementRepository.Statistics farStats = repository.calculateStatistics(GatewayDiscovery.TYPE_FAR, hours);
+        Statistics nearStats = repository.calculateStatistics(GatewayDiscovery.TYPE_NEAR, hours);
+        Statistics farStats = repository.calculateStatistics(GatewayDiscovery.TYPE_FAR, hours);
 
         ConnectivityAssessment.Verdict verdict = ConnectivityAssessment.assess(
                 hasNear ? nearStats : null,
@@ -400,7 +405,7 @@ public class PdfReportGenerator
 
     /** Eine Segment-Zeile: "Label (IP): x ms, y % Paketverlust — Status". */
     private Paragraph connectivityLine(String label, String ip,
-                                       H2MeasurementRepository.Statistics s,
+                                       Statistics s,
                                        Font statFont, Locale locale)
     {
         String status = !ConnectivityAssessment.hasData(s)

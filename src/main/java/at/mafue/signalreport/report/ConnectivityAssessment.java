@@ -1,6 +1,6 @@
 package at.mafue.signalreport.report;
 
-import at.mafue.signalreport.storage.H2MeasurementRepository.Statistics;
+import at.mafue.signalreport.storage.Statistics;
 
 /**
  * Lokalisiert eine Verbindungsstoerung anhand der Mess-Statistiken der lokalen
