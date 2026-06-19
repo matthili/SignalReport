@@ -5,7 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-119%20passing-brightgreen" alt="JUnit Tests"></a>
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-156%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.0-blue" alt="Version 2.0">
 </p>
 
 <p align="center">
@@ -28,6 +29,7 @@ A professional, open-source monitoring tool for the continuous supervision of yo
 |----------|-----------|
 | **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP + gateways)<br>⏱️ Configurable interval (5s–1h, default 30s)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
 | **Fault localisation & reliability** | 🛰️ Pinpoint router vs. internet gateway vs. ISP (traceroute gateway chain)<br>🐳 Virtual-gateway detection in VM/Docker<br>📈 Availability, coverage, MTBF & MTTR (gap-aware)<br>📉 Aggregated connection outages, individually excludable from the rating |
+| **Service reachability** | 🚫 Detects whether services (Facebook, Instagram, X, YouTube, WhatsApp, …) are reachable or **blocked** — distinguishing DNS / TCP / SNI / block-page filtering<br>🕒 Separate slow schedule (default 6 h), line-gated, **off by default**<br>📅 Per-service block/outage timeline in the PDF report |
 | **Visualisation** | 📊 Live charts with Chart.js<br>📋 Per-cycle measurement table (collapsible)<br>🌡️ Hourly heatmap<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
 | **Reports** | 📄 PDF export (24h / 7 days / 12 months)<br>📈 3 charts (PING/DNS/HTTP) with target-change markers<br>🏆 Top 10 worst measurements<br>⚠️ Connection-outage analysis<br>📤 CSV export (complete or filtered) |
 | **Security** | 🔐 Setup wizard (web-based, no CLI)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles with session management<br>🛡️ Password is never transmitted in plaintext |
@@ -173,17 +175,18 @@ A compact overview of the directories and classes is available in [`docs/Project
 signalreport/
 ├── src/main/java/at/mafue/signalreport/
 │   ├── SignalReportApp.java              # Main class (entry point)
-│   ├── config/                           # Slim Config + one file per area (Measurement, Gateway, Maintenance, Auth, Theme, …)
+│   ├── ServiceReachabilityScheduler.java # Slow service-reachability loop + line-gate
+│   ├── config/                           # Slim Config + one file per area (Measurement, Gateway, ServiceReachability, ServiceTarget, …)
 │   ├── measurement/                      # Measurer interface + Ping/Dns/Http, Measurement, DnsBenchmark
-│   ├── network/                          # GatewayDiscovery (traceroute), NetworkInfo, HostIdentifier
-│   ├── storage/                          # H2MeasurementRepository (twin DB) + DTOs (Statistics, IpChange, …)
-│   ├── report/                           # ReliabilityReport, ConnectivityAssessment, PdfReportGenerator
+│   ├── network/                          # GatewayDiscovery (traceroute), ServiceReachabilityProbe, NetworkInfo, HostIdentifier
+│   ├── storage/                          # H2MeasurementRepository (twin DB) + DTOs (Statistics, ServiceCheck, IpChange, …)
+│   ├── report/                           # ReliabilityReport, ConnectivityAssessment, ServiceReachabilityAssessment/Report, PdfReportGenerator
 │   ├── web/                              # WebServer (Javalin orchestrator), SessionManager
 │   │   ├── view/                         #   HtmlPageRenderer, SetupPageRenderer, LoginPageRenderer
-│   │   └── api/                          #   9 route registrars (Measurement, Reliability, Settings, …)
+│   │   └── api/                          #   10 route registrars (Measurement, Reliability, ServiceReachability, Settings, …)
 │   ├── i18n/                             # I18n (9 languages, extensible)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 12 test classes, 119 tests (mirror the packages above)
+├── src/test/java/at/mafue/signalreport/  # 20 test classes, 156 tests (mirror the packages above)
 ├── src/main/resources/web/               # Static assets: app.css, app.js, logos, favicons
 ├── src/main/resources/lang/              # Language files (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/fonts/             # DejaVu fonts for the PDF (Unicode/Cyrillic)

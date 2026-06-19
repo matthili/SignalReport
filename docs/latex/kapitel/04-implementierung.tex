@@ -193,6 +193,7 @@ verschachtelte statische Klasse):
 public class Config {
     private MeasurementConfig measurement;
     private GatewayConfig gateway;       // Stoerungs-Lokalisierung
+    private ServiceReachabilityConfig serviceReachability;  // Dienst-Erreichbarkeit (V2)
     private MaintenanceWindow maintenanceWindow;
     private UserInfo userInfo;
     private SetupConfig setup;
@@ -216,7 +217,7 @@ H2 wird im FILE-Modus mit Twin-Architektur betrieben: zwei parallele Datenbanken
 Beide nutzen das identische Schema. Die JDBC-URL enthält \texttt{WRITE\_DELAY=0}, um
 synchrone OS-Flushes nach jedem Commit zu erzwingen (siehe Abschnitt \ref{subsec:twindb}).
 
-Drei Tabellen bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und
+Vier Tabellen bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und
 \texttt{findAll()} ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte,
 während \texttt{findLastN(int)} für die Live-Anzeige im Web-Interface verwendet wird.
 Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
@@ -237,6 +238,10 @@ Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
 \texttt{ip\_changes} & id (BIGINT) & Zeitstempel, alte/neue IP, Änderungstyp,
   Host-Hash \\
 \hline
+\texttt{service\_checks} & id (BIGINT) & Zeitstempel, Dienst-ID, Verdikt
+  (REACHABLE / DNS\_BLOCKED / SNI\_BLOCKED / \ldots), Methode, HTTP-Status,
+  aufgelöste IP, Latenz -- für die Dienst-Erreichbarkeit (Version 2.0) \\
+\hline
 \end{tabular}
 \caption{H2-Datenbank-Schema}
 \label{tab:dbschema}
@@ -244,4 +249,5 @@ Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
 
 Für performante Abfragen bei wachsender Datenmenge werden beim Start automatisch
 Indizes auf den Spalten \texttt{timestamp}, \texttt{type}, \texttt{host\_hash} sowie
-ein kombinierter Index \texttt{(type, timestamp)} angelegt.
+ein kombinierter Index \texttt{(type, timestamp)} sowie ein Index
+\texttt{service\_checks(service\_id, timestamp)} angelegt.

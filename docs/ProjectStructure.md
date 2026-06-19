@@ -7,6 +7,7 @@ SignalReport/
 ├── src/
 │   ├── main/java/at/mafue/signalreport/  # Layered packages (see below)
 │   │   ├── SignalReportApp.java          # Main class (entry point + continuous measurement loop)
+│   │   ├── ServiceReachabilityScheduler.java  # Slow service-reachability loop + line-gate + manual trigger
 │   │   ├── config/                       # Configuration (Config + one file per aspect)
 │   │   │   ├── Config.java               # Singleton facade (load/save, password hashing, defaults)
 │   │   │   ├── MeasurementConfig.java    # Measurement settings (interval, …)
@@ -20,7 +21,9 @@ SignalReport/
 │   │   │   ├── AuthConfig.java           # Authentication settings
 │   │   │   ├── PushConfig.java           # Push notification settings
 │   │   │   ├── SetupConfig.java          # Setup-wizard state
-│   │   │   └── ThemeConfig.java          # Theme (dark mode)
+│   │   │   ├── ThemeConfig.java          # Theme (dark mode)
+│   │   │   ├── ServiceReachabilityConfig.java  # Service-reachability settings (enabled, interval, service list)
+│   │   │   └── ServiceTarget.java        # One monitored service (domain, kind, enabled)
 │   │   ├── measurement/                  # Measurement engine (strategy pattern)
 │   │   │   ├── Measurer.java             # Interface (strategy pattern)
 │   │   │   ├── Measurement.java          # Domain model (one cycle / single value)
@@ -31,17 +34,22 @@ SignalReport/
 │   │   ├── network/                      # Network topology and identity
 │   │   │   ├── GatewayDiscovery.java     # Traceroute-based gateway chain (near/far)
 │   │   │   ├── NetworkInfo.java          # IP address discovery (120s cache)
-│   │   │   └── HostIdentifier.java       # Host hash (stable ID)
+│   │   │   ├── HostIdentifier.java       # Host hash (stable ID)
+│   │   │   ├── ServiceReachabilityProbe.java   # Layered probe (DNS/TCP/TLS-SNI/HTTP), parallel via virtual threads
+│   │   │   └── ServiceReachabilityResult.java  # Probe result DTO (verdict, method, IP, status, latency)
 │   │   ├── storage/                      # Persistence + read DTOs
 │   │   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow)
 │   │   │   ├── Statistics.java           # Aggregated statistics DTO
 │   │   │   ├── IpChange.java             # Single IP change record
 │   │   │   ├── IpChangeStats.java        # IP change statistics DTO
 │   │   │   ├── HourlyAverage.java        # Hourly average DTO (heatmap)
-│   │   │   └── HostInfo.java             # Host metadata DTO
+│   │   │   ├── HostInfo.java             # Host metadata DTO
+│   │   │   └── ServiceCheck.java         # One service-reachability check (service_checks row)
 │   │   ├── report/                       # Reporting
 │   │   │   ├── ReliabilityReport.java    # Gap-aware metrics (uptime, coverage, MTBF, MTTR, outages)
 │   │   │   ├── ConnectivityAssessment.java  # "Who is to blame" verdict (router/gateway/internet)
+│   │   │   ├── ServiceReachabilityAssessment.java  # Reachability verdict (reachable/blocked/down)
+│   │   │   ├── ServiceReachabilityReport.java  # Episode aggregation (state-change timeline)
 │   │   │   └── PdfReportGenerator.java   # PDF export (OpenPDF + JFreeChart)
 │   │   ├── web/                          # HTTP layer (Javalin)
 │   │   │   ├── WebServer.java            # Orchestrator (Javalin setup, gating filters, route registration)
@@ -60,18 +68,20 @@ SignalReport/
 │   │   │       ├── DnsRoutes.java        # DNS benchmark endpoints
 │   │   │       ├── SettingsRoutes.java   # Config/theme/push settings endpoints
 │   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints
-│   │   │       └── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
+│   │   │       ├── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
+│   │   │       └── ServiceReachabilityRoutes.java  # Service status/history/settings + check-now (cooldown)
 │   │   ├── i18n/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (12 classes, 119 tests)
-│   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (20 classes, 156 tests + 3 opt-in smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic)
+│   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
-│   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8)
-│   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8)
-│   │   ├── web/           # SessionManagerTest (19)
+│   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8), ServiceCheckRepositoryTest (3)
+│   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker

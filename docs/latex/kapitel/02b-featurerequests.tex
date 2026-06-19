@@ -168,7 +168,7 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
 \subsection{FR-11: Dienst-Erreichbarkeit (Sperr- und Zensur-Erkennung)}
 \begin{description}
   \item[Priorität:] Should
-  \item[Status:] In Planung -- ein konkreter Implementierungsplan liegt vor.
+  \item[Status:] \textbf{Umgesetzt} (Version 2.0) -- siehe \texttt{network.ServiceReachabilityProbe}, \texttt{report.ServiceReachabilityAssessment}/\texttt{Report} und \texttt{ServiceReachabilityScheduler}.
   \item[Beschreibung:] SignalReport prüft zusätzlich, ob ausgewählte Online-Dienste
     (z.\,B.\ Facebook, Instagram, X, YouTube, Wikipedia, WhatsApp) aus der Netzwerk-Situation
     des Messpunkts erreichbar sind -- und unterscheidet dabei, ob ein Dienst \emph{selbst}
@@ -214,7 +214,7 @@ FR-07 & Verbesserte Verschlüsselung & Could \\
 FR-08 & Messenger-Benachrichtigungen bei Ausfällen & Could \\
 FR-09 & ResultSet-basierte Datenbank-Iteratoren & Should \\
 FR-10 & Home Assistant Add-on & Could \\
-FR-11 & Dienst-Erreichbarkeit (Sperr-/Zensur-Erkennung) & Should \\
+FR-11 & Dienst-Erreichbarkeit (Sperr-/Zensur-Erkennung) & \textbf{Umgesetzt} \\
 \hline
 \end{tabular}
 \caption{Feature Requests mit MoSCoW-Priorisierung}
@@ -227,6 +227,10 @@ FR-11 & Dienst-Erreichbarkeit (Sperr-/Zensur-Erkennung) & Should \\
 umgesetzt, die nicht Teil des ursprünglichen FR-Katalogs waren:
 
 \begin{itemize}
+  \item \textbf{Dienst-Erreichbarkeit / Sperr-Erkennung} (FR-11, Version 2.0): Schicht-Probe
+    (DNS über ISP- vs.\ öffentlichen Resolver, TCP, TLS mit echtem vs.\ Kontroll-SNI, HTTP)
+    je Dienst mit Leitungs-Gate, Episoden-Verdichtung in der Tabelle \texttt{service\_checks},
+    Ampel-/Kachel-UI und optionalem PDF-Abschnitt -- standardmäßig deaktiviert, in allen neun Sprachen.
   \item \textbf{Störungs-Lokalisierung} (FR-05, Kernidee): Gateway-Kette per Traceroute,
     Schuld-Verdikt (Router / Internet-Gateway / Internet) sowie Erkennung virtueller
     Gateways in VM/Docker.

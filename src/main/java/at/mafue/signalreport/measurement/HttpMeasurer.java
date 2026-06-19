@@ -72,7 +72,7 @@ public class HttpMeasurer implements Measurer
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(5))
-                    .header("User-Agent", "SignalReport/1.0")
+                    .header("User-Agent", "SignalReport/2.0")
                     .GET()
                     .build();
 

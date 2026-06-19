@@ -88,6 +88,35 @@ POST & \texttt{/api/outages/exclude} & Ausfallfenster aus der Wertung nehmen bzw
 \caption{API-Endpunkte: Verfügbarkeit und Störungs-Lokalisierung}
 \end{table}
 
+\subsection{Dienst-Erreichbarkeit}
+
+Diese Endpunkte werden von \texttt{ServiceReachabilityRoutes} (Paket \texttt{web.api}) registriert. Das Feature ist standardmäßig deaktiviert; ist es aus, liefert \texttt{/api/services} eine leere Dienstliste mit \texttt{enabled=false}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/services} & Aktueller Status je aktivem Dienst (Verdikt, \enquote{seit wann}, Erreichbarkeitsquote, letzte Methode) für Ampel/Kacheln.
+  Parameter: \texttt{days} (Zeitfenster, Standard 30) \\
+\hline
+GET & \texttt{/api/services/history} & Episoden (Zustandswechsel) eines Dienstes -- die Sperr-Timeline.
+  Parameter: \texttt{id} (Dienst), \texttt{days} (Standard 90) \\
+\hline
+GET & \texttt{/api/services/settings} & Einstellungen abrufen: Hauptschalter, Intervall, Kontroll-SNI, vollständige Dienstliste \\
+\hline
+POST & \texttt{/api/services/settings} & Einstellungen speichern.
+  Body: \texttt{\{enabled, intervalMinutes, useControlSni, services:[\{id, enabled\}]\}} \\
+\hline
+POST & \texttt{/api/services/check-now} & Sofortige Prüfung auslösen.
+  Liefert \texttt{cooldownRemainingSeconds} (0 = gestartet; 5-Minuten-Abkühlphase) \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Dienst-Erreichbarkeit}
+\end{table}
+
 \subsection{Berichte und Export}
 
 \begin{table}[h]

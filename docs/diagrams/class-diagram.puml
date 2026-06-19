@@ -15,6 +15,12 @@ package "signalreport" {
     {static} +void main(String[] args)
     -{static} void rediscoverGatewaysAfterIpChange(Config cfg, String oldIp, String newIp)
   }
+  class ServiceReachabilityScheduler {
+    +void start()
+    +void runOnce(ServiceReachabilityConfig cfg)
+    +long triggerManualRun()
+    ~{static} boolean internetConfirmedUp(List<Measurement> recent)
+  }
 }
 
 ' ============================================================
@@ -76,6 +82,16 @@ package "network" {
     +{static} String getHostname()
     +{static} String getOperatingSystem()
   }
+  class ServiceReachabilityProbe {
+    +List<ServiceReachabilityResult> probeAll(ServiceReachabilityConfig cfg)
+    +ServiceReachabilityResult probeOne(ServiceTarget t, boolean controlReachable, boolean useControlSni)
+  }
+  class ServiceReachabilityResult {
+    -String serviceId
+    -Verdict verdict
+    -String method
+    -int httpStatus
+  }
 }
 
 ' ============================================================
@@ -104,6 +120,12 @@ package "storage" {
   class HostInfo
   class IpChange
   class IpChangeStats
+  class ServiceCheck {
+    -Instant timestamp
+    -String serviceId
+    -String verdict
+    -String method
+  }
 }
 
 ' ============================================================
@@ -134,6 +156,23 @@ package "report" {
     +byte[] generateReport(int hours)
     -ReliabilityReport addReliabilitySection(...)
     -void addConnectivitySection(...)
+    -void addReachabilitySection(...)
+  }
+  class ServiceReachabilityAssessment {
+    +{static} Verdict classify(Observation o)
+    +{static} boolean isBlocked(Verdict v)
+    +{static} String verdictKey(Verdict v)
+  }
+  class ServiceReachabilityReport {
+    +{static} ServiceReachabilityReport compute(String serviceId, List<ServiceCheck> checks)
+    +List<Episode> getEpisodes()
+    +double getReachablePercent()
+  }
+  class "ServiceReachabilityReport.Episode" as Episode {
+    -String verdict
+    -Instant start
+    -Instant end
+    -int sampleCount
   }
 }
 
@@ -145,6 +184,7 @@ package "config" {
     -{static} volatile Config instance
     -MeasurementConfig measurement
     -GatewayConfig gateway
+    -ServiceReachabilityConfig serviceReachability
     -MaintenanceWindow maintenanceWindow
     +{static} Config load(String path)
     +{static} void save(String path)
@@ -183,6 +223,18 @@ package "config" {
   class SetupConfig
   class PushConfig
   class ThemeConfig
+  class ServiceReachabilityConfig {
+    -boolean enabled
+    -int intervalMinutes
+    -boolean useControlSni
+    -List<ServiceTarget> services
+  }
+  class ServiceTarget {
+    -String id
+    -String domain
+    -ServiceKind kind
+    -boolean enabled
+  }
 }
 
 ' ============================================================
@@ -233,6 +285,7 @@ package "web.api" {
   class SettingsRoutes
   class SetupRoutes
   class AuthRoutes
+  class ServiceReachabilityRoutes
 }
 
 ' ============================================================
@@ -310,12 +363,24 @@ SignalReportApp --> H2MeasurementRepository
 SignalReportApp --> WebServer
 SignalReportApp --> Config
 
+' --- Dienst-Erreichbarkeit (V2) ---
+SignalReportApp --> ServiceReachabilityScheduler
+ServiceReachabilityScheduler --> ServiceReachabilityProbe
+ServiceReachabilityProbe ..> ServiceReachabilityAssessment
+ServiceReachabilityProbe --> ServiceReachabilityResult
+ServiceReachabilityReport ..> ServiceCheck
+ServiceReachabilityReport --> Episode
+H2MeasurementRepository --> ServiceCheck
+Config --> ServiceReachabilityConfig
+ServiceReachabilityConfig --> ServiceTarget
+WebServer --> ServiceReachabilityRoutes
+
 note top of H2MeasurementRepository
   Embedded H2 (Twin-DB):
   Primary + Shadow, synchrones Schreiben (WRITE_DELAY=0).
   Lesen nur aus Primary. Auto-Recovery: korrupte DB
   wird beim Start aus der intakten rekonstruiert.
-  Tabellen: measurements (+ Spalte excluded), hosts, ip_changes
+  Tabellen: measurements (+ Spalte excluded), hosts, ip_changes, service_checks
 end note
 
 note right of GatewayDiscovery
@@ -336,7 +401,7 @@ end note
 note bottom of WebServer
   Javalin-Orchestrator: Setup + 2 before-Filter
   (Setup-/Auth-Gating), delegiert die Routen an die
-  9 Registrare im Paket web.api. Statische Assets
+  10 Registrare im Paket web.api. Statische Assets
   (app.css/app.js) aus /web. Challenge-Response (SHA-256).
 end note
 @enduml

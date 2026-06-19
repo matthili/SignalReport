@@ -6,6 +6,7 @@
 ┌─────────────────────────────────────────────┐
 │  Java backend (Javalin 5.6.3)               │
 │  ├── SignalReportApp (continuous loop)      │
+│  ├── ServiceReachabilityScheduler (6h loop) │
 │  ├── measurement/ (engine)                  │
 │  │   ├── PingMeasurer (implements           │
 │  │   ├── DnsMeasurer    Measurer)           │
@@ -21,11 +22,12 @@
 │  ├── report/                                │
 │  │   ├── ReliabilityReport (gap-aware)      │
 │  │   ├── ConnectivityAssessment (verdict)   │
+│  │   ├── ServiceReachability (block detect) │
 │  │   └── PdfReportGenerator (OpenPDF,       │
 │  │         DejaVu font embedded)            │
 │  ├── web/ WebServer (orchestrator)          │
 │  │   ├── setup/auth gating filters          │
-│  │   ├── api/ (9 route registrars)          │
+│  │   ├── api/ (10 route registrars)         │
 │  │   ├── view/ (Html/Setup/Login renderer)  │
 │  │   └── SessionManager                     │
 │  │       ├── Challenge-response (SHA-256)   │
@@ -58,17 +60,18 @@ The backend is split into layered packages under `at.mafue.signalreport`:
 `config` (settings, one class per aspect), `measurement` (the strategy-based
 engine plus the `Measurement` domain model), `network` (topology and host
 identity), `storage` (the twin-database repository and its read DTOs), `report`
-(reliability metrics, the connectivity verdict and the PDF generator), `web`
+(reliability metrics, the connectivity verdict, the service-reachability
+assessment and the PDF generator), `web`
 (the Javalin layer with `view` renderers and `api` route registrars), `i18n`
 and `notification`. `SignalReportApp` is the entry point and runs the continuous
 measurement loop.
 
 The `web.WebServer` acts as an orchestrator: it sets up Javalin, installs two
 `before` filters (setup gating and authentication gating) and then calls the
-static `register(app, …deps)` method of each of the nine route registrars in
+static `register(app, …deps)` method of each of the ten route registrars in
 `web.api` (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
 `ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`, `SetupRoutes`,
-`AuthRoutes`).
+`AuthRoutes`, `ServiceReachabilityRoutes`).
 
 ## Authentication
 
@@ -118,6 +121,32 @@ names the culprit: the **router**, the **internet gateway** or the **internet**.
 **Maintenance windows** write a maintenance marker (measurement type
 `MAINTENANCE`) for every skipped cycle, so planned gaps are not counted as a
 data outage. The default measurement interval is 30 s.
+
+## Service reachability (block / censorship detection)
+
+An optional, **off-by-default** feature checks whether selected online services
+(Facebook, Instagram, X, YouTube, WhatsApp, …) are reachable or **blocked** — and
+*how*. It runs on its own slow schedule (default every 6 h), separate from the
+30 s measurement loop.
+
+- **Layered probe** (`network.ServiceReachabilityProbe`, parallel via virtual
+  threads): DNS via the system/ISP resolver **vs.** a public resolver (1.1.1.1),
+  TCP connect, a TLS handshake with the real SNI **vs.** a benign control SNI, and
+  the HTTP status / block-page check. The first broken layer wins.
+- **Pure verdict** (`report.ServiceReachabilityAssessment`, sibling of
+  `ConnectivityAssessment`): `REACHABLE` · `SERVICE_DOWN` · `DNS_BLOCKED` ·
+  `CONNECTION_BLOCKED` · `SNI_BLOCKED` · `BLOCKPAGE` · `UNKNOWN`.
+- **Line-gate**: before each run the scheduler asks the live 30 s monitor "is the
+  line up?" (a recent successful PING/HTTP). If not, the run is skipped and a
+  single `LINE_DOWN` marker is written — a real outage is never mislabelled as a
+  block.
+- **Storage & episodes**: results go to the `service_checks` table (twin-DB);
+  `report.ServiceReachabilityReport` collapses consecutive same-verdict checks into
+  **episodes** ("blocked from 1 Mar to 11 Mar"), shown as tiles + a traffic light
+  in the UI and as a timeline in the PDF.
+- **`ServiceReachabilityScheduler`** (root package) drives the slow loop and the
+  manual "check now" trigger (5-minute cooldown); `web.api.ServiceReachabilityRoutes`
+  exposes status, history, settings and check-now.
 
 ## Twin database (crash resistance)
 

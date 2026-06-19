@@ -12,7 +12,7 @@ Die Teststrategie umfasste:
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die 12 Testklassen -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 119 Tests decken folgende Bereiche ab:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 18 Testklassen mit laufenden Tests -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 156 Tests (zuzüglich zweier netz- bzw.\ PDF-gebundener Smoke-Klassen, die per Umgebungsvariable aktivierbar sind) decken folgende Bereiche ab:
 
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
@@ -27,6 +27,12 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 12 Testklassen -- in Pake
     \item \textbf{GatewayDiscoveryTest} (15 Tests): Traceroute-Parsing, RFC-1918-Klassifizierung, Gateway-Kette (nah/fern), Erkennung virtueller Gateways (Docker-Bridge, VM-NAT) und Überspringen der Docker-Bridge
     \item \textbf{ConnectivityAssessmentTest} (8 Tests): Schuld-Verdikt (Router / Internet-Gateway / Internet) auf Basis des Paketverlusts je Segment
     \item \textbf{ReliabilityReportTest} (10 Tests): lückenbewusste Verfügbarkeit/Abdeckung/MTBF/MTTR, Aggregation aufeinanderfolgender Fehlmessungen zu einem Ausfall, Ausschluss via \texttt{excluded}-Spalte
+    \item \textbf{ServiceReachabilityConfigTest} (8 Tests): Defaults (deaktiviert, 6-Stunden-Takt), Intervall-Grenzen, Pro-Dienst-Schalter, JSON-Round-Trip
+    \item \textbf{ServiceReachabilityAssessmentTest} (15 Tests): Verdikt-Klassifizierung (erreichbar / Dienst-Störung / DNS-, TCP-, SNI-Sperre / Sperrseite) aus synthetischen Beobachtungen
+    \item \textbf{ServiceReachabilityReportTest} (4 Tests): Verdichtung der Prüfungen zu Episoden (die Sperr-/Störungs-Timeline)
+    \item \textbf{ServiceReachabilitySchedulerTest} (5 Tests): Leitungs-Gate-Entscheidung (nur erfolgreiche PING-/HTTP-Messungen zählen als Internet-Beleg)
+    \item \textbf{ServiceCheckRepositoryTest} (3 Tests): \texttt{service\_checks}-Persistenz, Zeitraum-Abfrage, neueste Prüfung je Dienst
+    \item \textbf{ServiceReachabilityRoutesTest} (2 Tests): \enquote{Jetzt prüfen}-Endpoint inkl.\ Abkühlphase (gegen echten Javalin-Server)
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
@@ -59,13 +65,15 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport) & 101 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler) & 133 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository) & 18 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, ServiceReachabilityRoutes) & 23 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
-\textbf{Gesamt} & \textbf{119 + 5} & \textbf{100\%} \\
+Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung) & 3 & -- \\
+\hline
+\textbf{Gesamt} & \textbf{156 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -90,5 +98,5 @@ SignalReport verwendet eine gezielte Test-Strategie:
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 119 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 156 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

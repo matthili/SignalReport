@@ -62,7 +62,7 @@ public class ServiceReachabilityProbe
     private static final String PUBLIC_RESOLVER = "1.1.1.1";
     private static final String CONTROL_DOMAIN = "example.com";
     private static final String CONTROL_SNI = "example.com";
-    private static final String USER_AGENT = "SignalReport/1.0";
+    private static final String USER_AGENT = "SignalReport/2.0";
 
     private static final int DNS_TIMEOUT_MS = 4000;
     private static final int TCP_TIMEOUT_MS = 5000;

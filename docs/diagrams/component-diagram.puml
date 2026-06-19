@@ -8,10 +8,11 @@ skinparam componentStyle rectangle
 
 package "signalreport" {
   [SignalReportApp] as App
+  [ServiceReachabilityScheduler] as Sched
 }
 package "web" {
   [WebServer] as Web
-  [web.api: 9 Registrare] as Api
+  [web.api: 10 Registrare] as Api
   [web.view: Renderer] as View
   [SessionManager] as SessionMgr
 }
@@ -47,6 +48,8 @@ App --> Ping
 App --> GwDisc
 App --> Repo
 App --> Config
+App --> Sched
+Sched --> Repo
 
 Web --> Api
 Web --> View
@@ -76,7 +79,7 @@ Repo --> ShadowDB
 
 note bottom of Web
   Javalin (Port 4567): Setup + 2 before-Filter
-  (Setup-/Auth-Gating), register() der 9 web.api-Klassen,
+  (Setup-/Auth-Gating), register() der 10 web.api-Klassen,
   statische Assets /app.css + /app.js, SHA-256-Auth.
 end note
 note bottom of GwDisc

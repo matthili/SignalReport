@@ -6,6 +6,7 @@
 ┌─────────────────────────────────────────────┐
 │  Java-Backend (Javalin 5.6.3)               │
 │  ├── SignalReportApp (kontinuierliche Schleife)│
+│  ├── ServiceReachabilityScheduler (6h-Lauf) │
 │  ├── measurement/ (Engine)                  │
 │  │   ├── PingMeasurer (implements           │
 │  │   ├── DnsMeasurer    Measurer)           │
@@ -21,11 +22,12 @@
 │  ├── report/                                │
 │  │   ├── ReliabilityReport (lückenbewusst)  │
 │  │   ├── ConnectivityAssessment (Verdikt)   │
+│  │   ├── ServiceReachability (Sperr-Check)  │
 │  │   └── PdfReportGenerator (OpenPDF,       │
 │  │         DejaVu-Schrift eingebettet)      │
 │  ├── web/ WebServer (Orchestrator)          │
 │  │   ├── Setup-/Auth-Gating-Filter          │
-│  │   ├── api/ (9 Routen-Registrare)         │
+│  │   ├── api/ (10 Routen-Registrare)        │
 │  │   ├── view/ (Html/Setup/Login-Renderer)  │
 │  │   └── SessionManager                     │
 │  │       ├── Challenge-Response (SHA-256)   │
@@ -58,17 +60,18 @@ Das Backend ist in geschichtete Pakete unter `at.mafue.signalreport` aufgeteilt:
 `config` (Einstellungen, je eine Klasse pro Aspekt), `measurement` (die
 Strategy-basierte Engine samt `Measurement`-Domänenmodell), `network`
 (Topologie und Host-Identität), `storage` (das Twin-Datenbank-Repository und
-seine Lese-DTOs), `report` (Zuverlässigkeits-Kennzahlen, das Schuld-Verdikt und
-der PDF-Generator), `web` (die Javalin-Schicht mit `view`-Renderern und
+seine Lese-DTOs), `report` (Zuverlässigkeits-Kennzahlen, das Schuld-Verdikt, die
+Dienst-Erreichbarkeits-Bewertung und der PDF-Generator), `web` (die
+Javalin-Schicht mit `view`-Renderern und
 `api`-Routen-Registraren), `i18n` und `notification`. `SignalReportApp` ist der
 Einstiegspunkt und führt die kontinuierliche Mess-Schleife aus.
 
 `web.WebServer` fungiert als Orchestrator: Er richtet Javalin ein, installiert
 zwei `before`-Filter (Setup-Gating und Auth-Gating) und ruft anschließend die
-statische `register(app, …deps)`-Methode jeder der neun Routen-Registrar-Klassen
+statische `register(app, …deps)`-Methode jeder der zehn Routen-Registrar-Klassen
 in `web.api` auf (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
 `ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`, `SetupRoutes`,
-`AuthRoutes`).
+`AuthRoutes`, `ServiceReachabilityRoutes`).
 
 ## Authentifizierung
 
@@ -120,6 +123,34 @@ oder das **Internet**.
 **Wartungsfenster** schreiben pro übersprungenem Zyklus einen Wartungs-Marker
 (Messungstyp `MAINTENANCE`), damit geplante Lücken nicht als Datenausfall
 zählen. Das Standard-Messintervall beträgt 30 s.
+
+## Dienst-Erreichbarkeit (Sperr-/Zensur-Erkennung)
+
+Ein optionales, **standardmäßig deaktiviertes** Feature prüft, ob ausgewählte
+Online-Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder
+**gesperrt** sind – und *wie*. Es läuft in einem eigenen langsamen Takt
+(Standard alle 6 h), getrennt von der 30-s-Messschleife.
+
+- **Schicht-Probe** (`network.ServiceReachabilityProbe`, parallel über Virtual
+  Threads): DNS über den System-/ISP-Resolver **vs.** einen öffentlichen Resolver
+  (1.1.1.1), TCP-Connect, ein TLS-Handshake mit echtem SNI **vs.** einem harmlosen
+  Kontroll-SNI sowie HTTP-Status/Sperrseiten-Prüfung. Die erste gebrochene Schicht
+  gewinnt.
+- **Reines Verdikt** (`report.ServiceReachabilityAssessment`, Schwester von
+  `ConnectivityAssessment`): `REACHABLE` · `SERVICE_DOWN` · `DNS_BLOCKED` ·
+  `CONNECTION_BLOCKED` · `SNI_BLOCKED` · `BLOCKPAGE` · `UNKNOWN`.
+- **Leitungs-Gate**: Vor jedem Lauf fragt der Scheduler den laufenden
+  30-s-Monitor „steht die Leitung?" (jüngste erfolgreiche PING-/HTTP-Messung). Wenn
+  nicht, wird der Lauf übersprungen und ein einzelner `LINE_DOWN`-Marker
+  geschrieben – ein echter Ausfall wird nie als Sperre fehlinterpretiert.
+- **Speicherung & Episoden**: Ergebnisse landen in der Tabelle `service_checks`
+  (Twin-DB); `report.ServiceReachabilityReport` verdichtet aufeinanderfolgende
+  gleiche Verdikte zu **Episoden** („gesperrt vom 1.–11. März"), in der UI als
+  Kacheln + Ampel und im PDF als Timeline dargestellt.
+- **`ServiceReachabilityScheduler`** (Root-Paket) steuert den langsamen Lauf und
+  den manuellen „Jetzt prüfen"-Auslöser (5-Minuten-Abkühlphase);
+  `web.api.ServiceReachabilityRoutes` stellt Status, Verlauf, Einstellungen und
+  Jetzt-prüfen bereit.
 
 ## Twin-Datenbank (Crash-Resistenz)
 

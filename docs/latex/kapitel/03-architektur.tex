@@ -34,19 +34,21 @@ Die Anwendung gliedert sich in zehn geschichtete Packages unterhalb von
     Transferobjekt \texttt{Measurement}.
   \item[network] \texttt{GatewayDiscovery} (Traceroute-Gateway-Kette nah/fern,
     virtuelle-Gateway-Erkennung), \texttt{NetworkInfo} (lokale/externe IP) und
-    \texttt{HostIdentifier} (stabiler Host-Hash).
+    \texttt{HostIdentifier} (stabiler Host-Hash) sowie \texttt{ServiceReachabilityProbe}
+    (Schicht-Probe DNS/TCP/TLS-SNI/HTTP für die Dienst-Erreichbarkeit).
   \item[storage] \texttt{H2MeasurementRepository} für die embedded Datenbank in
     Twin-Architektur (Primary + Shadow) samt eigenen Lese-DTOs (\texttt{Statistics},
     \texttt{IpChange}, \texttt{IpChangeStats}, \texttt{HourlyAverage}, \texttt{HostInfo}).
-    Tabellen: Messungen, Hosts, IP-Änderungen. Siehe Abschnitt \ref{subsec:twindb}.
+    Tabellen: Messungen, Hosts, IP-Änderungen, Dienst-Prüfungen (\texttt{ServiceCheck}).
+    Siehe Abschnitt \ref{subsec:twindb}.
   \item[report] \texttt{ReliabilityReport} (lückenbewusste Kennzahlen),
-    \texttt{ConnectivityAssessment} (Schuld-Verdikt) und \texttt{PdfReportGenerator}
-    (OpenPDF + JFreeChart).
+    \texttt{ConnectivityAssessment} (Schuld-Verdikt), \texttt{ServiceReachabilityAssessment}/\texttt{Report}
+    (Dienst-Erreichbarkeit) und \texttt{PdfReportGenerator} (OpenPDF + JFreeChart).
   \item[web] \texttt{WebServer} als Javalin-Orchestrator (Setup, Setup-/Auth-Gating-Filter,
     Registrierung der Routen), \texttt{SessionManager} und \texttt{ErrorResponse}.
   \item[web.view] HTML-Renderer \texttt{HtmlPageRenderer}, \texttt{SetupPageRenderer} und
     \texttt{LoginPageRenderer}.
-  \item[web.api] Neun Routen-Registrar-Klassen (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
+  \item[web.api] Zehn Routen-Registrar-Klassen (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
     \texttt{ReliabilityRoutes}, \dots) mit je einer statischen \texttt{register(app, \dots)}-Methode.
   \item[i18n] \texttt{I18n} für die Mehrsprachigkeit (9 Sprachen).
   \item[notification] \texttt{PushNotificationService} für Browser-Benachrichtigungen.
@@ -75,7 +77,7 @@ Besonders hervorzuheben sind:
     ohne bestehenden Code zu ändern (Open/Closed Principle).
   \item Die \textbf{Renderer- und Routen-Aufteilung}: Das HTML-Rendering wurde in
     eigenständige Klassen ausgelagert (Paket \texttt{web.view}), und die Routen wurden
-    nach Domäne in neun Registrar-Klassen (Paket \texttt{web.api}) zerlegt. Der
+    nach Domäne in zehn Registrar-Klassen (Paket \texttt{web.api}) zerlegt. Der
     \texttt{WebServer} schrumpfte dadurch auf einen reinen Orchestrator von ca.\ 140 Zeilen;
     zusätzlich wurden CSS und JavaScript in statische Ressourcen (\texttt{app.css}/\texttt{app.js})
     ausgelagert.
@@ -86,6 +88,11 @@ Besonders hervorzuheben sind:
     \texttt{ConnectivityAssessment} bestimmen, ob Router, Internet-Gateway oder Provider
     für eine Störung verantwortlich ist; \texttt{ReliabilityReport} liefert lückenbewusste
     Verfügbarkeits-Kennzahlen (Uptime, Abdeckung, MTBF, MTTR).
+  \item Die \textbf{Dienst-Erreichbarkeit} (Version 2.0): \texttt{ServiceReachabilityProbe}
+    prüft per Schicht-Probe (DNS über ISP- vs.\ öffentlichen Resolver, TCP, TLS mit echtem
+    vs.\ Kontroll-SNI, HTTP), ob ausgewählte Online-Dienste erreichbar oder gesperrt sind;
+    \texttt{ServiceReachabilityAssessment} liefert das Verdikt, \texttt{ServiceReachabilityReport}
+    verdichtet es zu Episoden. Ein Leitungs-Gate verhindert Fehlalarme bei Internet-Ausfällen.
 \end{itemize}
 
 \begin{figure}[H]
