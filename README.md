@@ -76,9 +76,13 @@ For continuous operation (even without a logged-in user) SignalReport can be ins
 
 > 💡 The [`signalreport.jar`](deployment/signalreport.jar) must be located in the same directory as the installation scripts.
 
+> 🔄 **Install *or* update:** the script detects an existing installation and then only replaces the JAR (stop → swap → start) — your data and `config.json` are preserved. To update, just drop the new `signalreport.jar` next to the script and run it again.
+
 ### Uninstallation
 - **Windows**: right-click `uninstall.bat` → run as administrator
 - **macOS/Linux**: `sudo bash uninstall.sh` (in the terminal)
+
+The uninstaller asks what to **keep**: nothing, the configuration (`config.json`), the database (your collected measurements), or both.
 
 ---
 

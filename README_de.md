@@ -76,9 +76,13 @@ Für den Dauerbetrieb (auch ohne angemeldeten Benutzer) kann SignalReport als Hi
 
 > 💡 Die [`signalreport.jar`](deployment/signalreport.jar) muss sich im selben Verzeichnis wie die Installations-Skripte befinden.
 
+> 🔄 **Installieren *oder* aktualisieren:** Das Skript erkennt eine bestehende Installation und tauscht dann nur die JAR aus (Dienst stoppen → tauschen → starten) — deine Daten und `config.json` bleiben erhalten. Zum Aktualisieren einfach die neue `signalreport.jar` neben das Skript legen und es erneut ausführen.
+
 ### Deinstallation
 - **Windows**: `uninstall.bat` Rechtsklick → als Administrator ausführen
 - **macOS/Linux**: `sudo bash uninstall.sh` (im Terminal)
+
+Die Deinstallation fragt, was **behalten** werden soll: nichts, die Konfiguration (`config.json`), die Datenbank (deine gesammelten Messdaten) oder beides.
 
 ---
 

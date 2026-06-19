@@ -61,6 +61,81 @@ echo "[INFO] Datenverzeichnis: $DATA_DIR"
 echo "[INFO] Log-Verzeichnis: $LOG_DIR"
 echo
 
+# Die neue JAR muss im Skript-Ordner liegen (fuer Install UND Update)
+if [ ! -f "signalreport.jar" ]; then
+    echo "[FEHLER] signalreport.jar nicht gefunden!"
+    echo "Bitte starte das Skript im selben Verzeichnis wie die JAR-Datei."
+    exit 1
+fi
+
+# ============================================================
+#  Update-Erkennung: Ist SignalReport bereits installiert?
+#  Dann nur die JAR austauschen, statt komplett neu zu installieren.
+# ============================================================
+SERVICE_EXISTS=false
+if [ "$PLATFORM" = "linux" ] && [ -f /etc/systemd/system/signalreport.service ]; then
+    SERVICE_EXISTS=true
+elif [ "$PLATFORM" = "macos" ] && [ -f /Library/LaunchDaemons/com.signalreport.service.plist ]; then
+    SERVICE_EXISTS=true
+fi
+
+if [ "$SERVICE_EXISTS" = true ] && [ -f "$INSTALL_DIR/signalreport.jar" ]; then
+    echo "[INFO] SignalReport ist bereits installiert -> UPDATE-Modus."
+    echo "[INFO] Tausche die installierte signalreport.jar gegen die neue aus."
+    echo "[INFO] Daten und Einstellungen ($DATA_DIR) bleiben erhalten."
+    echo
+
+    # 1. Dienst stoppen
+    echo "[INFO] Stoppe SignalReport-Dienst..."
+    if [ "$PLATFORM" = "linux" ]; then
+        systemctl stop signalreport 2>/dev/null || true
+    else
+        launchctl bootout system/com.signalreport.service 2>/dev/null || \
+            launchctl unload /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null || true
+    fi
+    sleep 2
+
+    # 2. JAR austauschen (Eigentuemer/Rechte wie bei der Installation)
+    cp signalreport.jar "$INSTALL_DIR/signalreport.jar"
+    chown "$USER:$GROUP" "$INSTALL_DIR/signalreport.jar" 2>/dev/null || true
+    chmod 755 "$INSTALL_DIR/signalreport.jar" 2>/dev/null || true
+    echo "[OK] signalreport.jar aktualisiert."
+
+    # 3. Dienst wieder starten
+    echo "[INFO] Starte SignalReport-Dienst..."
+    if [ "$PLATFORM" = "linux" ]; then
+        systemctl start signalreport 2>/dev/null || true
+        sleep 2
+        if systemctl is-active --quiet signalreport; then
+            echo "[OK] SignalReport-Dienst laeuft wieder."
+        else
+            echo "[WARNUNG] Dienst gestartet, aber Status unklar (journalctl -u signalreport)."
+        fi
+    else
+        if launchctl bootstrap system /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null; then
+            launchctl kickstart system/com.signalreport.service 2>/dev/null || true
+        else
+            launchctl load /Library/LaunchDaemons/com.signalreport.service.plist 2>/dev/null || true
+            launchctl start com.signalreport.service 2>/dev/null || true
+        fi
+        echo "[OK] SignalReport-Dienst neu gestartet."
+    fi
+
+    echo
+    echo "============================================================"
+    echo "Update abgeschlossen!"
+    echo "============================================================"
+    echo "- Web-Oberflaeche: http://localhost:4567"
+    echo "- Die installierte JAR wurde ersetzt; Daten/Einstellungen bleiben erhalten."
+    echo "- Logs: $LOG_DIR"
+    echo
+    exit 0
+fi
+
+# ============================================================
+#  Ab hier: vollstaendige Neuinstallation
+# ============================================================
+
 # Benutzer erstellen (Linux)
 if [ "$PLATFORM" = "linux" ]; then
     if ! id "$USER" &>/dev/null; then
@@ -77,12 +152,7 @@ chown -R "$USER:$GROUP" "$INSTALL_DIR" "$DATA_DIR" "$LOG_DIR"
 chmod -R 755 "$INSTALL_DIR"
 chmod -R 700 "$DATA_DIR" "$LOG_DIR"
 
-# JAR kopieren
-if [ ! -f "signalreport.jar" ]; then
-    echo "[FEHLER] signalreport.jar nicht gefunden!"
-    echo "Bitte starte das Skript im selben Verzeichnis wie die JAR-Datei."
-    exit 1
-fi
+# JAR kopieren (Existenz wurde oben bereits geprueft)
 cp signalreport.jar "$INSTALL_DIR/signalreport.jar"
 chown "$USER:$GROUP" "$INSTALL_DIR/signalreport.jar"
 

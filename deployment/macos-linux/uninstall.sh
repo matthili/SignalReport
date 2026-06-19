@@ -36,6 +36,23 @@ else
     exit 1
 fi
 
+# Was soll erhalten bleiben?
+echo "Was soll bei der Deinstallation erhalten bleiben?"
+echo "  [1] Nichts (alles loeschen)            [Standard]"
+echo "  [2] Konfigurationsdatei (config.json)"
+echo "  [3] Datenbank (gesammelte Messdaten)"
+echo "  [4] Konfigurationsdatei UND Datenbank"
+read -r -p "Auswahl [1-4]: " KEEP_CHOICE || KEEP_CHOICE=""
+KEEP_CONFIG=false
+KEEP_DB=false
+case "$KEEP_CHOICE" in
+    2) KEEP_CONFIG=true ;;
+    3) KEEP_DB=true ;;
+    4) KEEP_CONFIG=true; KEEP_DB=true ;;
+    *) ;;
+esac
+echo
+
 # Dienst stoppen und entfernen
 echo "[INFO] Stoppe SignalReport-Dienst..."
 if [ "$PLATFORM" = "linux" ]; then
@@ -56,8 +73,21 @@ fi
 echo "[INFO] Loesche Installationsverzeichnis: $INSTALL_DIR"
 rm -rf "$INSTALL_DIR" 2>/dev/null || true
 
-echo "[INFO] Loesche Datenverzeichnis: $DATA_DIR"
-rm -rf "$DATA_DIR" 2>/dev/null || true
+if [ "$KEEP_CONFIG" = false ] && [ "$KEEP_DB" = false ]; then
+    echo "[INFO] Loesche Datenverzeichnis: $DATA_DIR"
+    rm -rf "$DATA_DIR" 2>/dev/null || true
+else
+    echo "[INFO] Bereinige Datenverzeichnis (ausgewaehlte Daten bleiben erhalten)..."
+    if [ "$KEEP_CONFIG" = false ]; then
+        rm -f "$DATA_DIR/config.json" 2>/dev/null || true
+    fi
+    if [ "$KEEP_DB" = false ]; then
+        rm -rf "$DATA_DIR/data" 2>/dev/null || true
+    fi
+    echo "[INFO] Behalten in $DATA_DIR:"
+    if [ "$KEEP_CONFIG" = true ]; then echo "        - config.json"; fi
+    if [ "$KEEP_DB" = true ]; then echo "        - data/ (Datenbank)"; fi
+fi
 
 echo "[INFO] Loesche Log-Verzeichnis: $LOG_DIR"
 rm -rf "$LOG_DIR" 2>/dev/null || true
@@ -81,7 +111,11 @@ echo "============================================================"
 echo "Deinstallation abgeschlossen!"
 echo "============================================================"
 echo "- SignalReport-Dienst entfernt"
-echo "- Alle Dateien geloescht"
+if [ "$KEEP_CONFIG" = true ] || [ "$KEEP_DB" = true ]; then
+    echo "- Programmdateien geloescht; ausgewaehlte Daten in $DATA_DIR behalten"
+else
+    echo "- Alle Dateien geloescht"
+fi
 if [ "$PLATFORM" = "macos" ]; then
     echo "- Desktop-Verknuepfung entfernt"
 fi
