@@ -165,6 +165,37 @@ Die Priorisierung erfolgt nach dem MoSCoW-Schema:
     MQTT- oder REST-Sensor für die Messdaten-Übernahme.
 \end{description}
 
+\subsection{FR-11: Dienst-Erreichbarkeit (Sperr- und Zensur-Erkennung)}
+\begin{description}
+  \item[Priorität:] Should
+  \item[Status:] In Planung -- ein konkreter Implementierungsplan liegt vor.
+  \item[Beschreibung:] SignalReport prüft zusätzlich, ob ausgewählte Online-Dienste
+    (z.\,B.\ Facebook, Instagram, X, YouTube, Wikipedia, WhatsApp) aus der Netzwerk-Situation
+    des Messpunkts erreichbar sind -- und unterscheidet dabei, ob ein Dienst \emph{selbst}
+    gestört ist oder ob er \emph{gesperrt} wird (per DNS, TCP, SNI/DPI oder Sperrseite).
+    Diese Checks laufen in einem eigenen, deutlich langsameren Takt (Standard alle 6\,h),
+    sind per Knopfdruck mit einer Abkühlphase von 5\,min auslösbar und vollständig
+    abschaltbar (Standard: aus).
+  \item[Motivation:] Liefert eine Langzeit-Statistik über die Erreichbarkeit einzelner
+    Plattformen -- etwa \enquote{ab 1.\ März nicht mehr erreichbar, am 11.\ März (nach der
+    Wahl) wie durch ein Wunder wieder}. Bewusst getrennt von der Verbindungsqualität:
+    eine kurze Sperre ist belanglos, der langfristige Trend ist die eigentliche Aussage.
+  \item[Technische Überlegungen:] Eigener Daemon-Thread, getrennt vom 30-Sekunden-Messtakt.
+    Pro Dienst eine Schicht-Probe (DNS über ISP- vs.\ öffentlichen Resolver, TCP-Connect,
+    TLS mit echtem vs.\ Kontroll-SNI, HTTP-Status/451/Sperrseiten-Fingerprint), deren reine
+    Klassifizierung -- analog zu \texttt{ConnectivityAssessment} -- ein Verdikt liefert
+    (erreichbar / Dienst-Störung / DNS- bzw.\ TCP- bzw.\ SNI-Sperre / Sperrseite).
+    Ein \emph{Leitungs-Gate} nutzt den laufenden 30-Sekunden-Monitor: steht die
+    Internet-Verbindung gerade nicht, wird der Lauf übersprungen und ein neutraler Marker
+    geschrieben (analog zum Wartungs-Marker), damit ein Leitungsausfall nicht als
+    Dienst-Sperre fehlinterpretiert wird. Speicherung in einer eigenen Tabelle
+    \texttt{service\_checks} (Twin-DB), Verdichtung aufeinanderfolgender Checks zu Episoden,
+    Ampel-/Kachel-Anzeige je Dienst (im Stil der DNS-Benchmark-Kacheln), optionaler
+    PDF-Abschnitt und i18n in allen neun Sprachen. Messenger (WhatsApp, Telegram, Signal)
+    erlauben nur eine gröbere Endpunkt-Erreichbarkeit; Mastodon ist föderiert (geprüft wird
+    eine konkrete Instanz).
+\end{description}
+
 \subsection{Zusammenfassung der Feature Requests}
 
 \begin{table}[h]
@@ -183,6 +214,7 @@ FR-07 & Verbesserte Verschlüsselung & Could \\
 FR-08 & Messenger-Benachrichtigungen bei Ausfällen & Could \\
 FR-09 & ResultSet-basierte Datenbank-Iteratoren & Should \\
 FR-10 & Home Assistant Add-on & Could \\
+FR-11 & Dienst-Erreichbarkeit (Sperr-/Zensur-Erkennung) & Should \\
 \hline
 \end{tabular}
 \caption{Feature Requests mit MoSCoW-Priorisierung}
