@@ -100,3 +100,16 @@ input, select { background: var(--color-input-bg); color: var(--color-text); bor
 .cycle-detail table { margin: 0; border-radius: 0; box-shadow: none; }
 .cycle-detail th { background: var(--color-text-secondary); }
 .cycle-detail td, .cycle-detail th { font-size: 0.82em; padding: 8px 15px; }
+.reach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+.reach-card { background: var(--bg-card); padding: 14px; border-radius: 8px; box-shadow: 0 2px 4px var(--color-shadow); border-left: 5px solid var(--color-text-secondary); }
+.reach-card h4 { margin: 0 0 6px 0; font-size: 1.05em; }
+.reach-card.ok { border-left-color: #198754; }
+.reach-card.blocked { border-left-color: #dc3545; }
+.reach-card.down { border-left-color: #fd7e14; }
+.reach-card.unknown { border-left-color: #6c757d; }
+.reach-status { font-weight: bold; font-size: 1.05em; }
+.reach-status.ok { color: #198754; }
+.reach-status.blocked { color: #dc3545; }
+.reach-status.down { color: #fd7e14; }
+.reach-status.unknown { color: #6c757d; }
+.reach-meta { font-size: 0.82em; color: var(--color-text-secondary); margin-top: 4px; word-break: break-word; }

@@ -102,6 +102,14 @@ public class HtmlPageRenderer
                             <div id="outage-details" style="display:none; margin-top:14px;"></div>
                         </div>
 
+                        <div id="reachability-card" style="display:none; background:var(--bg-card); padding:15px 20px; border-radius:8px; margin-bottom:25px; box-shadow:0 2px 4px var(--color-shadow);">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                <h3 style="margin:0;">🌐 {{reachability.title}} <span id="reachability-overall" style="font-size:0.8em; margin-left:8px;"></span></h3>
+                                <button id="reachability-checknow" class="btn btn-secondary" style="padding:6px 12px;" onclick="checkServicesNow()">🔄 {{reachability.checkNow}}</button>
+                            </div>
+                            <div id="reachability-tiles" class="reach-grid" style="margin-top:14px;"></div>
+                        </div>
+
                         <div class="chart-container">
                             <canvas id="latencyChart"></canvas>
                         </div>
@@ -329,6 +337,34 @@ public class HtmlPageRenderer
                                     <input type="checkbox" id="gw-far-noping" style="width:18px; height:18px;">
                                     <label for="gw-far-noping">{{settings.gatewayFarNoPing}}</label>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
+                            <h3>🌐 {{reachability.settingsTitle}}</h3>
+                            <p style="color:var(--color-text-secondary); font-size:0.9em; margin-top:5px;">{{reachability.settingsDescription}}</p>
+
+                            <div style="display:flex; align-items:center; gap:15px; margin-top:15px;">
+                                <input type="checkbox" id="reach-enabled" style="width:18px; height:18px;">
+                                <label for="reach-enabled" style="font-weight:bold;">{{reachability.enable}}</label>
+                            </div>
+
+                            <div id="reach-settings-fields" style="display:none; margin-top:15px; padding:15px; background:var(--bg-body); border-radius:8px;">
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <label for="reach-interval" style="font-weight:bold;">⏱️ {{reachability.interval}}</label>
+                                    <select id="reach-interval" style="padding:6px; border-radius:4px;">
+                                        <option value="60">1 h</option>
+                                        <option value="120">2 h</option>
+                                        <option value="360">6 h</option>
+                                        <option value="720">12 h</option>
+                                        <option value="1440">24 h</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                                    <input type="checkbox" id="reach-control-sni" style="width:18px; height:18px;">
+                                    <label for="reach-control-sni">{{reachability.controlSni}}</label>
+                                </div>
+                                <div id="reach-service-list" style="margin-top:15px; display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px;"></div>
                             </div>
                         </div>
 

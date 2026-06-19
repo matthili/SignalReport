@@ -11,6 +11,7 @@ import at.mafue.signalreport.web.api.HostRoutes;
 import at.mafue.signalreport.web.api.MeasurementRoutes;
 import at.mafue.signalreport.web.api.PageRoutes;
 import at.mafue.signalreport.web.api.ReliabilityRoutes;
+import at.mafue.signalreport.web.api.ServiceReachabilityRoutes;
 import at.mafue.signalreport.web.api.SettingsRoutes;
 import at.mafue.signalreport.web.api.SetupRoutes;
 import at.mafue.signalreport.web.view.HtmlPageRenderer;
@@ -23,19 +24,23 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.LongSupplier;
+
 public class WebServer
 {
     private static final Logger logger = LoggerFactory.getLogger(WebServer.class);
     private final H2MeasurementRepository repository;
+    private final LongSupplier reachabilityTrigger;
     private final HtmlPageRenderer htmlPageRenderer = new HtmlPageRenderer();
     private final SetupPageRenderer setupPageRenderer = new SetupPageRenderer();
     private final LoginPageRenderer loginPageRenderer = new LoginPageRenderer();
     private final SessionManager sessionManager = new SessionManager();
     private Javalin app;
 
-    public WebServer(H2MeasurementRepository repository)
+    public WebServer(H2MeasurementRepository repository, LongSupplier reachabilityTrigger)
     {
         this.repository = repository;
+        this.reachabilityTrigger = reachabilityTrigger;
     }
 
     public void start(int port)
@@ -122,6 +127,7 @@ public class WebServer
         HostRoutes.register(app, repository);
         DnsRoutes.register(app);
         SettingsRoutes.register(app);
+        ServiceReachabilityRoutes.register(app, repository, reachabilityTrigger);
         SetupRoutes.register(app);
         AuthRoutes.register(app, sessionManager);
 

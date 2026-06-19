@@ -254,6 +254,23 @@ public class Config
             }
     }
 
+    // Periodische Dienst-Erreichbarkeitspruefung (eigener, langsamer Takt; Standard: aus)
+    private ServiceReachabilityConfig serviceReachability = new ServiceReachabilityConfig();
+
+    public ServiceReachabilityConfig getServiceReachability()
+    {
+        if (this.serviceReachability == null)
+            {
+            this.serviceReachability = new ServiceReachabilityConfig();
+            }
+        return this.serviceReachability;
+    }
+
+    public void setServiceReachability(ServiceReachabilityConfig serviceReachability)
+    {
+        this.serviceReachability = serviceReachability;
+    }
+
     // Standard-Konfiguration erstellen
     public static Config createDefault()
     {

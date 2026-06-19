@@ -3,6 +3,8 @@ package at.mafue.signalreport.report;
 import at.mafue.signalreport.storage.Statistics;
 
 import at.mafue.signalreport.config.GatewayConfig;
+import at.mafue.signalreport.config.ServiceReachabilityConfig;
+import at.mafue.signalreport.config.ServiceTarget;
 import at.mafue.signalreport.config.UserInfo;
 
 import at.mafue.signalreport.config.Config;
@@ -11,7 +13,9 @@ import at.mafue.signalreport.measurement.Measurement;
 import at.mafue.signalreport.network.GatewayDiscovery;
 import at.mafue.signalreport.network.HostIdentifier;
 import at.mafue.signalreport.network.NetworkInfo;
+import at.mafue.signalreport.report.ServiceReachabilityAssessment.Verdict;
 import at.mafue.signalreport.storage.H2MeasurementRepository;
+import at.mafue.signalreport.storage.ServiceCheck;
 
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
@@ -295,6 +299,9 @@ public class PdfReportGenerator
             PdfPTable outagesTable = createOutagesTable(outages.stream().limit(10).toList(), locale);
             document.add(outagesTable);
             }
+
+        // === DIENST-ERREICHBARKEIT (nur wenn aktiviert & Daten vorhanden) ===
+        addReachabilitySection(document, since, statFont, locale);
 
         document.close();
         return baos.toByteArray();
@@ -666,6 +673,119 @@ public class PdfReportGenerator
             }
 
         return table;
+    }
+
+    /**
+     * Dienst-Erreichbarkeit im PDF (nur wenn das Feature aktiv ist und Pruefungen
+     * vorliegen): je Dienst aktueller Status und Erreichbarkeitsquote, plus eine
+     * chronologische Tabelle der Sperr-/Stoerungs-Episoden ueber den Zeitraum.
+     */
+    private void addReachabilitySection(Document document, Instant since, Font statFont, Locale locale) throws Exception
+    {
+        ServiceReachabilityConfig cfg = Config.getInstance().getServiceReachability();
+        if (!cfg.isEnabled())
+            {
+            return;
+            }
+
+        List<ServiceTarget> active = new ArrayList<>();
+        for (ServiceTarget t : cfg.getServices())
+            {
+            if (t.isEnabled()) active.add(t);
+            }
+
+        Map<String, ServiceReachabilityReport> byId = new LinkedHashMap<>();
+        boolean anyData = false;
+        for (ServiceTarget t : active)
+            {
+            List<ServiceCheck> checks = repository.findServiceChecksSince(t.getId(), since);
+            ServiceReachabilityReport r = ServiceReachabilityReport.compute(t.getId(), checks);
+            byId.put(t.getId(), r);
+            if (r.hasData()) anyData = true;
+            }
+        if (!anyData)
+            {
+            return; // Feature aktiv, aber (noch) keine Pruefungen -> Abschnitt entfaellt
+            }
+
+        document.add(new Paragraph(I18n.get("pdf.reachabilityTitle"), fontBold(14)));
+        document.add(Chunk.NEWLINE);
+
+        for (ServiceTarget t : active)
+            {
+            ServiceReachabilityReport r = byId.get(t.getId());
+            if (!r.hasData()) continue;
+            Verdict v = parseVerdict(r.getCurrentVerdict());
+            String line = t.getDisplayName() + " (" + t.getDomain() + "): "
+                    + I18n.get(ServiceReachabilityAssessment.verdictKey(v)) + " — "
+                    + I18n.get("pdf.reachabilityRate") + " "
+                    + String.format(locale, "%.1f %%", r.getReachablePercent())
+                    + " (" + r.getTotalChecks() + " " + I18n.get("pdf.reachabilityChecks") + ")";
+            document.add(new Paragraph(line, statFont));
+            }
+        document.add(Chunk.NEWLINE);
+
+        // Auffaellige Episoden (gesperrt/gestoert) chronologisch -> Sperr-/Stoerungs-Timeline
+        List<Object[]> events = new ArrayList<>();
+        for (ServiceTarget t : active)
+            {
+            for (ServiceReachabilityReport.Episode e : byId.get(t.getId()).getEpisodes())
+                {
+                Verdict v = parseVerdict(e.getVerdict());
+                if (ServiceReachabilityAssessment.isBlocked(v) || v == Verdict.SERVICE_DOWN)
+                    {
+                    events.add(new Object[]{t.getDisplayName(), v, e.getStart(), e.getEnd(), e.getDurationSeconds()});
+                    }
+                }
+            }
+        if (!events.isEmpty())
+            {
+            events.sort((a, b) -> ((Instant) a[2]).compareTo((Instant) b[2]));
+            document.add(new Paragraph(I18n.get("pdf.reachabilityEvents"), fontBold(12)));
+            document.add(Chunk.NEWLINE);
+            document.add(createReachabilityEventsTable(events, locale));
+            document.add(Chunk.NEWLINE);
+            }
+    }
+
+    private PdfPTable createReachabilityEventsTable(List<Object[]> events, Locale locale) throws DocumentException
+    {
+        PdfPTable table = new PdfPTable(5);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{2, 2, 2, 2, 1});
+
+        Font headerFont = fontBold(10);
+        addTableCell(table, I18n.get("pdf.reachabilityService"), headerFont, true);
+        addTableCell(table, I18n.get("table.status"), headerFont, true);
+        addTableCell(table, I18n.get("pdf.start"), headerFont, true);
+        addTableCell(table, I18n.get("pdf.end"), headerFont, true);
+        addTableCell(table, I18n.get("pdf.duration"), headerFont, true);
+
+        Font contentFont = font(9);
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm", locale)
+                .withZone(ZoneId.systemDefault());
+
+        for (Object[] e : events)
+            {
+            addTableCell(table, (String) e[0], contentFont, false);
+            addTableCell(table, I18n.get(ServiceReachabilityAssessment.verdictKey((Verdict) e[1])), contentFont, false);
+            addTableCell(table, dtf.format((Instant) e[2]), contentFont, false);
+            addTableCell(table, dtf.format((Instant) e[3]), contentFont, false);
+            addTableCell(table, formatDuration((Long) e[4]), contentFont, false);
+            }
+
+        return table;
+    }
+
+    private static Verdict parseVerdict(String name)
+    {
+        try
+            {
+            return Verdict.valueOf(name);
+            } catch (Exception e)
+            {
+            return Verdict.UNKNOWN;
+            }
     }
 
     private void addTableCell(PdfPTable table, String text, Font font, boolean isHeader)

@@ -212,6 +212,69 @@ function excludeOutage(fromEpoch, toEpoch, excluded) {
     .catch(error => console.error('Ausschluss-Fehler:', error));
 }
 
+// Dienst-Erreichbarkeit: Verdikt -> UI-Zustand (Farbe/Icon)
+function reachState(s) {
+    if (s.verdict === 'REACHABLE') return 'ok';
+    if (s.blocked) return 'blocked';
+    if (s.verdict === 'SERVICE_DOWN') return 'down';
+    return 'unknown';
+}
+
+// Dienst-Erreichbarkeit laden (Ampel + Kacheln)
+function loadReachability() {
+    fetch('/api/services')
+        .then(response => response.json())
+        .then(d => {
+            const card = document.getElementById('reachability-card');
+            if (!d.enabled) { card.style.display = 'none'; return; }
+            const tiles = document.getElementById('reachability-tiles');
+            const overall = document.getElementById('reachability-overall');
+            const icons = { ok: '✅', blocked: '🚫', down: '⚠️', unknown: '❔' };
+            let nOk = 0, nBlocked = 0, nOther = 0;
+            tiles.innerHTML = '';
+            (d.services || []).forEach(s => {
+                const state = reachState(s);
+                if (state === 'ok') nOk++; else if (state === 'blocked') nBlocked++; else nOther++;
+                const since = s.sinceEpoch ? new Date(s.sinceEpoch * 1000).toLocaleDateString(LOCALE) : '–';
+                const box = document.createElement('div');
+                box.className = 'reach-card ' + state;
+                box.innerHTML =
+                    '<h4>' + s.displayName + '</h4>' +
+                    '<div class="reach-status ' + state + '">' + icons[state] + ' ' + s.verdictText + '</div>' +
+                    '<div class="reach-meta">' + I18N['reachability.since'] + ' ' + since + ' · ' + s.reachablePercent.toFixed(1) + ' %</div>' +
+                    (s.lastMethod ? '<div class="reach-meta">' + s.lastMethod + '</div>' : '');
+                tiles.appendChild(box);
+            });
+            overall.innerHTML =
+                '<span style="color:#198754;">✅ ' + nOk + '</span>'
+                + (nBlocked ? ' <span style="color:#dc3545;">🚫 ' + nBlocked + '</span>' : '')
+                + (nOther ? ' <span style="color:#6c757d;">❔ ' + nOther + '</span>' : '');
+            card.style.display = 'block';
+        })
+        .catch(error => console.error('Reachability-Fehler:', error));
+}
+
+// Sofortige Pruefung ausloesen (mit Abkuehlphase)
+function checkServicesNow() {
+    const btn = document.getElementById('reachability-checknow');
+    fetch('/api/services/check-now', { method: 'POST' })
+        .then(response => response.json())
+        .then(d => {
+            if (d.started) {
+                btn.disabled = true;
+                btn.textContent = '⏳ ' + I18N['reachability.checking'];
+                setTimeout(() => {
+                    loadReachability();
+                    btn.disabled = false;
+                    btn.textContent = '🔄 ' + I18N['reachability.checkNow'];
+                }, 9000);
+            } else {
+                alert('⚠️ ' + I18N['reachability.cooldown'] + ': ' + fmtDuration(d.cooldownRemainingSeconds));
+            }
+        })
+        .catch(error => console.error('Check-Now-Fehler:', error));
+}
+
 // Messzyklen: feste Anzeige-Reihenfolge der Messtypen in der Statuszeile
 const CYCLE_TYPE_ORDER = ['GATEWAY_FAR', 'GATEWAY_NEAR', 'HTTP', 'DNS', 'PING'];
 const MAINTENANCE_TYPE = 'MAINTENANCE';
@@ -691,6 +754,8 @@ function loadConfig() {
             document.getElementById('gw-virtual-warning').style.display = gw.virtualSuspected ? 'block' : 'none';
             syncGatewayControls();
 
+            loadReachabilitySettings();
+
             if (config.language) {
                 document.getElementById('config-language').value = config.language;
             }
@@ -740,6 +805,39 @@ document.getElementById('push-enabled').addEventListener('change', function() {
     }
 });
 
+// Dienst-Erreichbarkeit: Einstellungen laden (im Settings-Tab)
+function loadReachabilitySettings() {
+    fetch('/api/services/settings')
+        .then(response => response.json())
+        .then(svc => {
+            document.getElementById('reach-enabled').checked = svc.enabled;
+            document.getElementById('reach-interval').value = svc.intervalMinutes;
+            document.getElementById('reach-control-sni').checked = svc.useControlSni;
+            document.getElementById('reach-settings-fields').style.display = svc.enabled ? 'block' : 'none';
+            const list = document.getElementById('reach-service-list');
+            list.innerHTML = '';
+            (svc.services || []).forEach(s => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:0.9em;';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'reach-svc';
+                cb.dataset.id = s.id;
+                cb.checked = s.enabled;
+                cb.style.cssText = 'width:16px; height:16px;';
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + s.displayName + ' (' + s.domain + ')'));
+                list.appendChild(label);
+            });
+        })
+        .catch(error => console.error('Reachability-Settings-Fehler:', error));
+}
+
+// Dienst-Erreichbarkeit-Checkbox Toggle
+document.getElementById('reach-enabled').addEventListener('change', function() {
+    document.getElementById('reach-settings-fields').style.display = this.checked ? 'block' : 'none';
+});
+
 // Konfiguration speichern (inkl. Push)
 function saveConfig() {
     const statusDiv = document.getElementById('config-status');
@@ -783,6 +881,14 @@ function saveConfig() {
         consecutiveBadMeasurements: parseInt(document.getElementById('push-consecutive-bad').value)
     };
 
+    // Dienst-Erreichbarkeits-Konfiguration separat speichern
+    const reachConfig = {
+        enabled: document.getElementById('reach-enabled').checked,
+        intervalMinutes: parseInt(document.getElementById('reach-interval').value),
+        useControlSni: document.getElementById('reach-control-sni').checked,
+        services: Array.from(document.querySelectorAll('.reach-svc')).map(cb => ({ id: cb.dataset.id, enabled: cb.checked }))
+    };
+
     // Zuerst Haupt-Konfiguration speichern
     fetch('/api/config/update', {
         method: 'POST',
@@ -800,9 +906,19 @@ function saveConfig() {
     })
     .then(response => response.text())
     .then(message => {
+        // Dann Dienst-Erreichbarkeits-Einstellungen speichern
+        return fetch('/api/services/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reachConfig)
+        });
+    })
+    .then(response => response.text())
+    .then(message => {
         statusDiv.style.background = '#778899';
         statusDiv.textContent = '✅ ' + I18N['settings.saved'];
         setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+        loadReachability();
     })
     .catch(error => {
         statusDiv.style.background = '#f8d7da';
@@ -1007,6 +1123,7 @@ loadMeasurements();
 loadHourlyChart();
 loadConnectivity();
 loadReliability();
+loadReachability();
 checkLogoutButton();
 // DNS-Benchmark State (MUSS HIER STEHEN, NICHT IN DER FUNKTION!)
 let isDnsBenchmarkRunning = false;
@@ -1018,6 +1135,7 @@ setInterval(loadMeasurements, 5000);
 setInterval(loadStatistics, 30000);
 setInterval(loadConnectivity, 30000);
 setInterval(loadReliability, 300000);
+setInterval(loadReachability, 120000);
 setInterval(loadHourlyChart, 300000);
 setInterval(loadNetworkInfo, 60000);
 

@@ -341,17 +341,36 @@ public class H2MeasurementRepository
         // Idempotent – fuegt die Spalte nur hinzu, wenn sie noch fehlt (bestehende DBs).
         String addExcluded = "ALTER TABLE measurements ADD COLUMN IF NOT EXISTS excluded BOOLEAN DEFAULT FALSE";
 
+        // Tabelle fuer die periodische Dienst-Erreichbarkeitspruefung. CREATE ... IF NOT
+        // EXISTS ist zugleich die Migration: bestehende DBs erhalten sie beim naechsten Start.
+        String serviceChecksTable = """
+                CREATE TABLE IF NOT EXISTS service_checks (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    service_id VARCHAR(64) NOT NULL,
+                    verdict VARCHAR(32) NOT NULL,
+                    method VARCHAR(255),
+                    http_status INT,
+                    resolved_ip VARCHAR(45),
+                    latency_ms DOUBLE
+                )
+                """;
+        String indexServiceChecks =
+                "CREATE INDEX IF NOT EXISTS idx_service_checks_service_ts ON service_checks(service_id, timestamp)";
+
         try (Statement stmt = c.createStatement())
             {
             stmt.execute(measurementsTable);
             stmt.execute(hostsTable);
             stmt.execute(ipChangesTable);
             stmt.execute(addExcluded);
+            stmt.execute(serviceChecksTable);
             stmt.execute(indexTimestamp);
             stmt.execute(indexType);
             stmt.execute(indexTypeTimestamp);
             stmt.execute(indexHostHash);
             stmt.execute(indexIpChangesTimestamp);
+            stmt.execute(indexServiceChecks);
             }
     }
 
@@ -777,6 +796,98 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+    }
+
+    // ========================================================================
+    //  Dienst-Erreichbarkeit (service_checks)
+    // ========================================================================
+
+    /** Speichert eine Erreichbarkeits-Pruefung (Twin-Spiegelung wie alle Schreibvorgaenge). */
+    public void saveServiceCheck(ServiceCheck check) throws SQLException
+    {
+        String sql = """
+                INSERT INTO service_checks
+                (timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+
+        writeOnBoth(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(check.getTimestamp()));
+            pstmt.setString(2, check.getServiceId());
+            pstmt.setString(3, check.getVerdict());
+            pstmt.setString(4, check.getMethod());
+            pstmt.setInt(5, check.getHttpStatus());
+            pstmt.setString(6, check.getResolvedIp());
+            pstmt.setDouble(7, check.getLatencyMs());
+            pstmt.executeUpdate();
+            }
+        });
+    }
+
+    /** Pruefungen eines Dienstes ab einem Zeitpunkt, chronologisch (fuer die Episoden-Bildung). */
+    public List<ServiceCheck> findServiceChecksSince(String serviceId, Instant since) throws SQLException
+    {
+        List<ServiceCheck> results = new ArrayList<>();
+        String sql = """
+                SELECT timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms
+                FROM service_checks
+                WHERE service_id = ? AND timestamp >= ?
+                ORDER BY timestamp ASC
+                """;
+
+        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+            {
+            pstmt.setString(1, serviceId);
+            pstmt.setTimestamp(2, Timestamp.from(since));
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                results.add(readServiceCheck(rs));
+                }
+            }
+        return results;
+    }
+
+    /** Jeweils die neueste Pruefung pro Dienst (fuer die "aktueller Status"-Anzeige). */
+    public List<ServiceCheck> findLatestServiceChecks() throws SQLException
+    {
+        List<ServiceCheck> results = new ArrayList<>();
+        String sql = """
+                SELECT timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms
+                FROM (
+                    SELECT timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms,
+                           ROW_NUMBER() OVER (PARTITION BY service_id ORDER BY timestamp DESC) AS rn
+                    FROM service_checks
+                ) latest
+                WHERE rn = 1
+                ORDER BY service_id ASC
+                """;
+
+        try (Statement stmt = primary.createStatement();
+             ResultSet rs = stmt.executeQuery(sql))
+            {
+            while (rs.next())
+                {
+                results.add(readServiceCheck(rs));
+                }
+            }
+        return results;
+    }
+
+    private ServiceCheck readServiceCheck(ResultSet rs) throws SQLException
+    {
+        return new ServiceCheck(
+                rs.getTimestamp("timestamp").toInstant(),
+                rs.getString("service_id"),
+                rs.getString("verdict"),
+                rs.getString("method"),
+                rs.getInt("http_status"),
+                rs.getString("resolved_ip"),
+                rs.getDouble("latency_ms")
+        );
     }
 
     // ========================================================================

@@ -98,8 +98,12 @@ public class SignalReportApp
             }
         }, "signalreport-shutdown"));
 
+        // Dienst-Erreichbarkeits-Scheduler erzeugen (Start weiter unten). Hier bereits
+        // angelegt, damit der Webserver den "Jetzt pruefen"-Ausloeser kennt.
+        ServiceReachabilityScheduler reachabilityScheduler = new ServiceReachabilityScheduler(repo);
+
         // Webserver starten
-        WebServer webServer = new WebServer(repo);
+        WebServer webServer = new WebServer(repo, reachabilityScheduler::triggerManualRun);
         webServer.start(config.getWebserver().getPort());
 
         // Host registrieren
@@ -141,6 +145,10 @@ public class SignalReportApp
                 logger.info("Keine lokalen Gateways erkannt (evtl. direkte oeffentliche IP).");
                 }
             }
+
+        // Periodische Dienst-Erreichbarkeitspruefung als Daemon-Thread starten (nur aktiv,
+        // wenn eingeschaltet; ueberspringt Laeufe, wenn die Leitung gerade unten ist).
+        reachabilityScheduler.start();
 
         // Kontinuierliche Messung
         logger.info("Starte kontinuierliche Messung...\n");
