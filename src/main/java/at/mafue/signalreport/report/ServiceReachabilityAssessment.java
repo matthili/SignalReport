@@ -8,11 +8,13 @@ package at.mafue.signalreport.report;
  * Logik, damit sie vollstaendig offline testbar ist. Der eigentliche Netz-Zugriff
  * liegt in der Probe (Paket {@code network}); diese Klasse trifft nur das Urteil.
  * <p>
- * Kernidee: von innen nach aussen pruefen -- die erste gebrochene Schicht
- * bestimmt das Verdikt. Loest der Name nur ueber einen oeffentlichen, nicht aber
- * ueber den ISP-Resolver auf, ist das eine DNS-Sperre; bricht erst TLS mit dem
- * echten SNI (waehrend ein Kontroll-SNI durchgeht), ist es eine SNI-/DPI-Sperre;
- * antwortet der Server hingegen sauber mit 5xx, ist der Dienst selbst gestoert.
+ * Kernidee: <b>Erreichbarkeit zuerst</b>. Kommt der Dienst tatsaechlich durch
+ * (TLS mit echtem SNI plus brauchbare HTTP-Antwort), gilt er als erreichbar --
+ * unabhaengig davon, was die Resolver sagen. Erst wenn er NICHT durchkommt,
+ * erklaeren die uebrigen Signale die Ursache: Sperrseite/451, server-seitige
+ * Stoerung (5xx), SNI-/DPI-Sperre (echtes SNI tot, Kontroll-SNI ok) oder eine
+ * unterbundene Verbindung. Ein blosser DNS-Pfad-Unterschied macht einen
+ * erreichbaren Dienst NICHT zur Sperre (er wird in der Probe nur als Hinweis vermerkt).
  */
 public final class ServiceReachabilityAssessment
 {
@@ -45,25 +47,35 @@ public final class ServiceReachabilityAssessment
             return Verdict.UNKNOWN;
             }
 
-        // 1. DNS-Ebene: ISP-Resolver verweigert/faelscht, oeffentlicher loest auf.
-        if ((!o.ispResolved || o.ispBogusIp) && o.publicResolved)
+        boolean blockpage = o.blockpageDetected || o.httpStatus == 451;
+
+        // 1. Erreichbarkeit zuerst: Kam der Dienst tatsaechlich durch? TLS mit echtem SNI steht
+        //    und es gibt eine brauchbare HTTP-Antwort (2xx/3xx/4xx, ausser Sperrseite/451;
+        //    Messenger setzen nach erfolgreichem TLS http(200)). Dann ist er ERREICHBAR --
+        //    egal, was ISP- oder oeffentlicher Resolver sagen.
+        if (o.tlsRealSniOk && !blockpage && o.httpStatus >= 200 && o.httpStatus < 500)
             {
-            return Verdict.DNS_BLOCKED;
+            return Verdict.REACHABLE;
             }
-        // Kein Resolver liefert eine IP -> ohne aufgeloesten Namen nicht entscheidbar.
+
+        // 2. Ab hier ist der Dienst NICHT erreichbar -> Ursache von klar zu vage bestimmen.
+        if (blockpage)
+            {
+            return Verdict.BLOCKPAGE;
+            }
+        if (o.tlsRealSniOk && o.httpStatus >= 500)
+            {
+            return Verdict.SERVICE_DOWN; // Server erreicht, aber server-seitige Stoerung
+            }
+
+        // Gar nichts aufloesbar -> nicht entscheidbar.
         if (!o.ispResolved && !o.publicResolved)
             {
             return Verdict.UNKNOWN;
             }
 
-        // 2. TCP-Ebene: aufgeloest, aber keine Verbindung.
-        if (!o.tcpConnected)
-            {
-            return o.controlReachable ? Verdict.CONNECTION_BLOCKED : Verdict.UNKNOWN;
-            }
-
-        // 3. TLS/SNI-Ebene: TCP steht, aber TLS mit echtem SNI scheitert.
-        if (!o.tlsRealSniOk)
+        // TCP steht, aber TLS mit echtem SNI scheitert -> SNI-/DPI- bzw. Verbindungssperre.
+        if (o.tcpConnected && !o.tlsRealSniOk)
             {
             if (o.tlsControlSniTested && o.tlsControlSniOk)
                 {
@@ -72,20 +84,14 @@ public final class ServiceReachabilityAssessment
             return o.controlReachable ? Verdict.CONNECTION_BLOCKED : Verdict.UNKNOWN;
             }
 
-        // 4. HTTP-Ebene: TLS mit echtem SNI steht.
-        if (o.blockpageDetected || o.httpStatus == 451)
+        // Aufgeloest, aber kein TCP-Verbindungsaufbau -> gezielt unterbunden.
+        if (!o.tcpConnected)
             {
-            return Verdict.BLOCKPAGE;
+            return o.controlReachable ? Verdict.CONNECTION_BLOCKED : Verdict.UNKNOWN;
             }
-        if (o.httpStatus < 0)
-            {
-            return Verdict.UNKNOWN; // keine HTTP-Antwort trotz TLS
-            }
-        if (o.httpStatus >= 500)
-            {
-            return Verdict.SERVICE_DOWN;
-            }
-        return Verdict.REACHABLE; // 2xx/3xx/4xx (ausser 451): der Dienst antwortet
+
+        // TLS steht, aber keine verwertbare HTTP-Antwort -> unklar.
+        return Verdict.UNKNOWN;
     }
 
     /** True fuer alle Verdikte, die auf eine Sperre hindeuten (rote UI-Zustaende). */

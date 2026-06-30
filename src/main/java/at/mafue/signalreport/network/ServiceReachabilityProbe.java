@@ -107,6 +107,12 @@ public class ServiceReachabilityProbe
         boolean controlReachable = quickReachable(CONTROL_DOMAIN);
         boolean useControlSni = cfg.isUseControlSni();
 
+        // System-/ISP-DNS-Server gerichtet ermitteln (ohne Loopback-Fallback, der im
+        // Dienst-Kontext faelschlich entsteht). Als "gesund" gilt er nur, wenn er die
+        // neutrale Kontroll-Domain aufloest -- sonst werden ISP-DNS-Hinweise unterdrueckt.
+        String ispResolver = firstNonLoopbackSystemDnsServer();
+        boolean ispResolverHealthy = ispResolver != null && !resolve(ispResolver, CONTROL_DOMAIN).isEmpty();
+
         List<ServiceReachabilityResult> results = new ArrayList<>();
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         try
@@ -114,7 +120,7 @@ public class ServiceReachabilityProbe
             List<Future<ServiceReachabilityResult>> futures = new ArrayList<>();
             for (ServiceTarget t : active)
                 {
-                futures.add(executor.submit(() -> probeOne(t, controlReachable, useControlSni)));
+                futures.add(executor.submit(() -> probeOne(t, controlReachable, useControlSni, ispResolver, ispResolverHealthy)));
                 }
             for (int i = 0; i < futures.size(); i++)
                 {
@@ -136,25 +142,32 @@ public class ServiceReachabilityProbe
     }
 
     /** Prueft genau einen Dienst und liefert das Verdikt samt Kurzbegruendung. */
-    public ServiceReachabilityResult probeOne(ServiceTarget target, boolean controlReachable, boolean useControlSni)
+    public ServiceReachabilityResult probeOne(ServiceTarget target, boolean controlReachable,
+                                              boolean useControlSni, String ispResolver, boolean ispResolverHealthy)
     {
         long start = System.nanoTime();
         String domain = target.getDomain();
         Observation o = new Observation().controlReachable(controlReachable);
 
-        // 1. DNS: System-/ISP-Resolver vs. oeffentlicher Resolver
-        List<InetAddress> ispIps = resolve(null, domain);
+        // 1. DNS: ISP-/System-Resolver (gerichtete dnsjava-Abfrage, umgeht OS-Cache/Proxy)
+        //    vs. oeffentlicher Resolver (1.1.1.1). Ist der ISP-Resolver nicht bestimmbar,
+        //    bleibt der ISP-Pfad leer und erzeugt KEINEN Hinweis (ispResolverHealthy=false).
+        List<InetAddress> ispIps = (ispResolver != null) ? resolve(ispResolver, domain) : new ArrayList<>();
         List<InetAddress> pubIps = resolve(PUBLIC_RESOLVER, domain);
         boolean ispResolved = !ispIps.isEmpty();
         boolean ispBogus = ispResolved && allBogus(ispIps);
         boolean publicResolved = !pubIps.isEmpty();
         o.dns(ispResolved, ispBogus, publicResolved);
 
+        // Reiner Info-Hinweis (kein Block): ISP-DNS weicht vom oeffentlichen ab, obwohl der
+        // ISP-Resolver nachweislich gesund ist. Wird nur bei erreichbaren Diensten angezeigt.
+        boolean ispDnsDiffers = ispResolverHealthy && (!ispResolved || ispBogus) && publicResolved;
+
         InetAddress ip = pickIp(pubIps, ispIps);
         String resolvedIp = (ip != null) ? ip.getHostAddress() : null;
         if (ip == null)
             {
-            return finish(target, o, resolvedIp, -1, start, "kein aufloesbares Ziel");
+            return finish(target, o, resolvedIp, -1, start, "kein aufloesbares Ziel", ispDnsDiffers);
             }
 
         // 2. TCP
@@ -162,7 +175,7 @@ public class ServiceReachabilityProbe
         o.tcp(tcp);
         if (!tcp)
             {
-            return finish(target, o, resolvedIp, -1, start, "TCP-Connect fehlgeschlagen");
+            return finish(target, o, resolvedIp, -1, start, "TCP-Connect fehlgeschlagen", ispDnsDiffers);
             }
 
         // 3. TLS mit echtem SNI (bei Fehlschlag optional Kontroll-SNI zum Vergleich)
@@ -175,29 +188,33 @@ public class ServiceReachabilityProbe
                 boolean tlsCtrl = tlsHandshake(ip, target.getPort(), CONTROL_SNI);
                 o.tlsControlSni(true, tlsCtrl);
                 }
-            return finish(target, o, resolvedIp, -1, start, "TLS mit echtem SNI fehlgeschlagen");
+            return finish(target, o, resolvedIp, -1, start, "TLS mit echtem SNI fehlgeschlagen", ispDnsDiffers);
             }
 
         // 4. HTTP -- nur fuer WEB/CONTROL; Messenger gelten bei TLS-Erfolg als erreichbar
         if (target.getKind() == ServiceKind.MESSENGER)
             {
             o.http(200);
-            return finish(target, o, resolvedIp, 200, start, "Endpunkt erreichbar (TLS)");
+            return finish(target, o, resolvedIp, 200, start, "Endpunkt erreichbar (TLS)", ispDnsDiffers);
             }
 
         HttpProbe hp = httpGet("https://" + domain + "/");
         o.http(hp.status());
         o.blockpage(hp.blockpage());
         String detail = "HTTP " + hp.status() + (hp.blockpage() ? " (Sperrseite erkannt)" : "");
-        return finish(target, o, resolvedIp, hp.status(), start, detail);
+        return finish(target, o, resolvedIp, hp.status(), start, detail, ispDnsDiffers);
     }
 
     private ServiceReachabilityResult finish(ServiceTarget t, Observation o, String ip,
-                                             int httpStatus, long startNanos, String detail)
+                                             int httpStatus, long startNanos, String detail, boolean ispDnsDiffers)
     {
         Verdict v = ServiceReachabilityAssessment.classify(o);
+        // Erreichbar, aber der (gesunde) ISP-Resolver weicht ab -> dezenter Info-Zusatz, kein Block.
+        String fullDetail = (v == Verdict.REACHABLE && ispDnsDiffers)
+                ? detail + " · ISP-DNS weicht ab"
+                : detail;
         double latency = (System.nanoTime() - startNanos) / 1_000_000.0;
-        return new ServiceReachabilityResult(t.getId(), v, detail, ip, httpStatus, latency);
+        return new ServiceReachabilityResult(t.getId(), v, fullDetail, ip, httpStatus, latency);
     }
 
     // --- DNS ---
@@ -207,9 +224,7 @@ public class ServiceReachabilityProbe
         List<InetAddress> out = new ArrayList<>();
         try
             {
-            SimpleResolver resolver = (resolverAddress == null)
-                    ? new SimpleResolver()
-                    : new SimpleResolver(resolverAddress);
+            SimpleResolver resolver = new SimpleResolver(resolverAddress);
             resolver.setTimeout(Duration.ofMillis(DNS_TIMEOUT_MS));
 
             Record question = Record.newRecord(Name.fromString(domain + "."), Type.A, DClass.IN);
@@ -229,6 +244,33 @@ public class ServiceReachabilityProbe
             // Aufloesung fehlgeschlagen -> leere Liste (vom Aufrufer als "nicht aufgeloest" gewertet)
             }
         return out;
+    }
+
+    /**
+     * Ermittelt den ersten konfigurierten System-/ISP-DNS-Server (ohne Loopback) fuer die
+     * gerichtete ISP-Abfrage. dnsjavas {@code ResolverConfig} faellt in einem Dienst-Kontext
+     * (z. B. Windows-Dienst als LocalSystem) gelegentlich auf localhost zurueck; solche
+     * Loopback-Adressen werden herausgefiltert. Liefert {@code null}, wenn kein echter Server
+     * bestimmbar ist -- dann unterbleibt die ISP-DNS-Gegenprobe (kein Fehlalarm).
+     */
+    private static String firstNonLoopbackSystemDnsServer()
+    {
+        try
+            {
+            ResolverConfig.refresh();
+            for (InetSocketAddress s : ResolverConfig.getCurrentConfig().servers())
+                {
+                InetAddress a = s.getAddress();
+                if (a != null && !a.isLoopbackAddress() && !a.isAnyLocalAddress() && !a.isLinkLocalAddress())
+                    {
+                    return a.getHostAddress();
+                    }
+                }
+            } catch (Exception e)
+            {
+            // ResolverConfig nicht verfuegbar -> kein bestimmbarer ISP-Resolver
+            }
+        return null;
     }
 
     private static boolean allBogus(List<InetAddress> ips)

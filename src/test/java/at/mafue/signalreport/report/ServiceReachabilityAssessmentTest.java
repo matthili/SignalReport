@@ -37,17 +37,20 @@ class ServiceReachabilityAssessmentTest
     }
 
     @Test
-    void testIspResolverFailsButPublicWorksIsDnsBlocked()
+    void testReachableEvenIfIspResolverFails()
     {
-        Observation o = new Observation().dns(false, false, true);
-        assertEquals(Verdict.DNS_BLOCKED, classify(o));
+        // Der tars-Fall: ISP-Resolver loest nicht auf, oeffentlicher schon -- aber der Dienst
+        // antwortet voll (HTTP 200). Erreichbarkeit gewinnt: REACHABLE, keine DNS-Sperre.
+        Observation o = new Observation().dns(false, false, true).tcp(true).tlsRealSni(true).http(200);
+        assertEquals(Verdict.REACHABLE, classify(o));
     }
 
     @Test
-    void testIspReturnsBogusIpIsDnsBlocked()
+    void testReachableEvenIfIspReturnsBogusIp()
     {
-        Observation o = new Observation().dns(true, true, true).tcp(true);
-        assertEquals(Verdict.DNS_BLOCKED, classify(o));
+        // ISP liefert eine Fake-IP, oeffentlicher die echte; der Dienst ist voll erreichbar.
+        Observation o = new Observation().dns(true, true, true).tcp(true).tlsRealSni(true).http(200);
+        assertEquals(Verdict.REACHABLE, classify(o));
     }
 
     @Test

@@ -32,7 +32,7 @@ class ServiceReachabilityProbeSmokeTest
         ServiceReachabilityProbe probe = new ServiceReachabilityProbe();
         ServiceReachabilityResult r = probe.probeOne(
                 new ServiceTarget("control-example", "Referenz", "example.com", ServiceKind.CONTROL, true),
-                true, true);
+                true, true, null, false);
 
         System.out.println("[SMOKE] example.com -> " + r.getVerdict()
                 + " (" + r.getMethod() + ", ip=" + r.getResolvedIp() + ", http=" + r.getHttpStatus() + ")");

@@ -6,7 +6,7 @@
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-156%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.0-blue" alt="Version 2.0">
+  <img src="https://img.shields.io/badge/version-2.0.1-blue" alt="Version 2.0.1">
 </p>
 
 <p align="center">
