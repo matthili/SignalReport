@@ -224,6 +224,48 @@ Version bereits eine alte Single-DB ohne Shadow, wird im ersten Konstruktor-Aufr
 die Shadow als exakte Kopie der Primary angelegt. Damit greift die Twin-Redundanz
 sofort -- ohne Datenverlust und ohne manuelle Migrationsschritte.
 
+\subsection{Daten-Aufbereitung (Stundenwerte und Aufbewahrung)}
+\label{subsec:dataprep}
+
+Bei einem Messintervall von 10\,Sekunden schreibt die Referenzinstallation rund 42\,500
+Rohzeilen pro Tag. Berichte über Monate aus diesen Zeilen zu rechnen heißt, Millionen
+Messungen in den Speicher zu laden, und die Datenbank wächst unbegrenzt. Seit Version 2.2.0
+verdichtet deshalb ein Hintergrund-Job (\texttt{DataPrepScheduler}, Daemon-Thread im
+Minutentakt) die Rohdaten in zwei Schritten:
+
+\begin{itemize}
+  \item \textbf{Stundenwerte}: \texttt{RollupService} berechnet je abgeschlossener Stunde,
+    Messtyp und Ziel eine Zeile in \texttt{measurement\_hourly} (Anzahl Messungen, davon
+    erfolgreich und ausgenommen, Minimum, Durchschnitt, Median, 95.\ Perzentil, Maximum mit
+    Zeitpunkt, Jitter). Die Wasserstandsmarke \texttt{rollup.lastHour} in
+    \texttt{rollup\_state} merkt die letzte verdichtete Stunde; geschrieben wird per
+    \texttt{MERGE}, ein wiederholter Lauf ist daher unschädlich. Außerhalb des Zeitfensters
+    werden höchstens zwei Stunden pro Minute verdichtet, damit die Messschleife nie lange auf
+    die Datenbank wartet; im Fenster (Standard 03:00--05:00 oder das Maintenance-Fenster)
+    wird einmal täglich der gesamte Rückstand abgearbeitet.
+  \item \textbf{Aufbewahrung}: Danach löscht \texttt{applyRetention()} tageweise -- und nur
+    aus bereits verdichteten Stunden -- erfolgreiche Rohmessungen, die älter als die
+    Aufbewahrungsfrist sind (Standard 90\,Tage, 0 = nie) und deren Vorgänger für denselben
+    Typ und dasselbe Ziel ebenfalls erfolgreich war (Fensterfunktion \texttt{LAG(success)}).
+    Fehlgeschlagene Messungen, der jeweils erste Erfolg nach einem Fehlschlag (das Ende eines
+    Ausfalls), ausgenommene Messungen und \texttt{MAINTENANCE}-Marker werden nie gelöscht;
+    die Ausfall-Analyse bleibt dadurch exakt. Der Fortschritt steht in
+    \texttt{retention.doneUntil}.
+\end{itemize}
+
+Die Heatmap liest verdichtete Stunden plus den noch rohen Rest. PDF-Berichte über mehr als
+7\,Tage (\texttt{PdfReportGenerator.RAW\_DETAIL\_HOURS}) rechnen aus den Stundenwerten:
+gewichteter Durchschnitt, exaktes Maximum und exakter Paketverlust, 95.\ Perzentil und Jitter
+als gewichtete Näherung, Tagesmittel in den Diagrammen, die schlechtesten Stunden statt der
+schlechtesten Einzelmessungen und \texttt{ReliabilityReport.computeFromAggregates()} für die
+Verfügbarkeit. Der 12-Monats-Bericht ist damit auch bei Jahren an Daten in Sekunden fertig.
+Der CSV-Export streamt zeilenweise aus dem ResultSet; \enquote{alle Daten} wird als ZIP mit
+einer CSV-Datei geliefert, zusätzlich gibt es einen Export der Stundenwerte. Bedient wird
+alles über die Einstellungs-Karte \enquote{Daten-Aufbereitung} (Zeitfenster, Option
+Maintenance-Fenster, Aufbewahrungstage, Status, \enquote{Jetzt ausführen} mit fünf Minuten
+Abkühlphase). \texttt{DatabaseRebuilder} übernimmt \texttt{measurement\_hourly} und
+\texttt{rollup\_state} in die neu aufgebaute Datenbank.
+
 \subsection{Internationalisierung (i18n)}
 \label{subsec:i18n}
 

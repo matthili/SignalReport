@@ -15,6 +15,23 @@ public class SettingsRoutes
     {
     }
 
+    private static int parseInt(Object value, int fallback)
+    {
+        if (value == null) return fallback;
+        try
+            {
+            return Integer.parseInt(value.toString().trim());
+            } catch (NumberFormatException e)
+            {
+            return fallback;
+            }
+    }
+
+    private static boolean parseBool(Object value, boolean fallback)
+    {
+        return value == null ? fallback : Boolean.parseBoolean(value.toString());
+    }
+
     public static void register(Javalin app)
     {
         // Aktuelle Konfiguration abrufen
@@ -54,6 +71,15 @@ public class SettingsRoutes
                             "farPersistent", gw.isFarPersistent(),
                             "farPingEnabled", gw.isFarPingEnabled(),
                             "virtualSuspected", gwVirtualSuspected
+                    ),
+                    "dataPrep", Map.of(
+                            "enabled", config.getDataPrep().isEnabled(),
+                            "startHour", config.getDataPrep().getStartHour(),
+                            "startMinute", config.getDataPrep().getStartMinute(),
+                            "endHour", config.getDataPrep().getEndHour(),
+                            "endMinute", config.getDataPrep().getEndMinute(),
+                            "useMaintenanceWindow", config.getDataPrep().isUseMaintenanceWindow(),
+                            "retentionDays", config.getDataPrep().getRetentionDays()
                     ),
                     "language", config.getLanguage()
             ));
@@ -199,6 +225,21 @@ public class SettingsRoutes
             currentConfig.updateMaintenanceWindow(maintenanceEnabled, startHour, startMinute, endHour, endMinute);
             currentConfig.updateUserInfo(provider, customerId, userName);
             currentConfig.updateGateway(gwNearManual, gwNear, gwNearPersistent, gwFarManual, gwFar, gwFarPersistent, gwFarPingEnabled);
+
+            // Daten-Aufbereitung: fehlende Felder behalten den aktuellen Wert
+            if (body.get("dataPrep") != null)
+                {
+                var dp = (java.util.Map<String, Object>) body.get("dataPrep");
+                var current = currentConfig.getDataPrep();
+                currentConfig.updateDataPrep(
+                        parseBool(dp.get("enabled"), current.isEnabled()),
+                        parseInt(dp.get("startHour"), current.getStartHour()),
+                        parseInt(dp.get("startMinute"), current.getStartMinute()),
+                        parseInt(dp.get("endHour"), current.getEndHour()),
+                        parseInt(dp.get("endMinute"), current.getEndMinute()),
+                        parseBool(dp.get("useMaintenanceWindow"), current.isUseMaintenanceWindow()),
+                        parseInt(dp.get("retentionDays"), current.getRetentionDays()));
+                }
 
             Config.save("config.json");
 

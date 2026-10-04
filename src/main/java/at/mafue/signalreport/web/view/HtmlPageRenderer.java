@@ -125,6 +125,7 @@ public class HtmlPageRenderer
                             <a href="#" class="btn btn-secondary" onclick="downloadCsv(24)">📊 {{buttons.csvExport24h}}</a>
                             <a href="#" class="btn btn-secondary" onclick="downloadCsv(168)">📊 {{buttons.csvExport7d}}</a>
                             <a href="#" class="btn btn-secondary" onclick="downloadCsvAll()">📊 {{buttons.csvExportAll}}</a>
+                            <a href="#" class="btn btn-secondary" onclick="downloadHourlyCsv()">📊 {{buttons.csvExportHourly}}</a>
                         </div>
 
                         <table>
@@ -409,6 +410,57 @@ public class HtmlPageRenderer
                                 <div style="margin-top:10px; font-size:0.9em; color:#856404;">
                                     💡 {{settings.maintenanceMidnight}}
                                 </div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
+                            <h3>🗜️ {{dataprep.title}}</h3>
+                            <p style="color:var(--color-text-secondary); font-size:0.9em; margin-top:5px;">{{dataprep.description}}</p>
+
+                            <div style="display:flex; align-items:center; gap:15px; margin-top:15px;">
+                                <input type="checkbox" id="dataprep-enabled" style="width:18px; height:18px;">
+                                <label for="dataprep-enabled" style="font-weight:bold;">{{dataprep.enable}}</label>
+                            </div>
+
+                            <div id="dataprep-fields" style="display:none; margin-top:15px; padding:15px; background:var(--bg-body); border-radius:8px;">
+                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                                    <input type="checkbox" id="dataprep-use-maintenance" style="width:18px; height:18px;">
+                                    <label for="dataprep-use-maintenance">{{dataprep.useMaintenance}}</label>
+                                </div>
+                                <div id="dataprep-window-fields" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:15px; align-items:end;">
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">{{settings.fromHour}}</label>
+                                        <select id="dataprep-start-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></select>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">{{settings.fromMinute}}</label>
+                                        <select id="dataprep-start-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                            <option value="0">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">{{settings.toHour}}</label>
+                                        <select id="dataprep-end-hour" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></select>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">{{settings.toMinute}}</label>
+                                        <select id="dataprep-end-minute" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                            <option value="0">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="margin-top:15px; display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold;">{{dataprep.retentionDays}}</label>
+                                        <input type="number" id="dataprep-retention" value="90" min="0" max="3650" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <small style="color:#6c757d;">{{dataprep.retentionHint}}</small>
+                                    </div>
+                                </div>
+                                <div style="margin-top:15px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                    <button type="button" id="dataprep-run-now" class="btn btn-secondary" style="padding:6px 12px;" onclick="runDataPrepNow()">▶️ {{dataprep.runNow}}</button>
+                                    <span id="dataprep-run-result" style="font-size:0.9em;"></span>
+                                </div>
+                                <div id="dataprep-status" style="margin-top:12px; font-size:0.9em; color:var(--color-text-secondary);"></div>
                             </div>
                         </div>
 

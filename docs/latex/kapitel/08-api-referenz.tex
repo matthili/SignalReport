@@ -130,13 +130,39 @@ GET & \texttt{/api/report} & PDF-Bericht generieren.
   Parameter: \texttt{hours} (24, 168, 8760).
   Antwort: PDF-Datei (application/pdf) \\
 \hline
-GET & \texttt{/api/export/csv} & CSV-Export.
+GET & \texttt{/api/export/csv} & CSV-Export der Rohmessungen, zeilenweise gestreamt.
   Parameter: \texttt{hours} (Zeitfilter), \texttt{all=true} (alle Daten),
   \texttt{type} (Messtyp-Filter).
-  Antwort: CSV-Datei (text/csv, Semikolon-getrennt) \\
+  Antwort: CSV-Datei (text/csv, Semikolon-getrennt); bei \texttt{all=true} ein ZIP
+  (application/zip) mit genau einer CSV-Datei \\
+\hline
+GET & \texttt{/api/export/hourly-csv} & Export der Stundenwerte (eine Zeile je Stunde,
+  Messtyp und Ziel: Anzahl, erfolgreich, ausgenommen, Min, Durchschnitt, Median, P95, Max,
+  Max-Zeitpunkt, Jitter). Antwort: CSV-Datei (text/csv) \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: Berichte und Export}
+\end{table}
+
+\subsection{Daten-Aufbereitung}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
+\hline
+GET & \texttt{/api/dataprep/status} & Konfiguration und Zustand der Daten-Aufbereitung:
+  letzter Lauf (Beginn/Ende), verdichtete Stunden, gelöschte Rohzeilen, letzter Fehler,
+  Stand der Stundenwerte, Anzahl Roh- und Stundenzeilen, ausstehende Stunden \\
+\hline
+POST & \texttt{/api/dataprep/run-now} & Startet den vollen Lauf (Rückstand verdichten,
+  Aufbewahrung anwenden) sofort im Hintergrund.
+  Antwort: \texttt{\{started, cooldownRemainingSeconds\}}; Abkühlphase 5 Minuten \\
+\hline
+\end{tabular}
+\caption{API-Endpunkte: Daten-Aufbereitung}
 \end{table}
 
 \subsection{DNS-Benchmark}

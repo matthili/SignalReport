@@ -7,6 +7,7 @@
 │  Java backend (Javalin 5.6.3)               │
 │  ├── SignalReportApp (continuous loop)      │
 │  ├── ServiceReachabilityScheduler (6h loop) │
+│  ├── DataPrepScheduler (hourly rollups)     │
 │  ├── measurement/ (engine)                  │
 │  │   ├── PingMeasurer (implements           │
 │  │   ├── DnsMeasurer    Measurer)           │
@@ -18,7 +19,8 @@
 │  │   └── HostIdentifier                     │
 │  ├── storage/ H2 twin database (embedded)   │
 │  │   ├── Primary  (read + write)            │
-│  │   └── Shadow   (synchronous mirror)      │
+│  │   ├── Shadow   (synchronous mirror)      │
+│  │   └── RollupService (hourly values)      │
 │  ├── report/                                │
 │  │   ├── ReliabilityReport (gap-aware)      │
 │  │   ├── ConnectivityAssessment (verdict)   │
@@ -27,7 +29,7 @@
 │  │         DejaVu font embedded)            │
 │  ├── web/ WebServer (orchestrator)          │
 │  │   ├── setup/auth gating filters          │
-│  │   ├── api/ (10 route registrars)         │
+│  │   ├── api/ (12 route registrars)         │
 │  │   ├── view/ (Html/Setup/Login renderer)  │
 │  │   └── SessionManager                     │
 │  │       ├── Challenge-response (SHA-256)   │
@@ -167,6 +169,43 @@ properly; on Linux/macOS the SIGTERM shutdown hook does the same.
 
 Existing single-DB installations automatically receive their shadow copy on the
 first start – no manual migration step required.
+
+## Data preparation (hourly values and retention)
+
+With a 10-second interval the reference installation writes about 42,500 raw rows per
+day. Computing reports over months from those rows means loading millions of
+measurements into memory, and the database grows without bound. Since 2.2.0 a
+background job (`DataPrepScheduler`, daemon thread, one tick per minute) therefore
+condenses the raw data in two steps:
+
+- **Hourly values** – `RollupService.rollupHour()` computes one row per completed hour,
+  type and target in `measurement_hourly` (sample / ok / excluded count, min, average,
+  median, 95th percentile, max with its timestamp, jitter). The watermark
+  `rollup.lastHour` in `rollup_state` marks the last condensed hour; rows are written
+  with `MERGE`, so a repeated run is harmless. Outside the time window at most 2 hours are
+  condensed per tick, so the measurement loop never waits long for the database; inside
+  the window (default 03:00–05:00, or the maintenance window) the whole backlog is
+  processed once a day.
+- **Retention** – after the backlog, `applyRetention()` deletes, day by day and only from
+  hours that are already condensed, successful raw measurements older than the retention
+  period (default 90 days, 0 = never) whose predecessor for the same type and target was
+  also successful (`LAG(success)` window function). Failed measurements, the first success
+  after a failure (the end of an outage), excluded measurements and `MAINTENANCE` markers
+  are never deleted, so the outage analysis stays exact. Progress is kept in
+  `retention.doneUntil`.
+
+Consumers: the heatmap reads condensed hours plus the still-raw remainder. PDF reports
+longer than 7 days (`PdfReportGenerator.RAW_DETAIL_HOURS`) use the hourly values for the
+statistics (weighted average, exact maximum and packet loss, 95th percentile and jitter as
+weighted approximations), daily averages for the charts, the worst hours instead of the
+worst single measurements and `ReliabilityReport.computeFromAggregates()` for the
+availability; the 12-month report therefore finishes in seconds even with years of data.
+`/api/export/csv` streams row by row from the result set, `all=true` delivers a ZIP with
+one CSV inside, and `/api/export/hourly-csv` exports the hourly values. Everything is
+operated from the settings card "Data preparation" (window, maintenance-window option,
+retention days, status, "Run now" with a 5-minute cooldown; `GET /api/dataprep/status`,
+`POST /api/dataprep/run-now`). `DatabaseRebuilder` carries `measurement_hourly` and
+`rollup_state` over into the rebuilt database.
 
 ## Internationalisation (i18n)
 

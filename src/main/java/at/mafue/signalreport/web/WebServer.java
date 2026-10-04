@@ -1,10 +1,12 @@
 package at.mafue.signalreport.web;
 
+import at.mafue.signalreport.DataPrepScheduler;
 import at.mafue.signalreport.config.AuthConfig;
 import at.mafue.signalreport.config.Config;
 import at.mafue.signalreport.i18n.I18n;
 import at.mafue.signalreport.storage.H2MeasurementRepository;
 import at.mafue.signalreport.web.api.AuthRoutes;
+import at.mafue.signalreport.web.api.DataPrepRoutes;
 import at.mafue.signalreport.web.api.DnsRoutes;
 import at.mafue.signalreport.web.api.ExportRoutes;
 import at.mafue.signalreport.web.api.HostRoutes;
@@ -33,6 +35,7 @@ public class WebServer
     private final H2MeasurementRepository repository;
     private final LongSupplier reachabilityTrigger;
     private final Runnable stopRequest;
+    private final DataPrepScheduler dataPrepScheduler;
     private final HtmlPageRenderer htmlPageRenderer = new HtmlPageRenderer();
     private final SetupPageRenderer setupPageRenderer = new SetupPageRenderer();
     private final LoginPageRenderer loginPageRenderer = new LoginPageRenderer();
@@ -42,12 +45,15 @@ public class WebServer
     /**
      * @param reachabilityTrigger Ausloeser fuer "Dienste jetzt pruefen" (liefert Rest-Abkuehlzeit)
      * @param stopRequest         Ausloeser fuer den geordneten Stopp (lokaler Endpunkt, siehe SystemRoutes)
+     * @param dataPrepScheduler   Daten-Aufbereitung (Status + "Jetzt ausfuehren"), darf null sein
      */
-    public WebServer(H2MeasurementRepository repository, LongSupplier reachabilityTrigger, Runnable stopRequest)
+    public WebServer(H2MeasurementRepository repository, LongSupplier reachabilityTrigger, Runnable stopRequest,
+                     DataPrepScheduler dataPrepScheduler)
     {
         this.repository = repository;
         this.reachabilityTrigger = reachabilityTrigger;
         this.stopRequest = stopRequest;
+        this.dataPrepScheduler = dataPrepScheduler;
     }
 
     public void start(int port)
@@ -142,6 +148,7 @@ public class WebServer
         SetupRoutes.register(app);
         AuthRoutes.register(app, sessionManager);
         SystemRoutes.register(app, stopRequest);
+        DataPrepRoutes.register(app, dataPrepScheduler);
 
         logger.info("Web-Interface läuft unter: http://localhost:{}", port);
     }

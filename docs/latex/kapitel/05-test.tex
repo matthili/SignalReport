@@ -18,7 +18,7 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
     \item \textbf{HostIdentifierTest} (4 Tests): Stabile Host-Identifikation über Neustarts
     \item \textbf{StatisticsTest} (8 Tests): Mathematisch korrekte Berechnung von 95. Perzentil, Jitter und Paketverlust mit realen DB-Abfragen
-    \item \textbf{ConfigTest} (17 Tests): Laden/Speichern von Konfiguration, hashPassword, Auth-Verifikation, Theme, Save+Reload
+    \item \textbf{ConfigTest} (18 Tests): Laden/Speichern von Konfiguration, hashPassword, Auth-Verifikation, Theme, Save+Reload, Standardwerte und Aktualisierung der Daten-Aufbereitung
     \item \textbf{H2MeasurementRepositoryTest} (12 Tests): Vollstaendige Datenbank-Integration mit IP-Tracking, Host-Registrierung, Messrunde als eine Transaktion (\texttt{saveAll})
     \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
     \item \textbf{MaintenanceWindowTest} (7 Tests): Deaktiviert, ganztägig, aktuelle Zeit, Mitternachtsübergang, Standardwerte
@@ -26,7 +26,7 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{I18nTest} (10 Tests): Schlüssel-Parität aller neun Sprachdateien gegen die Referenz (de.json), Existenz aller im Quellcode verwendeten Platzhalter (inkl. \texttt{app.js}), Fallback-Verhalten, Sprach-Erkennung
     \item \textbf{GatewayDiscoveryTest} (15 Tests): Traceroute-Parsing, RFC-1918-Klassifizierung, Gateway-Kette (nah/fern), Erkennung virtueller Gateways (Docker-Bridge, VM-NAT) und Überspringen der Docker-Bridge
     \item \textbf{ConnectivityAssessmentTest} (8 Tests): Schuld-Verdikt (Router / Internet-Gateway / Internet) auf Basis des Paketverlusts je Segment
-    \item \textbf{ReliabilityReportTest} (10 Tests): lückenbewusste Verfügbarkeit/Abdeckung/MTBF/MTTR, Aggregation aufeinanderfolgender Fehlmessungen zu einem Ausfall, Ausschluss via \texttt{excluded}-Spalte
+    \item \textbf{ReliabilityReportTest} (13 Tests): lückenbewusste Verfügbarkeit/Abdeckung/MTBF/MTTR, Aggregation aufeinanderfolgender Fehlmessungen zu einem Ausfall, Ausschluss via \texttt{excluded}-Spalte, Auswertung aus Stundenwerten (\texttt{computeFromAggregates}) deckungsgleich mit der Rohdaten-Rechnung
     \item \textbf{ServiceReachabilityConfigTest} (8 Tests): Defaults (deaktiviert, 6-Stunden-Takt), Intervall-Grenzen, Pro-Dienst-Schalter, JSON-Round-Trip
     \item \textbf{ServiceReachabilityAssessmentTest} (15 Tests): Verdikt-Klassifizierung (erreichbar / Dienst-Störung / DNS-, TCP-, SNI-Sperre / Sperrseite) aus synthetischen Beobachtungen
     \item \textbf{ServiceReachabilityReportTest} (4 Tests): Verdichtung der Prüfungen zu Episoden (die Sperr-/Störungs-Timeline)
@@ -35,11 +35,15 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{ServiceReachabilityRoutesTest} (2 Tests): \enquote{Jetzt prüfen}-Endpoint inkl.\ Abkühlphase (gegen echten Javalin-Server)
     \item \textbf{SystemRoutesTest} (2 Tests): lokaler Stopp-Endpoint (gegen echten Javalin-Server) und Loopback-Erkennung (IPv4/IPv6-Literale, keine Hostnamen-Auflösung)
     \item \textbf{StopCommandTest} (3 Tests): Stopp-Kommando \texttt{signalreport.jar stop} beendet eine laufende Instanz über den Endpoint; Randfälle \enquote{keine Instanz} und \enquote{keine Konfiguration}
-    \item \textbf{DatabaseRebuilderTest} (4 Tests): Neuaufbau mit echten H2-Dateien -- Vereinigung von Primary und Shadow inkl.\ \texttt{excluded}-Flag, Stunden-Fallback bei simuliert unlesbarem Tag, Dateitausch mit Quarantäne und Shadow-Kopie, Marker-gesteuerter Neuaufbau beim Repository-Start, Abbruch ohne lesbare Quelle
+    \item \textbf{DatabaseRebuilderTest} (4 Tests): Neuaufbau mit echten H2-Dateien -- Vereinigung von Primary und Shadow inkl.\ \texttt{excluded}-Flag, Übernahme der Stundenwerte und der Wasserstandsmarke, Stunden-Fallback bei simuliert unlesbarem Tag, Dateitausch mit Quarantäne und Shadow-Kopie, Marker-gesteuerter Neuaufbau beim Repository-Start, Abbruch ohne lesbare Quelle
     \item \textbf{RebuildCommandTest} (1 Test): Pfad-Fallback des Kommandozeilen-Neuaufbaus ohne Konfiguration
+    \item \textbf{DataPrepConfigTest} (10 Tests): Zeitfenster (einfach, über Mitternacht, Start = Ende), Umschaltung auf das Maintenance-Fenster mit Rückfall, Begrenzung der Aufbewahrungsfrist (7--3650 Tage, 0 = nie), Begrenzung von Stunde/Minute, JSON-Round-Trip
+    \item \textbf{DataPrepSchedulerTest} (4 Tests): Entscheidung \enquote{voller Lauf einmal pro Tag im Fenster}, Obergrenze außerhalb des Fensters, voller Lauf gegen echte H2-Datei inkl.\ Statusdaten, manueller Start mit Abkühlphase
+    \item \textbf{RollupServiceTest} (11 Tests): Stundenstatistik ohne DB (Min/Ø/Median/P95/Max/Jitter; Fehlschläge und ausgenommene Messungen), Verdichtung nur abgeschlossener Stunden, Wasserstandsmarke und Stundenlimit, Wiederholbarkeit (\texttt{MERGE}), Heatmap aus Stundenwerten plus Rohrest, Aufbewahrungsregel (Funde, Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben; nur verdichtete Stunden; Tageslimit pro Lauf)
+    \item \textbf{ExportRoutesTest} (7 Tests): gestreamter CSV-Export, Typfilter, Parameterfehler, \enquote{alle Daten} als ZIP mit genau einer CSV-Datei, Stundenwerte-CSV (gegen echten Javalin-Server), CSV-Escaping und Zeilenformat
 \end{itemize}
 
-Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
+Alle Tests laufen ohne externe Abhängigkeiten (H2-Datenbankdateien unter \texttt{data/test-*} für Integrationstests) und sind in wenigen Sekunden durchführbar.
 
 \subsection{Beispiel-Test für Statistik-Berechnung}
 \begin{lstlisting}[language=Java, caption=Test fuer 95. Perzentil]
@@ -69,15 +73,15 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand) & 134 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, DataPrepConfig, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand, DataPrepScheduler-Entscheidung) & 150 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, ServiceReachabilityRoutes, SystemRoutes, StopCommand) & 34 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, StopCommand) & 54 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
-Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung) & 3 & -- \\
+Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung 24\,h und 12 Monate) & 4 & -- \\
 \hline
-\textbf{Gesamt} & \textbf{168 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{204 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}

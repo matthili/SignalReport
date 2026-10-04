@@ -3,7 +3,7 @@ function typeLabel(type) { return GW_LABELS[type] || type; }
 // Stunden-Dropdowns befüllen (0-23)
 function populateHourDropdowns() {
     const hours = Array.from({length: 24}, (_, i) => i);
-    ['maintenance-start-hour', 'maintenance-end-hour'].forEach(id => {
+    ['maintenance-start-hour', 'maintenance-end-hour', 'dataprep-start-hour', 'dataprep-end-hour'].forEach(id => {
         const select = document.getElementById(id);
         select.innerHTML = '';
         hours.forEach(hour => {
@@ -725,6 +725,18 @@ function loadConfig() {
             document.getElementById('maintenance-end-minute').value = maint.endMinute;
             document.getElementById('maintenance-fields').style.display = maint.enabled ? 'block' : 'none';
 
+            // Daten-Aufbereitung (Stundenwerte, Aufbewahrung, Zeitfenster)
+            const dp = config.dataPrep || {};
+            document.getElementById('dataprep-enabled').checked = dp.enabled !== false;
+            document.getElementById('dataprep-use-maintenance').checked = !!dp.useMaintenanceWindow;
+            document.getElementById('dataprep-start-hour').value = dp.startHour ?? 3;
+            document.getElementById('dataprep-start-minute').value = dp.startMinute ?? 0;
+            document.getElementById('dataprep-end-hour').value = dp.endHour ?? 5;
+            document.getElementById('dataprep-end-minute').value = dp.endMinute ?? 0;
+            document.getElementById('dataprep-retention').value = dp.retentionDays ?? 90;
+            syncDataPrepControls();
+            loadDataPrepStatus();
+
             // Push-Einstellungen laden
             fetch('/api/push/settings')
                 .then(response => response.json())
@@ -778,6 +790,61 @@ function changeLanguage(language) {
 document.getElementById('maintenance-enabled').addEventListener('change', function() {
     document.getElementById('maintenance-fields').style.display = this.checked ? 'block' : 'none';
 });
+
+// Daten-Aufbereitung: Felder je nach Schaltern ein-/ausblenden
+function syncDataPrepControls() {
+    const enabled = document.getElementById('dataprep-enabled').checked;
+    document.getElementById('dataprep-fields').style.display = enabled ? 'block' : 'none';
+    const useMaint = document.getElementById('dataprep-use-maintenance').checked;
+    document.getElementById('dataprep-window-fields').style.display = useMaint ? 'none' : 'grid';
+}
+document.getElementById('dataprep-enabled').addEventListener('change', syncDataPrepControls);
+document.getElementById('dataprep-use-maintenance').addEventListener('change', syncDataPrepControls);
+
+function formatEpochSeconds(epoch) {
+    return new Date(epoch * 1000).toLocaleString(LOCALE);
+}
+
+// Status der Daten-Aufbereitung (letzter Lauf, Stand der Stundenwerte, Zeilenzahlen)
+function loadDataPrepStatus() {
+    fetch('/api/dataprep/status')
+        .then(response => response.json())
+        .then(s => {
+            const parts = [];
+            let lastRun = s.lastRunStartEpoch ? formatEpochSeconds(s.lastRunStartEpoch) : I18N['dataprep.status.never'];
+            if (s.running) lastRun += ' (' + I18N['dataprep.running'] + ')';
+            parts.push(I18N['dataprep.status.lastRun'] + ': ' + lastRun);
+            if (s.lastHoursRolled >= 0) {
+                parts.push(I18N['dataprep.status.hoursRolled'] + ': ' + s.lastHoursRolled
+                    + ' · ' + I18N['dataprep.status.rowsDeleted'] + ': ' + Math.max(0, s.lastRowsDeleted).toLocaleString(LOCALE));
+            }
+            let upTo = s.rollupUntilEpoch ? formatEpochSeconds(s.rollupUntilEpoch) : I18N['dataprep.status.none'];
+            if (s.pendingHours > 0) upTo += ' (' + s.pendingHours + ' h ' + I18N['dataprep.status.pending'] + ')';
+            parts.push(I18N['dataprep.status.hourlyUpTo'] + ': ' + upTo);
+            parts.push(I18N['dataprep.status.rawRows'] + ': ' + (s.rawRows || 0).toLocaleString(LOCALE)
+                + ' · ' + I18N['dataprep.status.hourlyRows'] + ': ' + (s.hourlyRows || 0).toLocaleString(LOCALE));
+            if (s.lastError) parts.push('⚠️ ' + s.lastError);
+            document.getElementById('dataprep-status').innerHTML = parts.join('<br>');
+        })
+        .catch(error => console.error('Aufbereitungs-Status-Fehler:', error));
+}
+
+// "Jetzt ausfuehren": voller Lauf im Hintergrund, mit Abkuehlphase
+function runDataPrepNow() {
+    const btn = document.getElementById('dataprep-run-now');
+    const out = document.getElementById('dataprep-run-result');
+    btn.disabled = true;
+    fetch('/api/dataprep/run-now', { method: 'POST' })
+        .then(response => response.json())
+        .then(res => {
+            out.textContent = res.started
+                ? '✅ ' + I18N['dataprep.started']
+                : '⏳ ' + I18N['dataprep.cooldown'].replace('{seconds}', res.cooldownRemainingSeconds);
+            setTimeout(loadDataPrepStatus, 3000);
+        })
+        .catch(error => { out.textContent = I18N['common.error'] + ': ' + error.message; })
+        .finally(() => { btn.disabled = false; });
+}
 
 // Gateway-Steuerelemente je nach Manuell-Schalter aktivieren/deaktivieren
 function syncGatewayControls() {
@@ -871,6 +938,15 @@ function saveConfig() {
             far: document.getElementById('gw-far-ip').value.trim(),
             farPersistent: document.getElementById('gw-far-persistent').checked,
             farPingEnabled: !document.getElementById('gw-far-noping').checked
+        },
+        dataPrep: {
+            enabled: document.getElementById('dataprep-enabled').checked,
+            startHour: parseInt(document.getElementById('dataprep-start-hour').value),
+            startMinute: parseInt(document.getElementById('dataprep-start-minute').value),
+            endHour: parseInt(document.getElementById('dataprep-end-hour').value),
+            endMinute: parseInt(document.getElementById('dataprep-end-minute').value),
+            useMaintenanceWindow: document.getElementById('dataprep-use-maintenance').checked,
+            retentionDays: parseInt(document.getElementById('dataprep-retention').value)
         }
     };
 
@@ -1060,11 +1136,16 @@ function downloadCsv(hours) {
     window.location.href = '/api/export/csv?hours=' + hours;
 }
 
-// CSV-Download (alle Daten)
+// CSV-Download (alle Daten, als ZIP)
 function downloadCsvAll() {
     if (confirm('⚠️ ' + I18N['buttons.csvConfirmAll'])) {
         window.location.href = '/api/export/csv?all=true';
     }
+}
+
+// CSV-Download der Stundenwerte (Verdichtung)
+function downloadHourlyCsv() {
+    window.location.href = '/api/export/hourly-csv';
 }
 
 // Theme-Toggle
@@ -1139,11 +1220,13 @@ setInterval(loadReachability, 120000);
 setInterval(loadHourlyChart, 300000);
 setInterval(loadNetworkInfo, 60000);
 
-// IP-Tracking alle 30 Sekunden aktualisieren
+// IP-Tracking alle 30 Sekunden aktualisieren; Status der Daten-Aufbereitung ebenso (nur im Einstellungen-Tab)
 setInterval(() => {
     const activeTab = document.querySelector('.tab.active');
     if (activeTab && activeTab.dataset.tab === 'ip-tracking') {
         loadIpStatistics();
         loadIpChanges();
+    } else if (activeTab && activeTab.dataset.tab === 'settings') {
+        loadDataPrepStatus();
     }
 }, 30000);

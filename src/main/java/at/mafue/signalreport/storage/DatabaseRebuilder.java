@@ -255,6 +255,8 @@ public class DatabaseRebuilder
                 report.hosts = copyHosts(sources, target);
                 report.ipChanges = copyIpChanges(sources, target);
                 report.serviceChecks = copyServiceChecks(sources, target);
+                report.hourlyRollups = copyHourlyRollups(sources, target);
+                copyRollupState(sources, target);
                 report.unionMeasurements = copyMeasurements(sources, target, min, max);
 
                 long check = countRows(target, "measurements");
@@ -496,6 +498,96 @@ public class DatabaseRebuilder
                 }
             }
         return rows.size();
+    }
+
+    /**
+     * Stundenwerte (Verdichtung) beider Quellen vereinigen: bei gleichem Schluessel gewinnt
+     * die Zeile mit mehr Messungen. Nach einer Aufbewahrungs-Loeschung sind die Stundenwerte
+     * die einzige Quelle der aelteren Historie und muessen deshalb mit umziehen.
+     */
+    private long copyHourlyRollups(List<SourceDb> sources, Connection target) throws SQLException
+    {
+        Map<String, Object[]> merged = new LinkedHashMap<>();
+        for (SourceDb src : sources)
+            {
+            if (!tableExists(src.connection, "MEASUREMENT_HOURLY")) continue;
+            try (Statement st = src.connection.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT hour_start, type, target, host_hash, sample_count, ok_count, "
+                         + "excluded_count, min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms "
+                         + "FROM measurement_hourly ORDER BY hour_start"))
+                {
+                while (rs.next())
+                    {
+                    Object[] row = {rs.getTimestamp(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                            rs.getInt(5), rs.getInt(6), rs.getInt(7), rs.getDouble(8), rs.getDouble(9),
+                            rs.getDouble(10), rs.getDouble(11), rs.getDouble(12), rs.getTimestamp(13), rs.getDouble(14)};
+                    String key = row[0] + "|" + row[1] + "|" + row[2];
+                    merged.merge(key, row, (a, b) -> ((Integer) b[4] > (Integer) a[4]) ? b : a);
+                    }
+                } catch (SQLException e)
+                {
+                src.summary.tableErrors.add("measurement_hourly nicht lesbar: " + shortMessage(e));
+                }
+            }
+        try (PreparedStatement ps = target.prepareStatement(
+                "MERGE INTO measurement_hourly (hour_start, type, target, host_hash, sample_count, ok_count, "
+                        + "excluded_count, min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms) "
+                        + "KEY (hour_start, type, target) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))
+            {
+            for (Object[] r : merged.values())
+                {
+                ps.setTimestamp(1, (Timestamp) r[0]);
+                ps.setString(2, (String) r[1]);
+                ps.setString(3, (String) r[2]);
+                ps.setString(4, (String) r[3]);
+                ps.setInt(5, (Integer) r[4]);
+                ps.setInt(6, (Integer) r[5]);
+                ps.setInt(7, (Integer) r[6]);
+                ps.setDouble(8, (Double) r[7]);
+                ps.setDouble(9, (Double) r[8]);
+                ps.setDouble(10, (Double) r[9]);
+                ps.setDouble(11, (Double) r[10]);
+                ps.setDouble(12, (Double) r[11]);
+                ps.setTimestamp(13, (Timestamp) r[12]);
+                ps.setDouble(14, (Double) r[13]);
+                ps.executeUpdate();
+                }
+            }
+        return merged.size();
+    }
+
+    /** Zustand der Aufbereitung (Wasserstandsmarken): je Schluessel der kleinere Wert, also der vorsichtigere. */
+    private void copyRollupState(List<SourceDb> sources, Connection target) throws SQLException
+    {
+        Map<String, String> merged = new LinkedHashMap<>();
+        for (SourceDb src : sources)
+            {
+            if (!tableExists(src.connection, "ROLLUP_STATE")) continue;
+            try (Statement st = src.connection.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT state_key, state_value FROM rollup_state"))
+                {
+                while (rs.next())
+                    {
+                    String key = rs.getString(1);
+                    String value = rs.getString(2);
+                    if (value == null) continue;
+                    merged.merge(key, value, (a, b) -> a.compareTo(b) <= 0 ? a : b);
+                    }
+                } catch (SQLException e)
+                {
+                src.summary.tableErrors.add("rollup_state nicht lesbar: " + shortMessage(e));
+                }
+            }
+        try (PreparedStatement ps = target.prepareStatement(
+                "MERGE INTO rollup_state (state_key, state_value) KEY (state_key) VALUES (?, ?)"))
+            {
+            for (Map.Entry<String, String> e : merged.entrySet())
+                {
+                ps.setString(1, e.getKey());
+                ps.setString(2, e.getValue());
+                ps.executeUpdate();
+                }
+            }
     }
 
     // ------------------------------------------------------------------------

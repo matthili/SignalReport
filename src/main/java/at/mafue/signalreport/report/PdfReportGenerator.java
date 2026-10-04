@@ -15,6 +15,7 @@ import at.mafue.signalreport.network.HostIdentifier;
 import at.mafue.signalreport.network.NetworkInfo;
 import at.mafue.signalreport.report.ServiceReachabilityAssessment.Verdict;
 import at.mafue.signalreport.storage.H2MeasurementRepository;
+import at.mafue.signalreport.storage.HourlyRollup;
 import at.mafue.signalreport.storage.ServiceCheck;
 
 import com.lowagie.text.*;
@@ -44,6 +45,13 @@ import java.util.List;
 
 public class PdfReportGenerator
 {
+    /**
+     * Bis zu dieser Zeitraum-Laenge liest der Bericht die Rohmessungen (volle Aufloesung);
+     * darueber die Stundenwerte aus der Verdichtung (Charts als Tagesmittel), damit auch ein
+     * Jahresbericht in Sekunden fertig ist und nie Millionen Zeilen laedt.
+     */
+    public static final int RAW_DETAIL_HOURS = 168;
+
     private final H2MeasurementRepository repository;
 
     public PdfReportGenerator(H2MeasurementRepository repository)
@@ -133,6 +141,7 @@ public class PdfReportGenerator
 
         Instant now = Instant.now();
         Instant since = now.minusSeconds(hours * 3600L);
+        boolean longRange = hours > RAW_DETAIL_HOURS;
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm", locale)
                 .withZone(ZoneId.systemDefault());
 
@@ -197,22 +206,31 @@ public class PdfReportGenerator
         document.add(new Paragraph(I18n.get("network.externalIPv4") + ": " + NetworkInfo.getExternalIPv4() + " | " + I18n.get("network.externalIPv6") + ": " + NetworkInfo.getExternalIPv6(), smallFont));
         document.add(Chunk.NEWLINE);
 
-        // Alle Messungen im Zeitraum holen (direkt per SQL gefiltert)
-        List<Measurement> filteredMeasurements = repository.findSince(since);
+        // Datenbasis: bis 7 Tage die Rohmessungen (volle Aufloesung), darueber die
+        // Stundenwerte der Verdichtung. Lange Zeitraeume laden so nie Millionen Zeilen;
+        // die Charts zeigen dann Tagesmittel.
+        List<Measurement> filteredMeasurements = longRange ? List.of() : repository.findSince(since);
+        Font statFont = font(11);
+        String chartXAxis = I18n.get(longRange ? "pdf.dayNo" : "pdf.measurementNo");
+        if (longRange)
+            {
+            document.add(new Paragraph(I18n.get("pdf.rollupNote"), fontItalic(9)));
+            document.add(Chunk.NEWLINE);
+            }
 
         // === PING STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.pingMeasurements"), fontBold(14)));
 
-        Statistics pingStats = repository.calculateStatistics("PING", hours);
-        Font statFont = font(11);
+        Statistics pingStats = statisticsFor("PING", hours, since, now, longRange);
         addStatisticsBlock(document, pingStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // PING Chart
-        List<Measurement> pingMeasurements = filterByType(filteredMeasurements, "PING");
+        List<Measurement> pingMeasurements = longRange
+                ? dailyPointsFromRollups("PING", since, now) : filterByType(filteredMeasurements, "PING");
         if (!pingMeasurements.isEmpty())
             {
-            BufferedImage pingChart = createLatencyChart(pingMeasurements, "PING", detectTargetChanges(pingMeasurements));
+            BufferedImage pingChart = createLatencyChart(pingMeasurements, "PING", detectTargetChanges(pingMeasurements), chartXAxis);
             addChartToPdf(document, pingChart, I18n.get("pdf.chartTitle"));
             String pingTargetsNote = getTargetsChronological(pingMeasurements);
             document.add(new Paragraph(pingTargetsNote, fontItalic(9)));
@@ -226,15 +244,16 @@ public class PdfReportGenerator
         // === DNS STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.dnsMeasurements"), fontBold(14)));
 
-        Statistics dnsStats = repository.calculateStatistics("DNS", hours);
+        Statistics dnsStats = statisticsFor("DNS", hours, since, now, longRange);
         addStatisticsBlock(document, dnsStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // DNS Chart
-        List<Measurement> dnsMeasurements = filterByType(filteredMeasurements, "DNS");
+        List<Measurement> dnsMeasurements = longRange
+                ? dailyPointsFromRollups("DNS", since, now) : filterByType(filteredMeasurements, "DNS");
         if (!dnsMeasurements.isEmpty())
             {
-            BufferedImage dnsChart = createLatencyChart(dnsMeasurements, "DNS", detectTargetChanges(dnsMeasurements));
+            BufferedImage dnsChart = createLatencyChart(dnsMeasurements, "DNS", detectTargetChanges(dnsMeasurements), chartXAxis);
             addChartToPdf(document, dnsChart, I18n.get("pdf.chartTitle"));
             String dnsTargetsNote = getTargetsChronological(dnsMeasurements);
             document.add(new Paragraph(dnsTargetsNote, fontItalic(9)));
@@ -244,15 +263,16 @@ public class PdfReportGenerator
         // === HTTP STATISTIK ===
         document.add(new Paragraph(I18n.get("pdf.httpMeasurements"), fontBold(14)));
 
-        Statistics httpStats = repository.calculateStatistics("HTTP", hours);
+        Statistics httpStats = statisticsFor("HTTP", hours, since, now, longRange);
         addStatisticsBlock(document, httpStats, statFont, locale);
         document.add(Chunk.NEWLINE);
 
         // HTTP Chart
-        List<Measurement> httpMeasurements = filterByType(filteredMeasurements, "HTTP");
+        List<Measurement> httpMeasurements = longRange
+                ? dailyPointsFromRollups("HTTP", since, now) : filterByType(filteredMeasurements, "HTTP");
         if (!httpMeasurements.isEmpty())
             {
-            BufferedImage httpChart = createLatencyChart(httpMeasurements, "HTTP", detectTargetChanges(httpMeasurements));
+            BufferedImage httpChart = createLatencyChart(httpMeasurements, "HTTP", detectTargetChanges(httpMeasurements), chartXAxis);
             addChartToPdf(document, httpChart, I18n.get("pdf.chartTitle"));
             String httpTargetsNote = getTargetsChronological(httpMeasurements);
             document.add(new Paragraph(httpTargetsNote, fontItalic(9)));
@@ -260,16 +280,19 @@ public class PdfReportGenerator
             }
 
         // === STOERUNGS-LOKALISIERUNG ===
-        addConnectivitySection(document, hours, pingStats, statFont, locale);
+        addConnectivitySection(document, hours, since, now, longRange, pingStats, statFont, locale);
 
         // === VERFUEGBARKEIT & ZUVERLAESSIGKEIT ===
-        ReliabilityReport reliability = addReliabilitySection(document, filteredMeasurements, hours, statFont, locale);
+        ReliabilityReport reliability = longRange
+                ? addReliabilitySectionFromRollups(document, since, now, hours, statFont, locale)
+                : addReliabilitySection(document, filteredMeasurements, hours, statFont, locale);
 
         // === TOP 10 SCHLECHTESTE MESSUNGEN ===
         document.add(new Paragraph(I18n.get("pdf.worstTitle"), fontBold(14)));
         document.add(Chunk.NEWLINE);
 
-        List<Measurement> worstMeasurements = getWorstMeasurements(filteredMeasurements, 10);
+        List<Measurement> worstMeasurements = longRange
+                ? worstFromRollups(since, now, 10) : getWorstMeasurements(filteredMeasurements, 10);
         if (!worstMeasurements.isEmpty())
             {
             PdfPTable worstTable = createWorstMeasurementsTable(worstMeasurements, locale);
@@ -323,7 +346,7 @@ public class PdfReportGenerator
      * Segment (Router, Pforte ins Internet, Internet). Wird weggelassen, wenn
      * keine lokalen Gateways konfiguriert/entdeckt sind.
      */
-    private void addConnectivitySection(Document document, int hours,
+    private void addConnectivitySection(Document document, int hours, Instant since, Instant now, boolean longRange,
                                         Statistics internetStats,
                                         Font statFont, Locale locale) throws Exception
     {
@@ -339,8 +362,8 @@ public class PdfReportGenerator
             return; // keine Gateway-Daten -> Abschnitt entfaellt
             }
 
-        Statistics nearStats = repository.calculateStatistics(GatewayDiscovery.TYPE_NEAR, hours);
-        Statistics farStats = repository.calculateStatistics(GatewayDiscovery.TYPE_FAR, hours);
+        Statistics nearStats = statisticsFor(GatewayDiscovery.TYPE_NEAR, hours, since, now, longRange);
+        Statistics farStats = statisticsFor(GatewayDiscovery.TYPE_FAR, hours, since, now, longRange);
 
         ConnectivityAssessment.Verdict verdict = ConnectivityAssessment.assess(
                 hasNear ? nearStats : null,
@@ -383,7 +406,65 @@ public class PdfReportGenerator
 
         int interval = Config.getInstance().getMeasurement().getIntervalSeconds();
         ReliabilityReport r = ReliabilityReport.compute(ping, interval, hours * 3600L, maintenanceSamples);
+        writeReliabilityParagraphs(document, r, statFont, locale);
+        return r;
+    }
 
+    /**
+     * Verfuegbarkeits-Abschnitt fuer lange Zeitraeume: Zaehler aus den Stundenwerten, die
+     * Ausfall-Liste aus den dauerhaft erhaltenen Fehlschlaegen plus jeweils der ersten
+     * erfolgreichen Messung danach (Ausfall-Ende).
+     */
+    private ReliabilityReport addReliabilitySectionFromRollups(Document document, Instant since, Instant now,
+                                                               int hours, Font statFont, Locale locale) throws Exception
+    {
+        int interval = Config.getInstance().getMeasurement().getIntervalSeconds();
+        long total = 0, failed = 0, maintenance = 0, excluded = 0;
+        for (HourlyRollup h : repository.findHourlyRollups(null, since, now))
+            {
+            if ("PING".equals(h.getType()))
+                {
+                total += h.getSampleCount();
+                failed += h.getFailedCount();
+                excluded += h.getExcludedCount();
+                } else if (ReliabilityReport.TYPE_MAINTENANCE.equals(h.getType()))
+                {
+                maintenance += h.getSampleCount();
+                }
+            }
+        if (total == 0)
+            {
+            return null;
+            }
+
+        List<Measurement> failures = repository.findFailures("PING", since, now);
+        List<Measurement> rows = new ArrayList<>(failures);
+        long gapThreshold = Math.max(Math.max(1, interval) * 3L, 60L);
+        Measurement prev = null;
+        for (int i = 0; i < failures.size(); i++)
+            {
+            Measurement m = failures.get(i);
+            Measurement next = i + 1 < failures.size() ? failures.get(i + 1) : null;
+            boolean runEnds = next == null
+                    || java.time.Duration.between(m.getTimestamp(), next.getTimestamp()).getSeconds() > gapThreshold;
+            if (runEnds)
+                {
+                Measurement recovery = repository.findFirstSuccessAfter("PING", m.getTimestamp(),
+                        next != null ? next.getTimestamp() : now);
+                if (recovery != null) rows.add(recovery);
+                }
+            prev = m;
+            }
+
+        ReliabilityReport r = ReliabilityReport.computeFromAggregates(rows, interval, hours * 3600L,
+                total, failed, maintenance, excluded);
+        writeReliabilityParagraphs(document, r, statFont, locale);
+        return r;
+    }
+
+    private void writeReliabilityParagraphs(Document document, ReliabilityReport r, Font statFont, Locale locale)
+            throws DocumentException
+    {
         document.add(new Paragraph(I18n.get("reliability.title"), fontBold(14)));
         document.add(Chunk.NEWLINE);
         document.add(new Paragraph(I18n.get("reliability.uptime") + ": "
@@ -398,7 +479,56 @@ public class PdfReportGenerator
         document.add(new Paragraph(I18n.get("reliability.mttr") + ": "
                 + formatDuration(r.getMttrSeconds()), statFont));
         document.add(Chunk.NEWLINE);
-        return r;
+    }
+
+    /** Statistik je nach Zeitraum aus Rohdaten (exakt) oder Stundenwerten (lange Zeitraeume). */
+    private Statistics statisticsFor(String type, int hours, Instant since, Instant now, boolean longRange) throws Exception
+    {
+        return longRange
+                ? repository.calculateStatisticsFromRollups(type, since, now)
+                : repository.calculateStatistics(type, hours);
+    }
+
+    /**
+     * Tagesmittel aus den Stundenwerten als synthetische Messpunkte (ein Punkt je Tag mit
+     * erfolgreichen Messungen; Ziel = das am Tag am haeufigsten gemessene). Damit laufen
+     * Chart, Ziel-Wechsel-Markierung und Ziel-Historie unveraendert ueber dieselben Methoden.
+     */
+    private List<Measurement> dailyPointsFromRollups(String type, Instant since, Instant now) throws Exception
+    {
+        Map<Instant, double[]> byDay = new LinkedHashMap<>();          // Tag -> {gewichtete Summe, ok-Anzahl}
+        Map<Instant, Map<String, Integer>> targetsByDay = new HashMap<>();
+        for (HourlyRollup h : repository.findHourlyRollups(type, since, now))
+            {
+            if (h.getOkCount() == 0) continue;
+            Instant day = h.getHourStart().truncatedTo(java.time.temporal.ChronoUnit.DAYS);
+            double[] acc = byDay.computeIfAbsent(day, d -> new double[2]);
+            acc[0] += h.getAvgMs() * h.getOkCount();
+            acc[1] += h.getOkCount();
+            targetsByDay.computeIfAbsent(day, d -> new HashMap<>()).merge(h.getTarget(), h.getOkCount(), Integer::sum);
+            }
+        List<Measurement> points = new ArrayList<>();
+        for (Map.Entry<Instant, double[]> e : byDay.entrySet())
+            {
+            String target = targetsByDay.get(e.getKey()).entrySet().stream()
+                    .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("");
+            points.add(new Measurement(target, e.getValue()[0] / e.getValue()[1], true, type, e.getKey(),
+                    null, null, null, null, null));
+            }
+        return points;
+    }
+
+    /** Die schlechtesten Stunden (groesste erfolgreiche Latenz) als Messpunkte fuer die Top-10-Tabelle. */
+    private List<Measurement> worstFromRollups(Instant since, Instant now, int count) throws Exception
+    {
+        List<Measurement> worst = new ArrayList<>();
+        for (HourlyRollup h : repository.findWorstHours(since, now, count))
+            {
+            worst.add(new Measurement(h.getTarget(), h.getMaxMs(), true, h.getType(),
+                    h.getMaxAt() != null ? h.getMaxAt() : h.getHourStart(),
+                    null, null, null, null, h.getHostHash()));
+            }
+        return worst;
     }
 
     /** Dauer menschenlesbar: "Xh Ym" / "Ym Zs" / "Zs". */
@@ -514,7 +644,8 @@ public class PdfReportGenerator
         return prefix + String.join(", ", entries);
     }
 
-    private BufferedImage createLatencyChart(List<Measurement> measurements, String type, List<TargetChange> targetChanges)
+    private BufferedImage createLatencyChart(List<Measurement> measurements, String type,
+                                             List<TargetChange> targetChanges, String xAxisLabel)
     {
         initFonts();
         XYSeries series = new XYSeries(type + " " + I18n.get("table.latency"));
@@ -531,7 +662,7 @@ public class PdfReportGenerator
         XYSeriesCollection dataset = new XYSeriesCollection(series);
         JFreeChart chart = ChartFactory.createXYLineChart(
                 type + " " + I18n.get("chart.latencyOverTime"),
-                I18n.get("pdf.measurementNo"),
+                xAxisLabel,
                 I18n.get("chart.latencyMs"),
                 dataset,
                 PlotOrientation.VERTICAL,
@@ -644,10 +775,16 @@ public class PdfReportGenerator
             addTableCell(table, m.getType(), contentFont, false);
             addTableCell(table, m.getTarget(), contentFont, false);
             addTableCell(table, String.format(locale, "%.1f ms", m.getLatencyMs()), contentFont, false);
-            addTableCell(table, m.getHostHash().substring(0, 8), contentFont, false);
+            addTableCell(table, shortHash(m.getHostHash()), contentFont, false);
             }
 
         return table;
+    }
+
+    private static String shortHash(String hash)
+    {
+        if (hash == null) return "";
+        return hash.length() > 8 ? hash.substring(0, 8) : hash;
     }
 
     private PdfPTable createOutagesTable(List<ReliabilityReport.Outage> outages, Locale locale) throws DocumentException

@@ -63,7 +63,13 @@ class DatabaseRebuilderTest
                 row(T0, "https://example.com", "HTTP", false)));
         repo.saveServiceCheck(new ServiceCheck(T0, "web-example", "REACHABLE", "HTTP 200", 200, "93.184.216.34", 120.0));
         repo.trackIpChange("1.2.3.4", "rebuildhost");
+        // Stundenwerte und Wasserstandsmarke der Verdichtung (3 Typ/Ziel-Paare in der Stunde von T0)
+        Instant hour = T0.truncatedTo(ChronoUnit.HOURS);
+        new RollupService(repo).rollupHour(hour);
+        repo.setRollupWatermark(hour);
         repo.close();
+        // ein Stundenwert nur in der Shadow (naechste Stunde) -> Vereinigung
+        insertHourlyRaw(BASE + "-shadow", hour.plus(1, ChronoUnit.HOURS), "PING", "8.8.8.8", 12);
 
         // nur in der Primary: eine zusaetzliche Zeile; nur in der Shadow: eine andere + excluded-Flag
         insertRaw(BASE, T0.plusSeconds(10), "8.8.8.8", "PING", 15.0, true, false);
@@ -89,6 +95,7 @@ class DatabaseRebuilderTest
         assertEquals(1, report.hosts);
         assertEquals(1, report.serviceChecks);
         assertEquals(3, report.ipChanges, "INITIAL (beide Twins, Zeitversatz) + CHANGE (beide, 2 s versetzt) + CHANGE (nur Primary)");
+        assertEquals(4, report.hourlyRollups, "3 Stundenwerte aus beiden Twins + 1 nur aus der Shadow");
         assertNotNull(report.reportFile);
         assertTrue(Files.exists(report.reportFile));
         assertTrue(report.toText().contains("Vereinigung"));
@@ -108,6 +115,10 @@ class DatabaseRebuilderTest
             assertTrue(dns.isExcluded(), "excluded-Flag aus der Shadow muss uebernommen werden (ODER)");
             assertEquals(1, rebuilt.getAllHosts().size());
             assertEquals(1, rebuilt.findLatestServiceChecks().size());
+            assertEquals(4, rebuilt.countHourlyRollups(), "Stundenwerte ueberstehen den Neuaufbau");
+            assertEquals(hour, rebuilt.getRollupWatermark(), "Wasserstandsmarke ueberstehen den Neuaufbau");
+            HourlyRollup shadowOnly = rebuilt.findHourlyRollups("PING", hour.plus(1, ChronoUnit.HOURS), hour.plus(2, ChronoUnit.HOURS)).get(0);
+            assertEquals(12, shadowOnly.getSampleCount());
             } finally
             {
             rebuilt.close();
@@ -230,6 +241,24 @@ class DatabaseRebuilderTest
             ps.setString(3, newIp);
             ps.setString(4, type);
             ps.setString(5, hostHash);
+            ps.executeUpdate();
+            }
+    }
+
+    private static void insertHourlyRaw(String base, Instant hourStart, String type, String target, int samples) throws SQLException
+    {
+        try (Connection c = DriverManager.getConnection("jdbc:h2:" + base + ";DB_CLOSE_ON_EXIT=FALSE", "sa", "");
+             PreparedStatement ps = c.prepareStatement("""
+                     INSERT INTO measurement_hourly (hour_start, type, target, host_hash, sample_count, ok_count, excluded_count,
+                      min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms) VALUES (?, ?, ?, ?, ?, ?, 0, 1, 2, 2, 3, 3, ?, 0.5)"""))
+            {
+            ps.setTimestamp(1, Timestamp.from(hourStart));
+            ps.setString(2, type);
+            ps.setString(3, target);
+            ps.setString(4, "rebuildhost");
+            ps.setInt(5, samples);
+            ps.setInt(6, samples);
+            ps.setTimestamp(7, Timestamp.from(hourStart.plusSeconds(30)));
             ps.executeUpdate();
             }
     }

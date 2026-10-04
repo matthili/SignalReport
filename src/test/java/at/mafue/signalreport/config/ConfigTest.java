@@ -181,6 +181,34 @@ class ConfigTest
         assertEquals("Erika Musterfrau", config.getUserInfo().getUserName());
     }
 
+    @Test
+    void testDataPrepDefaultsAndUpdate()
+    {
+        // nicht in der Testdatei enthalten -> Standardwerte
+        DataPrepConfig dp = config.getDataPrep();
+        assertNotNull(dp, "Daten-Aufbereitung muss auch ohne Eintrag in der Datei vorhanden sein");
+        assertTrue(dp.isEnabled());
+        assertEquals(3, dp.getStartHour());
+        assertEquals(0, dp.getStartMinute());
+        assertEquals(5, dp.getEndHour());
+        assertEquals(0, dp.getEndMinute());
+        assertFalse(dp.isUseMaintenanceWindow());
+        assertEquals(90, dp.getRetentionDays());
+
+        // Act
+        config.updateDataPrep(false, 1, 15, 2, 45, true, 30);
+
+        // Assert
+        dp = config.getDataPrep();
+        assertFalse(dp.isEnabled());
+        assertEquals(1, dp.getStartHour());
+        assertEquals(15, dp.getStartMinute());
+        assertEquals(2, dp.getEndHour());
+        assertEquals(45, dp.getEndMinute());
+        assertTrue(dp.isUseMaintenanceWindow());
+        assertEquals(30, dp.getRetentionDays());
+    }
+
     // --- Neue Tests: hashPassword ---
 
     @Test

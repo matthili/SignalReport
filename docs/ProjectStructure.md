@@ -10,6 +10,7 @@ SignalReport/
 │   │   ├── StopCommand.java              # "signalreport.jar stop": asks the running instance to shut down cleanly (loopback endpoint)
 │   │   ├── RebuildCommand.java           # "signalreport.jar rebuild-db [--no-swap]": database rebuild from the command line
 │   │   ├── ServiceReachabilityScheduler.java  # Slow service-reachability loop + line-gate + manual trigger
+│   │   ├── DataPrepScheduler.java        # Data preparation (daemon, 1-min tick): hourly condensation, backlog + retention inside the window, "run now" with cooldown
 │   │   ├── config/                       # Configuration (Config + one file per aspect)
 │   │   │   ├── Config.java               # Singleton facade (load/save, password hashing, defaults)
 │   │   │   ├── MeasurementConfig.java    # Measurement settings (interval, …)
@@ -25,7 +26,8 @@ SignalReport/
 │   │   │   ├── SetupConfig.java          # Setup-wizard state
 │   │   │   ├── ThemeConfig.java          # Theme (dark mode)
 │   │   │   ├── ServiceReachabilityConfig.java  # Service-reachability settings (enabled, interval, service list)
-│   │   │   └── ServiceTarget.java        # One monitored service (domain, kind, enabled)
+│   │   │   ├── ServiceTarget.java        # One monitored service (domain, kind, enabled)
+│   │   │   └── DataPrepConfig.java       # Data-preparation settings (time window, maintenance-window option, retention days)
 │   │   ├── measurement/                  # Measurement engine (strategy pattern)
 │   │   │   ├── Measurer.java             # Interface (strategy pattern)
 │   │   │   ├── Measurement.java          # Domain model (one cycle / single value)
@@ -43,6 +45,9 @@ SignalReport/
 │   │   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow, read fallback to the shadow on corruption)
 │   │   │   ├── DatabaseRebuilder.java    # Rebuild: unites primary + shadow into a fresh compact file, quarantines the old ones
 │   │   │   ├── RebuildReport.java        # Rebuild result (sources, unreadable ranges, sizes), written as text report
+│   │   │   ├── RollupService.java        # Hourly condensation (measurement_hourly, watermark) + retention rule (keeps failures, outage ends, markers)
+│   │   │   ├── HourlyRollup.java         # One hourly value (count, ok/excluded, min/avg/median/P95/max, max time, jitter)
+│   │   │   ├── RawRow.java               # Slim raw-row record for the condensation
 │   │   │   ├── Statistics.java           # Aggregated statistics DTO
 │   │   │   ├── IpChange.java             # Single IP change record
 │   │   │   ├── IpChangeStats.java        # IP change statistics DTO
@@ -67,26 +72,27 @@ SignalReport/
 │   │   │       ├── PageRoutes.java       # Page routes (/, login, setup)
 │   │   │       ├── MeasurementRoutes.java    # Live measurement + statistics endpoints
 │   │   │       ├── ReliabilityRoutes.java    # Connectivity + reliability + outage exclusion
-│   │   │       ├── ExportRoutes.java     # PDF/CSV export endpoints
+│   │   │       ├── ExportRoutes.java     # PDF/CSV export endpoints (CSV streamed; all data as ZIP; hourly-values CSV)
 │   │   │       ├── HostRoutes.java       # Host info + IP-tracking endpoints
 │   │   │       ├── DnsRoutes.java        # DNS benchmark endpoints
 │   │   │       ├── SettingsRoutes.java   # Config/theme/push settings endpoints
 │   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints
 │   │   │       ├── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
 │   │   │       ├── ServiceReachabilityRoutes.java  # Service status/history/settings + check-now (cooldown)
+│   │   │       ├── DataPrepRoutes.java   # Data-preparation status + "run now" (cooldown)
 │   │   │       └── SystemRoutes.java     # Loopback-only system endpoint (orderly stop)
 │   │   ├── i18n/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (24 classes, 168 tests + 3 opt-in smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1)
-│   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (28 classes, 204 tests + 4 opt-in smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (4, once-per-day decision, full run + status, manual run cooldown)
+│   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8), DataPrepConfigTest (10, window incl. midnight, maintenance option, retention clamp, JSON)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker)
-│   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker/hourly values), RollupServiceTest (11, hourly statistics, watermark, repeatability, retention rules)
+│   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 months from hourly values)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker

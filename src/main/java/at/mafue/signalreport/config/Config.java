@@ -271,6 +271,37 @@ public class Config
         this.serviceReachability = serviceReachability;
     }
 
+    // Daten-Aufbereitung: Verdichtung zu Stundenwerten, Aufbewahrung, Zeitfenster (Standard: aktiv, 03-05 Uhr, 90 Tage)
+    private DataPrepConfig dataPrep = new DataPrepConfig();
+
+    public DataPrepConfig getDataPrep()
+    {
+        if (this.dataPrep == null)
+            {
+            this.dataPrep = new DataPrepConfig();
+            }
+        return this.dataPrep;
+    }
+
+    public void setDataPrep(DataPrepConfig dataPrep)
+    {
+        this.dataPrep = dataPrep;
+    }
+
+    /** Uebernimmt die Einstellungen der Daten-Aufbereitung aus dem Web-UI (Werte werden begrenzt). */
+    public void updateDataPrep(boolean enabled, int startHour, int startMinute, int endHour, int endMinute,
+                               boolean useMaintenanceWindow, int retentionDays)
+    {
+        DataPrepConfig d = getDataPrep();
+        d.setEnabled(enabled);
+        d.setStartHour(startHour);
+        d.setStartMinute(startMinute);
+        d.setEndHour(endHour);
+        d.setEndMinute(endMinute);
+        d.setUseMaintenanceWindow(useMaintenanceWindow);
+        d.setRetentionDays(retentionDays);
+    }
+
     // Standard-Konfiguration erstellen
     public static Config createDefault()
     {

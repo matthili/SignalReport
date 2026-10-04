@@ -181,7 +181,13 @@ Der PDF-Export mit OpenPDF und JFreeChart generiert professionelle Berichte mit:
 \end{itemize}
 
 Berichte können für drei Zeiträume generiert werden: 24 Stunden, 7 Tage und
-12 Monate. Sie sind direkt als Anlage für Provider-Beschwerden verwendbar.
+12 Monate. Bis 7 Tage (\texttt{RAW\_DETAIL\_HOURS} = 168) rechnet der Bericht aus den
+Rohmessungen, darüber aus den Stundenwerten der Daten-Aufbereitung (Abschnitt
+\ref{subsec:dataprep}): Tagesmittel in den Diagrammen, gewichtete Statistik, die
+schlechtesten Stunden statt der schlechtesten Einzelmessungen und die Ausfall-Analyse aus
+den aufbewahrten Fehlschlägen. Im Smoke-Test entstand ein 12-Monats-Bericht über 120 Tage
+Testdaten (51\,840 Rohzeilen, 2\,880 Stundenwerte) in rund 1,1\,Sekunden. Die Berichte sind
+direkt als Anlage für Provider-Beschwerden verwendbar.
 
 \subsection{Konfigurationsmanagement}
 
@@ -195,6 +201,7 @@ public class Config {
     private GatewayConfig gateway;       // Stoerungs-Lokalisierung
     private ServiceReachabilityConfig serviceReachability;  // Dienst-Erreichbarkeit (V2)
     private MaintenanceWindow maintenanceWindow;
+    private DataPrepConfig dataPrep;     // Daten-Aufbereitung (2.2.0)
     private UserInfo userInfo;
     private SetupConfig setup;
     private AuthConfig auth;
@@ -218,10 +225,13 @@ Beide nutzen das identische Schema. Die JDBC-URL belässt \texttt{WRITE\_DELAY} 
 H2-Standard (500\,ms); alle Messungen einer Runde werden in einer Transaktion geschrieben
 (\texttt{saveAll}, siehe Abschnitt \ref{subsec:twindb}).
 
-Vier Tabellen bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und
-\texttt{findAll()} ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte,
-während \texttt{findLastN(int)} für die Live-Anzeige im Web-Interface verwendet wird.
-Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
+Sechs Tabellen bilden das Schema. \texttt{findSince(Instant)} liefert Zeiträume bis
+7\,Tage für Berichte, \texttt{forEachMeasurement(\dots)} streamt beliebige Zeiträume
+zeilenweise für den CSV-Export (ohne alle Zeilen im Speicher zu halten),
+\texttt{findLastN(int)} dient der Live-Anzeige im Web-Interface, und die Stundenwerte
+werden über \texttt{findHourlyRollups} bzw.\ \texttt{calculateStatisticsFromRollups}
+gelesen. Lese-Operationen gehen auf die Primary-Datenbank und weichen bei einem
+Korruptionsfehler auf die Shadow aus (Abschnitt \ref{subsec:twindb}):
 
 \begin{table}[h]
 \centering
@@ -242,6 +252,15 @@ Alle Lese-Operationen gehen ausschließlich auf die Primary-Datenbank:
 \texttt{service\_checks} & id (BIGINT) & Zeitstempel, Dienst-ID, Verdikt
   (REACHABLE / DNS\_BLOCKED / SNI\_BLOCKED / \ldots), Methode, HTTP-Status,
   aufgelöste IP, Latenz -- für die Dienst-Erreichbarkeit (Version 2.0) \\
+\hline
+\texttt{measurement\_hourly} & hour\_start, type, target & Stundenwert: Anzahl Messungen,
+  davon erfolgreich und ausgenommen, Min/Durchschnitt/Median/P95/Max (ms), Zeitpunkt des
+  Maximums, Jitter, Host-Hash -- Grundlage für Heatmap, lange Berichte und Stunden-CSV
+  (Version 2.2.0) \\
+\hline
+\texttt{rollup\_state} & state\_key (VARCHAR) & Zustand der Daten-Aufbereitung:
+  \texttt{rollup.lastHour} (letzte verdichtete Stunde), \texttt{retention.doneUntil}
+  (Aufbewahrung angewendet bis) \\
 \hline
 \end{tabular}
 \caption{H2-Datenbank-Schema}

@@ -21,6 +21,15 @@ package "signalreport" {
     +long triggerManualRun()
     ~{static} boolean internetConfirmedUp(List<Measurement> recent)
   }
+  class DataPrepScheduler {
+    +void start()
+    +void stop()
+    ~void tick(Instant now)
+    ~{static} boolean shouldRunFull(boolean inWindow, LocalDate today, LocalDate lastRunDay)
+    +long triggerManualRun()
+    ~void runFull(DataPrepConfig cfg, BooleanSupplier keepGoing)
+    +Map<String,Object> status()
+  }
   class StopCommand {
     {static} +boolean run(String configFile)
     {static} +boolean requestShutdown(int port, Duration waitForExit)
@@ -116,9 +125,50 @@ package "storage" {
     +int excludeRange(Instant from, Instant to, boolean excluded)
     +List<IpChange> getIpChanges(int limit)
     +List<HostInfo> getAllHosts()
+    +List<HourlyAverage> calculateHourlyAverages(String type, int days)
+    +void forEachMeasurement(Instant from, Instant to, String typeFilter, Consumer<Measurement> sink)
+    +List<RawRow> findRawRows(Instant from, Instant to)
+    +void mergeHourlyRollup(HourlyRollup r)
+    +List<HourlyRollup> findHourlyRollups(String type, Instant from, Instant to)
+    +List<HourlyRollup> findWorstHours(Instant from, Instant to, int limit)
+    +Statistics calculateStatisticsFromRollups(String type, Instant from, Instant to)
+    +int deleteAggregatedOkRows(Instant day, Instant next)
+    +Instant getRollupWatermark()
     -void writeOnBoth(ConnectionAction action)
     -T readWithFallback(ReadAction<T> action)
     ~{static} void createSchema(Connection c)
+  }
+  class RollupService {
+    {static} +String STATE_LAST_HOUR
+    {static} +String STATE_RETENTION_DONE_UNTIL
+    +Instant nextHourToRollup()
+    +int rollupCompletedHours(Instant now, int maxHours, BooleanSupplier keepGoing)
+    +List<HourlyRollup> rollupHour(Instant hourStart)
+    ~{static} List<HourlyRollup> computeRollups(Instant hourStart, List<RawRow> rows)
+    +long applyRetention(Instant now, int retentionDays, int maxDays, BooleanSupplier keepGoing)
+  }
+  class HourlyRollup {
+    -Instant hourStart
+    -String type
+    -String target
+    -int sampleCount
+    -int okCount
+    -int excludedCount
+    -double minMs
+    -double avgMs
+    -double medianMs
+    -double p95Ms
+    -double maxMs
+    -Instant maxAt
+    -double jitterMs
+  }
+  class RawRow <<record>> {
+    +Instant timestamp
+    +String type
+    +String target
+    +double latencyMs
+    +boolean success
+    +boolean excluded
   }
   class DatabaseRebuilder {
     +RebuildReport rebuild(boolean swap)
@@ -128,6 +178,7 @@ package "storage" {
   }
   class RebuildReport {
     +long unionMeasurements
+    +long hourlyRollups
     +Path quarantineDir
     +String toText()
   }
@@ -207,6 +258,7 @@ package "config" {
     -GatewayConfig gateway
     -ServiceReachabilityConfig serviceReachability
     -MaintenanceWindow maintenanceWindow
+    -DataPrepConfig dataPrep
     +{static} Config load(String path)
     +{static} void save(String path)
     +{static} Config getInstance()
@@ -249,6 +301,16 @@ package "config" {
     -int intervalMinutes
     -boolean useControlSni
     -List<ServiceTarget> services
+  }
+  class DataPrepConfig {
+    -boolean enabled
+    -int startHour
+    -int startMinute
+    -int endHour
+    -int endMinute
+    -boolean useMaintenanceWindow
+    -int retentionDays
+    +boolean isWindowNow(LocalTime now, MaintenanceWindow maintenance)
   }
   class ServiceTarget {
     -String id
@@ -308,6 +370,7 @@ package "web.api" {
   class AuthRoutes
   class ServiceReachabilityRoutes
   class SystemRoutes
+  class DataPrepRoutes
 }
 
 ' ============================================================
@@ -395,6 +458,21 @@ DatabaseRebuilder --> RebuildReport
 DatabaseRebuilder ..> H2MeasurementRepository : createSchema()
 H2MeasurementRepository ..> DatabaseRebuilder : Marker, Neuaufbau beim Start
 
+' --- Daten-Aufbereitung (2.2.0) ---
+SignalReportApp --> DataPrepScheduler
+DataPrepScheduler --> RollupService
+DataPrepScheduler ..> DataPrepConfig : Zeitfenster, Aufbewahrung
+RollupService --> H2MeasurementRepository
+RollupService ..> RawRow
+RollupService ..> HourlyRollup : computeRollups()
+H2MeasurementRepository --> HourlyRollup
+Config --> DataPrepConfig
+WebServer --> DataPrepRoutes
+DataPrepRoutes --> DataPrepScheduler : status(), triggerManualRun()
+PdfReportGenerator ..> HourlyRollup : Berichte > 168 h
+ExportRoutes ..> HourlyRollup : hourly-csv
+DatabaseRebuilder ..> HourlyRollup : uebernimmt measurement_hourly
+
 ' --- Dienst-Erreichbarkeit (V2) ---
 SignalReportApp --> ServiceReachabilityScheduler
 ServiceReachabilityScheduler --> ServiceReachabilityProbe
@@ -413,7 +491,17 @@ note top of H2MeasurementRepository
   Lesen aus Primary; bei Korruption (H2 90030) Fallback auf die
   Shadow + Marker -> Neuaufbau beim naechsten Start (DatabaseRebuilder).
   Auto-Recovery: nicht oeffenbare DB wird aus der intakten rekonstruiert.
-  Tabellen: measurements (+ Spalte excluded), hosts, ip_changes, service_checks
+  Tabellen: measurements (+ Spalte excluded), hosts, ip_changes, service_checks,
+  measurement_hourly (Stundenwerte), rollup_state (Wasserstandsmarken).
+  Heatmap und Berichte > 168 h lesen die Stundenwerte statt der Rohzeilen.
+end note
+
+note right of RollupService
+  Verdichtung je abgeschlossener Stunde (MERGE, wiederholbar);
+  ausserhalb des Zeitfensters max. 2 Stunden pro Minute.
+  Aufbewahrung: loescht OK-Zeilen nach OK-Zeilen aelter als
+  retentionDays (Standard 90) nur aus verdichteten Stunden;
+  Fehlschlaege, Ausfall-Ende, excluded und MAINTENANCE bleiben.
 end note
 
 note right of GatewayDiscovery
@@ -434,7 +522,7 @@ end note
 note bottom of WebServer
   Javalin-Orchestrator: Setup + 2 before-Filter
   (Setup-/Auth-Gating), delegiert die Routen an die
-  10 Registrare im Paket web.api. Statische Assets
+  12 Registrare im Paket web.api. Statische Assets
   (app.css/app.js) aus /web. Challenge-Response (SHA-256).
 end note
 @enduml

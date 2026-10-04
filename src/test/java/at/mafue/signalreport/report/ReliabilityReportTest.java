@@ -156,4 +156,57 @@ class ReliabilityReportTest
         assertEquals(100.0, r.getUptimePercent(), 0.001);
         assertEquals(0, r.getOutageCount());
     }
+
+    // --- Auswertung aus Stundenwerten (lange Berichte): Zaehler kommen aus der Verdichtung,
+    //     Ausfaelle aus den aufbewahrten Fehlschlaegen und dem jeweils ersten Erfolg danach ---
+
+    @Test
+    void testFromAggregatesMatchesRawComputation()
+    {
+        // Rohdaten: s, f, f, f, s  (5 Messungen, 3 Fehlschlaege)
+        List<Measurement> raw = List.of(m(0, true), m(10, false), m(20, false), m(30, false), m(40, true));
+        ReliabilityReport fromRaw = ReliabilityReport.compute(raw, INTERVAL, 50, 0);
+
+        // Aufbewahrt bleiben nur die Fehlschlaege und der erste Erfolg danach
+        List<Measurement> kept = List.of(m(10, false), m(20, false), m(30, false), m(40, true));
+        ReliabilityReport fromAgg = ReliabilityReport.computeFromAggregates(kept, INTERVAL, 50, 5, 3, 0, 0);
+
+        assertEquals(fromRaw.getUptimePercent(), fromAgg.getUptimePercent(), 0.001);
+        assertEquals(40.0, fromAgg.getUptimePercent(), 0.001);
+        assertEquals(fromRaw.getOutageCount(), fromAgg.getOutageCount());
+        assertEquals(1, fromAgg.getOutageCount());
+        assertEquals(20, fromAgg.getLongestOutageSeconds());
+        assertEquals(20, fromAgg.getMttrSeconds());
+        assertEquals(3, fromAgg.getOutages().get(0).getSampleCount());
+        assertEquals(100.0, fromAgg.getCoveragePercent(), 0.001);
+        assertTrue(fromAgg.hasData());
+    }
+
+    @Test
+    void testFromAggregatesWithoutFailures()
+    {
+        ReliabilityReport r = ReliabilityReport.computeFromAggregates(new ArrayList<>(), INTERVAL, 3600, 360, 0, 0, 0);
+        assertEquals(100.0, r.getUptimePercent(), 0.001);
+        assertEquals(0, r.getOutageCount());
+        assertEquals(100.0, r.getCoveragePercent(), 0.001);
+        assertEquals(0, r.getLongestOutageSeconds());
+    }
+
+    @Test
+    void testFromAggregatesRespectsMaintenanceAndExclusion()
+    {
+        // Fenster 80 s = 8 moegliche Zyklen, 4 davon Wartung -> 4 erwartete, 4 gemessene = 100 %
+        ReliabilityReport r = ReliabilityReport.computeFromAggregates(new ArrayList<>(), INTERVAL, 80, 4, 0, 4, 0);
+        assertEquals(100.0, r.getCoveragePercent(), 0.001);
+
+        // ausgenommener Ausfall: in der Liste, aber nicht in den Kennzahlen
+        Measurement f1 = m(10, false); f1.setExcluded(true);
+        Measurement f2 = m(20, false); f2.setExcluded(true);
+        Measurement f3 = m(30, false); f3.setExcluded(true);
+        ReliabilityReport ex = ReliabilityReport.computeFromAggregates(List.of(f1, f2, f3, m(40, true)), INTERVAL, 50, 2, 0, 0, 3);
+        assertEquals(1, ex.getOutages().size());
+        assertTrue(ex.getOutages().get(0).isExcluded());
+        assertEquals(0, ex.getOutageCount());
+        assertEquals(100.0, ex.getUptimePercent(), 0.001);
+    }
 }

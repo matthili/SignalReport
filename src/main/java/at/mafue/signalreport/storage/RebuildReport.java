@@ -43,6 +43,7 @@ public class RebuildReport
     public long hosts;
     public long ipChanges;
     public long serviceChecks;
+    public long hourlyRollups;
     public long targetSizeBeforeCompact;
     public long targetSizeAfterCompact;
     public boolean swapped;
@@ -107,8 +108,9 @@ public class RebuildReport
             for (String t : s.tableErrors) sb.append("  Hinweis: ").append(t).append('\n');
             }
         sb.append('\n');
-        sb.append(String.format("Neue Datenbank: %,d Messzeilen (Vereinigung aller Quellen), %,d Hosts, %,d IP-Wechsel, %,d Dienst-Pruefungen%n",
-                unionMeasurements, hosts, ipChanges, serviceChecks));
+        sb.append(String.format("Neue Datenbank: %,d Messzeilen (Vereinigung aller Quellen), %,d Hosts, %,d IP-Wechsel, "
+                        + "%,d Dienst-Pruefungen, %,d Stundenwerte%n",
+                unionMeasurements, hosts, ipChanges, serviceChecks, hourlyRollups));
         sb.append(String.format("Groesse vor Kompaktierung: %s, danach: %s%n",
                 formatBytes(targetSizeBeforeCompact), formatBytes(targetSizeAfterCompact)));
         if (swapped)

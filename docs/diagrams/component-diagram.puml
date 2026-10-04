@@ -9,10 +9,11 @@ skinparam componentStyle rectangle
 package "signalreport" {
   [SignalReportApp] as App
   [ServiceReachabilityScheduler] as Sched
+  [DataPrepScheduler] as DataPrep
 }
 package "web" {
   [WebServer] as Web
-  [web.api: 11 Registrare] as Api
+  [web.api: 12 Registrare] as Api
   [web.view: Renderer] as View
   [SessionManager] as SessionMgr
 }
@@ -29,6 +30,7 @@ package "network" {
 }
 package "storage" {
   [H2MeasurementRepository] as Repo
+  [RollupService] as Rollup
   database "H2 Primary" as PrimaryDB
   database "H2 Shadow" as ShadowDB
 }
@@ -49,7 +51,11 @@ App --> GwDisc
 App --> Repo
 App --> Config
 App --> Sched
+App --> DataPrep
 Sched --> Repo
+DataPrep --> Rollup
+DataPrep --> Config
+Rollup --> Repo
 
 Web --> Api
 Web --> View
@@ -58,6 +64,7 @@ Api --> Repo
 Api --> Reliability
 Api --> Connectivity
 Api --> PDF
+Api --> DataPrep
 View --> I18n
 View --> Config
 
@@ -79,7 +86,7 @@ Repo --> ShadowDB
 
 note bottom of Web
   Javalin (Port 4567): Setup + 2 before-Filter
-  (Setup-/Auth-Gating), register() der 11 web.api-Klassen,
+  (Setup-/Auth-Gating), register() der 12 web.api-Klassen,
   statische Assets /app.css + /app.js, SHA-256-Auth.
 end note
 note bottom of GwDisc
@@ -90,5 +97,11 @@ note bottom of ShadowDB
   Spiegelung aller Schreibvorgaenge,
   eine Transaktion pro Messrunde,
   Auto-Recovery bei Korruption (H2 90030).
+end note
+note bottom of Rollup
+  Stundenwerte (measurement_hourly) fuer Heatmap,
+  lange Berichte und Stunden-CSV; Aufbewahrung
+  der Rohdaten (Standard 90 Tage, Funde bleiben).
+  Laeuft im Zeitfenster (Standard 03-05 Uhr).
 end note
 @enduml

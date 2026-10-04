@@ -7,6 +7,7 @@
 │  Java-Backend (Javalin 5.6.3)               │
 │  ├── SignalReportApp (kontinuierliche Schleife)│
 │  ├── ServiceReachabilityScheduler (6h-Lauf) │
+│  ├── DataPrepScheduler (Stundenwerte)       │
 │  ├── measurement/ (Engine)                  │
 │  │   ├── PingMeasurer (implements           │
 │  │   ├── DnsMeasurer    Measurer)           │
@@ -18,7 +19,8 @@
 │  │   └── HostIdentifier                     │
 │  ├── storage/ H2 Twin-Datenbank (embedded)  │
 │  │   ├── Primary  (Lesen + Schreiben)       │
-│  │   └── Shadow   (synchrone Spiegelung)    │
+│  │   ├── Shadow   (synchrone Spiegelung)    │
+│  │   └── RollupService (Stundenwerte)       │
 │  ├── report/                                │
 │  │   ├── ReliabilityReport (lückenbewusst)  │
 │  │   ├── ConnectivityAssessment (Verdikt)   │
@@ -27,7 +29,7 @@
 │  │         DejaVu-Schrift eingebettet)      │
 │  ├── web/ WebServer (Orchestrator)          │
 │  │   ├── Setup-/Auth-Gating-Filter          │
-│  │   ├── api/ (10 Routen-Registrare)        │
+│  │   ├── api/ (12 Routen-Registrare)        │
 │  │   ├── view/ (Html/Setup/Login-Renderer)  │
 │  │   └── SessionManager                     │
 │  │       ├── Challenge-Response (SHA-256)   │
@@ -173,6 +175,46 @@ das der SIGTERM-Shutdown-Hook.
 
 Bestehende Single-DB-Installationen erhalten beim ersten Start automatisch ihre
 Shadow-Kopie – kein manueller Migrationsschritt nötig.
+
+## Daten-Aufbereitung (Stundenwerte und Aufbewahrung)
+
+Bei einem Messintervall von 10 Sekunden schreibt die Referenzinstallation rund 42.500
+Rohzeilen pro Tag. Berichte über Monate aus diesen Zeilen zu rechnen heißt, Millionen
+Messungen in den Speicher zu laden, und die Datenbank wächst unbegrenzt. Seit 2.2.0
+verdichtet deshalb ein Hintergrund-Job (`DataPrepScheduler`, Daemon-Thread im
+Minutentakt) die Rohdaten in zwei Schritten:
+
+- **Stundenwerte** – `RollupService.rollupHour()` berechnet je abgeschlossener Stunde,
+  Typ und Ziel eine Zeile in `measurement_hourly` (Anzahl Messungen, davon erfolgreich
+  und ausgenommen, Minimum, Durchschnitt, Median, 95. Perzentil, Maximum mit Zeitpunkt,
+  Jitter). Die Wasserstandsmarke `rollup.lastHour` in `rollup_state` merkt die letzte
+  verdichtete Stunde; geschrieben wird per `MERGE`, ein wiederholter Lauf ist daher
+  unschädlich. Außerhalb des Zeitfensters werden höchstens 2 Stunden pro Takt verdichtet,
+  damit die Messschleife nie lange auf die Datenbank wartet; im Fenster (Standard
+  03:00–05:00 oder das Maintenance-Fenster) wird einmal täglich der gesamte Rückstand
+  abgearbeitet.
+- **Aufbewahrung** – nach dem Rückstand löscht `applyRetention()` tageweise und nur aus
+  bereits verdichteten Stunden erfolgreiche Rohmessungen, die älter als die
+  Aufbewahrungsfrist sind (Standard 90 Tage, 0 = nie) und deren Vorgänger für denselben
+  Typ und dasselbe Ziel ebenfalls erfolgreich war (Fensterfunktion `LAG(success)`).
+  Fehlgeschlagene Messungen, der jeweils erste Erfolg nach einem Fehlschlag (das Ende
+  eines Ausfalls), ausgenommene Messungen und `MAINTENANCE`-Marker werden nie gelöscht;
+  die Ausfall-Analyse bleibt dadurch exakt. Der Fortschritt steht in
+  `retention.doneUntil`.
+
+Abnehmer: Die Heatmap liest verdichtete Stunden plus den noch rohen Rest. PDF-Berichte
+über mehr als 7 Tage (`PdfReportGenerator.RAW_DETAIL_HOURS`) rechnen aus den
+Stundenwerten: gewichteter Durchschnitt, exaktes Maximum und exakter Paketverlust,
+95. Perzentil und Jitter als gewichtete Näherung, Tagesmittel in den Diagrammen, die
+schlechtesten Stunden statt der schlechtesten Einzelmessungen und
+`ReliabilityReport.computeFromAggregates()` für die Verfügbarkeit; der 12-Monats-Bericht
+ist damit auch bei Jahren an Daten in Sekunden fertig. `/api/export/csv` streamt
+zeilenweise aus dem ResultSet, `all=true` liefert ein ZIP mit einer CSV-Datei, und
+`/api/export/hourly-csv` exportiert die Stundenwerte. Bedient wird alles über die
+Einstellungs-Karte „Daten-Aufbereitung" (Zeitfenster, Option Maintenance-Fenster,
+Aufbewahrungstage, Status, „Jetzt ausführen" mit 5 Minuten Abkühlphase;
+`GET /api/dataprep/status`, `POST /api/dataprep/run-now`). `DatabaseRebuilder` übernimmt
+`measurement_hourly` und `rollup_state` in die neu aufgebaute Datenbank.
 
 ## Internationalisierung (i18n)
 

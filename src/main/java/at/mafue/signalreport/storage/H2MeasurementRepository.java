@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.*;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -426,6 +427,36 @@ public class H2MeasurementRepository
         String indexServiceChecks =
                 "CREATE INDEX IF NOT EXISTS idx_service_checks_service_ts ON service_checks(service_id, timestamp)";
 
+        // Stundenwerte (Verdichtung) und Zustand der Aufbereitung (Wasserstandsmarken).
+        // CREATE ... IF NOT EXISTS ist zugleich die Migration fuer bestehende DBs.
+        String hourlyTable = """
+                CREATE TABLE IF NOT EXISTS measurement_hourly (
+                    hour_start TIMESTAMP NOT NULL,
+                    type VARCHAR(20) NOT NULL,
+                    target VARCHAR(255) NOT NULL,
+                    host_hash VARCHAR(32),
+                    sample_count INT NOT NULL,
+                    ok_count INT NOT NULL,
+                    excluded_count INT NOT NULL,
+                    min_ms DOUBLE,
+                    avg_ms DOUBLE,
+                    median_ms DOUBLE,
+                    p95_ms DOUBLE,
+                    max_ms DOUBLE,
+                    max_at TIMESTAMP,
+                    jitter_ms DOUBLE,
+                    PRIMARY KEY (hour_start, type, target)
+                )
+                """;
+        String indexHourlyTypeHour =
+                "CREATE INDEX IF NOT EXISTS idx_hourly_type_hour ON measurement_hourly(type, hour_start)";
+        String stateTable = """
+                CREATE TABLE IF NOT EXISTS rollup_state (
+                    state_key VARCHAR(64) PRIMARY KEY,
+                    state_value VARCHAR(255)
+                )
+                """;
+
         try (Statement stmt = c.createStatement())
             {
             stmt.execute(measurementsTable);
@@ -433,11 +464,14 @@ public class H2MeasurementRepository
             stmt.execute(ipChangesTable);
             stmt.execute(addExcluded);
             stmt.execute(serviceChecksTable);
+            stmt.execute(hourlyTable);
+            stmt.execute(stateTable);
             stmt.execute(indexTimestamp);
             stmt.execute(indexTypeTimestamp);
             stmt.execute(indexHostHash);
             stmt.execute(indexIpChangesTimestamp);
             stmt.execute(indexServiceChecks);
+            stmt.execute(indexHourlyTypeHour);
             }
 
         // Den alten Index separat entfernen: Scheitert das (z. B. weil in einer vorgeschaedigten
@@ -925,7 +959,53 @@ public class H2MeasurementRepository
         return new Statistics(avgLatency, p95Latency, maxLatency, packetLossPercent, jitter);
     }
 
+    /**
+     * Stunden-Mittelwerte (Heatmap) der letzten {@code days} Tage. Verdichtete Stunden
+     * kommen aus {@code measurement_hourly}, der noch nicht verdichtete Rest (hoechstens die
+     * laufende und die letzte Stunde) aus den Rohdaten; beides wird nach Messungszahl
+     * gewichtet zusammengefuehrt.
+     */
     public List<HourlyAverage> calculateHourlyAverages(String type, int days) throws SQLException
+    {
+        Instant now = Instant.now();
+        Instant since = now.minus(days, java.time.temporal.ChronoUnit.DAYS);
+        Instant watermark = getRollupWatermark();
+        Instant rolledUntil = watermark == null ? null : watermark.plus(1, java.time.temporal.ChronoUnit.HOURS);
+
+        if (rolledUntil == null || !rolledUntil.isAfter(since))
+            {
+            return calculateHourlyAveragesRaw(type, since, now);
+            }
+
+        // Summen je Tagesstunde: Rollups fuer [since, rolledUntil), Rohdaten fuer [rolledUntil, now)
+        double[] weightedSum = new double[24];
+        long[] counts = new long[24];
+        for (HourlyAverage a : calculateHourlyAveragesFromRollups(type, since, rolledUntil))
+            {
+            weightedSum[a.getHourOfDay()] += a.getAvgLatency() * a.getCount();
+            counts[a.getHourOfDay()] += a.getCount();
+            }
+        if (rolledUntil.isBefore(now))
+            {
+            for (HourlyAverage a : calculateHourlyAveragesRaw(type, rolledUntil, now))
+                {
+                weightedSum[a.getHourOfDay()] += a.getAvgLatency() * a.getCount();
+                counts[a.getHourOfDay()] += a.getCount();
+                }
+            }
+        List<HourlyAverage> results = new ArrayList<>();
+        for (int h = 0; h < 24; h++)
+            {
+            if (counts[h] > 0)
+                {
+                results.add(new HourlyAverage(h, weightedSum[h] / counts[h], (int) Math.min(Integer.MAX_VALUE, counts[h])));
+                }
+            }
+        return results;
+    }
+
+    /** Stunden-Mittelwerte direkt aus den Rohdaten eines Zeitraums [from, to). */
+    List<HourlyAverage> calculateHourlyAveragesRaw(String type, Instant from, Instant to) throws SQLException
     {
         String sql = """
                 SELECT
@@ -935,7 +1015,7 @@ public class H2MeasurementRepository
                 FROM measurements
                 WHERE type = ?
                   AND success = true
-                  AND timestamp >= DATEADD('DAY', ?, CURRENT_TIMESTAMP)
+                  AND timestamp >= ? AND timestamp < ?
                 GROUP BY EXTRACT(HOUR FROM timestamp)
                 ORDER BY hour_of_day
                 """;
@@ -946,7 +1026,8 @@ public class H2MeasurementRepository
         try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setString(1, type);
-            pstmt.setInt(2, -days);
+            pstmt.setTimestamp(2, Timestamp.from(from));
+            pstmt.setTimestamp(3, Timestamp.from(to));
             ResultSet rs = pstmt.executeQuery();
             while (rs.next())
                 {
@@ -958,6 +1039,426 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
+    }
+
+    /** Stunden-Mittelwerte (Heatmap) aus den Stundenwerten, nach erfolgreichen Messungen gewichtet. */
+    public List<HourlyAverage> calculateHourlyAveragesFromRollups(String type, Instant from, Instant to) throws SQLException
+    {
+        String sql = """
+                SELECT
+                    EXTRACT(HOUR FROM hour_start) AS hour_of_day,
+                    SUM(avg_ms * ok_count) AS weighted_sum,
+                    SUM(ok_count) AS ok_total
+                FROM measurement_hourly
+                WHERE type = ?
+                  AND hour_start >= ? AND hour_start < ?
+                GROUP BY EXTRACT(HOUR FROM hour_start)
+                ORDER BY hour_of_day
+                """;
+
+        return readWithFallback(c ->
+        {
+        List<HourlyAverage> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setString(1, type);
+            pstmt.setTimestamp(2, Timestamp.from(from));
+            pstmt.setTimestamp(3, Timestamp.from(to));
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                long okTotal = rs.getLong("ok_total");
+                if (okTotal <= 0) continue;
+                results.add(new HourlyAverage(rs.getInt("hour_of_day"),
+                        rs.getDouble("weighted_sum") / okTotal, (int) Math.min(Integer.MAX_VALUE, okTotal)));
+                }
+            }
+        return results;
+        });
+    }
+
+    // ========================================================================
+    //  Stundenwerte (Verdichtung) und Aufbereitungs-Zustand
+    // ========================================================================
+
+    /** Rohzeilen eines Zeitraums [from, to) in chronologischer Reihenfolge (fuer die Verdichtung). */
+    public List<RawRow> findRawRows(Instant from, Instant to) throws SQLException
+    {
+        String sql = """
+                SELECT timestamp, type, target, latency_ms, success, excluded, host_hash
+                FROM measurements
+                WHERE timestamp >= ? AND timestamp < ?
+                ORDER BY timestamp ASC
+                """;
+        return readWithFallback(c ->
+        {
+        List<RawRow> rows = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(from));
+            pstmt.setTimestamp(2, Timestamp.from(to));
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                rows.add(new RawRow(rs.getTimestamp(1).toInstant(), rs.getString(2), rs.getString(3),
+                        rs.getDouble(4), rs.getBoolean(5), rs.getBoolean(6), rs.getString(7)));
+                }
+            }
+        return rows;
+        });
+    }
+
+    /**
+     * Ruft die Messungen eines Zeitraums nacheinander ab, ohne sie alle im Speicher zu halten
+     * (streamender CSV-Export). {@code typeFilter} null = alle Typen.
+     */
+    public void forEachMeasurement(Instant from, Instant to, String typeFilter,
+                                   java.util.function.Consumer<Measurement> consumer) throws SQLException
+    {
+        String sql = """
+                SELECT timestamp, target, latency_ms, success, type,
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
+                FROM measurements
+                WHERE timestamp >= ? AND timestamp < ?
+                """ + (typeFilter != null ? " AND type = ?" : "") + " ORDER BY timestamp ASC";
+        readWithFallback(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(from));
+            pstmt.setTimestamp(2, Timestamp.from(to));
+            if (typeFilter != null) pstmt.setString(3, typeFilter);
+            pstmt.setFetchSize(1000);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                consumer.accept(readMeasurement(rs));
+                }
+            }
+        return null;
+        });
+    }
+
+    /** Aelteste Messung (null bei leerer Tabelle). */
+    public Instant findOldestMeasurement() throws SQLException
+    {
+        return readWithFallback(c ->
+        {
+        try (Statement stmt = c.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT MIN(timestamp) FROM measurements"))
+            {
+            if (rs.next())
+                {
+                Timestamp t = rs.getTimestamp(1);
+                return t != null ? t.toInstant() : null;
+                }
+            return null;
+            }
+        });
+    }
+
+    public long countMeasurements() throws SQLException
+    {
+        return countRows("measurements");
+    }
+
+    public long countHourlyRollups() throws SQLException
+    {
+        return countRows("measurement_hourly");
+    }
+
+    private long countRows(String table) throws SQLException
+    {
+        return readWithFallback(c ->
+        {
+        try (Statement stmt = c.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + table))
+            {
+            return rs.next() ? rs.getLong(1) : 0L;
+            }
+        });
+    }
+
+    /** Schreibt einen Stundenwert (MERGE ueber den Primaerschluessel, Twin-gespiegelt). */
+    public void mergeHourlyRollup(HourlyRollup r) throws SQLException
+    {
+        String sql = """
+                MERGE INTO measurement_hourly
+                (hour_start, type, target, host_hash, sample_count, ok_count, excluded_count,
+                 min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms)
+                KEY (hour_start, type, target)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        writeOnBoth(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(r.getHourStart()));
+            pstmt.setString(2, r.getType());
+            pstmt.setString(3, r.getTarget());
+            pstmt.setString(4, r.getHostHash());
+            pstmt.setInt(5, r.getSampleCount());
+            pstmt.setInt(6, r.getOkCount());
+            pstmt.setInt(7, r.getExcludedCount());
+            pstmt.setDouble(8, r.getMinMs());
+            pstmt.setDouble(9, r.getAvgMs());
+            pstmt.setDouble(10, r.getMedianMs());
+            pstmt.setDouble(11, r.getP95Ms());
+            pstmt.setDouble(12, r.getMaxMs());
+            if (r.getMaxAt() != null) pstmt.setTimestamp(13, Timestamp.from(r.getMaxAt()));
+            else pstmt.setNull(13, Types.TIMESTAMP);
+            pstmt.setDouble(14, r.getJitterMs());
+            pstmt.executeUpdate();
+            }
+        });
+    }
+
+    /** Stundenwerte eines Zeitraums [from, to) chronologisch; {@code type} null = alle Typen. */
+    public List<HourlyRollup> findHourlyRollups(String type, Instant from, Instant to) throws SQLException
+    {
+        String sql = "SELECT hour_start, type, target, host_hash, sample_count, ok_count, excluded_count, "
+                + "min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms FROM measurement_hourly "
+                + "WHERE hour_start >= ? AND hour_start < ?" + (type != null ? " AND type = ?" : "")
+                + " ORDER BY hour_start ASC, type ASC, target ASC";
+        return readWithFallback(c ->
+        {
+        List<HourlyRollup> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(from));
+            pstmt.setTimestamp(2, Timestamp.from(to));
+            if (type != null) pstmt.setString(3, type);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                results.add(readHourlyRollup(rs));
+                }
+            }
+        return results;
+        });
+    }
+
+    /** Die {@code limit} Stunden mit den groessten erfolgreichen Latenzen im Zeitraum (alle Typen). */
+    public List<HourlyRollup> findWorstHours(Instant from, Instant to, int limit) throws SQLException
+    {
+        String sql = "SELECT hour_start, type, target, host_hash, sample_count, ok_count, excluded_count, "
+                + "min_ms, avg_ms, median_ms, p95_ms, max_ms, max_at, jitter_ms FROM measurement_hourly "
+                + "WHERE hour_start >= ? AND hour_start < ? AND ok_count > 0 ORDER BY max_ms DESC LIMIT ?";
+        return readWithFallback(c ->
+        {
+        List<HourlyRollup> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(from));
+            pstmt.setTimestamp(2, Timestamp.from(to));
+            pstmt.setInt(3, limit);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                results.add(readHourlyRollup(rs));
+                }
+            }
+        return results;
+        });
+    }
+
+    private static HourlyRollup readHourlyRollup(ResultSet rs) throws SQLException
+    {
+        Timestamp maxAt = rs.getTimestamp(13);
+        return new HourlyRollup(rs.getTimestamp(1).toInstant(), rs.getString(2), rs.getString(3), rs.getString(4),
+                rs.getInt(5), rs.getInt(6), rs.getInt(7), rs.getDouble(8), rs.getDouble(9), rs.getDouble(10),
+                rs.getDouble(11), rs.getDouble(12), maxAt != null ? maxAt.toInstant() : null, rs.getDouble(14));
+    }
+
+    /**
+     * Statistik eines Typs ueber [from, to) aus den Stundenwerten. Durchschnitt, Maximum und
+     * Paketverlust sind exakt (gewichtete Summen); 95. Perzentil und Jitter sind nach
+     * Messungszahl gewichtete Mittel der Stundenwerte, also Naeherungen.
+     */
+    public Statistics calculateStatisticsFromRollups(String type, Instant from, Instant to) throws SQLException
+    {
+        String sql = """
+                SELECT SUM(sample_count) AS samples, SUM(ok_count) AS oks,
+                       SUM(avg_ms * ok_count) AS weighted_avg, SUM(p95_ms * ok_count) AS weighted_p95,
+                       SUM(jitter_ms * ok_count) AS weighted_jitter, MAX(max_ms) AS max_ms
+                FROM measurement_hourly
+                WHERE type = ? AND hour_start >= ? AND hour_start < ?
+                """;
+        return readWithFallback(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setString(1, type);
+            pstmt.setTimestamp(2, Timestamp.from(from));
+            pstmt.setTimestamp(3, Timestamp.from(to));
+            ResultSet rs = pstmt.executeQuery();
+            if (!rs.next() || rs.getLong("samples") == 0)
+                {
+                return new Statistics(0, 0, 0, 0, 0);
+                }
+            long samples = rs.getLong("samples");
+            long oks = rs.getLong("oks");
+            double loss = samples > 0 ? (samples - oks) * 100.0 / samples : 0;
+            if (oks == 0)
+                {
+                return new Statistics(0, 0, 0, loss, 0);
+                }
+            return new Statistics(rs.getDouble("weighted_avg") / oks, rs.getDouble("weighted_p95") / oks,
+                    rs.getDouble("max_ms"), loss, rs.getDouble("weighted_jitter") / oks);
+            }
+        });
+    }
+
+    /** Fehlgeschlagene Messungen eines Typs im Zeitraum (bleiben durch die Aufbewahrung immer erhalten). */
+    public List<Measurement> findFailures(String type, Instant from, Instant to) throws SQLException
+    {
+        String sql = """
+                SELECT timestamp, target, latency_ms, success, type,
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
+                FROM measurements
+                WHERE type = ? AND timestamp >= ? AND timestamp < ? AND success = FALSE
+                ORDER BY timestamp ASC
+                """;
+        return readWithFallback(c ->
+        {
+        List<Measurement> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setString(1, type);
+            pstmt.setTimestamp(2, Timestamp.from(from));
+            pstmt.setTimestamp(3, Timestamp.from(to));
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next())
+                {
+                results.add(readMeasurement(rs));
+                }
+            }
+        return results;
+        });
+    }
+
+    /** Erste erfolgreiche Messung eines Typs nach {@code after} (Ende eines Ausfalls), oder null. */
+    public Measurement findFirstSuccessAfter(String type, Instant after, Instant limit) throws SQLException
+    {
+        String sql = """
+                SELECT timestamp, target, latency_ms, success, type,
+                       local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
+                FROM measurements
+                WHERE type = ? AND timestamp > ? AND timestamp < ? AND success = TRUE
+                ORDER BY timestamp ASC
+                LIMIT 1
+                """;
+        return readWithFallback(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setString(1, type);
+            pstmt.setTimestamp(2, Timestamp.from(after));
+            pstmt.setTimestamp(3, Timestamp.from(limit));
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? readMeasurement(rs) : null;
+            }
+        });
+    }
+
+    /**
+     * Aufbewahrungsregel fuer einen Tag [day, next): loescht erfolgreiche, nicht ausgenommene
+     * Rohmessungen (keine Wartungs-Marker), deren Vorgaenger (gleicher Typ und Ziel) ebenfalls
+     * erfolgreich war. Die erste erfolgreiche Messung nach einem Fehlschlag bleibt damit als
+     * Ausfall-Ende erhalten. Das Fenster fuer den Vorgaenger-Vergleich beginnt einen Tag
+     * frueher, damit die Tagesgrenze keinen Vorgaenger verschluckt.
+     *
+     * @return Anzahl geloeschter Zeilen (Primary)
+     */
+    public int deleteAggregatedOkRows(Instant day, Instant next) throws SQLException
+    {
+        String sql = """
+                DELETE FROM measurements WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, timestamp, success, excluded, type,
+                               LAG(success) OVER (PARTITION BY type, target ORDER BY timestamp) AS prev_success
+                        FROM measurements
+                        WHERE timestamp >= ? AND timestamp < ?
+                    ) t
+                    WHERE t.timestamp >= ?
+                      AND t.success = TRUE
+                      AND t.excluded = FALSE
+                      AND t.type <> 'MAINTENANCE'
+                      AND t.prev_success = TRUE
+                )
+                """;
+        int[] affected = {0};
+        writeOnBoth(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
+            {
+            pstmt.setTimestamp(1, Timestamp.from(day.minus(1, java.time.temporal.ChronoUnit.DAYS)));
+            pstmt.setTimestamp(2, Timestamp.from(next));
+            pstmt.setTimestamp(3, Timestamp.from(day));
+            int n = pstmt.executeUpdate();
+            if (c == primary) affected[0] = n;
+            }
+        });
+        return affected[0];
+    }
+
+    public Instant getRollupWatermark() throws SQLException
+    {
+        return parseInstant(getState(RollupService.STATE_LAST_HOUR));
+    }
+
+    public void setRollupWatermark(Instant hourStart) throws SQLException
+    {
+        setState(RollupService.STATE_LAST_HOUR, hourStart.toString());
+    }
+
+    public Instant getRetentionDoneUntil() throws SQLException
+    {
+        return parseInstant(getState(RollupService.STATE_RETENTION_DONE_UNTIL));
+    }
+
+    public void setRetentionDoneUntil(Instant until) throws SQLException
+    {
+        setState(RollupService.STATE_RETENTION_DONE_UNTIL, until.toString());
+    }
+
+    private static Instant parseInstant(String value)
+    {
+        if (value == null || value.isBlank()) return null;
+        try
+            {
+            return Instant.parse(value);
+            } catch (Exception e)
+            {
+            return null;
+            }
+    }
+
+    public String getState(String key) throws SQLException
+    {
+        return readWithFallback(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement("SELECT state_value FROM rollup_state WHERE state_key = ?"))
+            {
+            pstmt.setString(1, key);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getString(1) : null;
+            }
+        });
+    }
+
+    public void setState(String key, String value) throws SQLException
+    {
+        writeOnBoth(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(
+                "MERGE INTO rollup_state (state_key, state_value) KEY (state_key) VALUES (?, ?)"))
+            {
+            pstmt.setString(1, key);
+            pstmt.setString(2, value);
+            pstmt.executeUpdate();
+            }
         });
     }
 

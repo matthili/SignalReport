@@ -139,9 +139,12 @@ public class SignalReportApp
         // angelegt, damit der Webserver den "Jetzt pruefen"-Ausloeser kennt.
         ServiceReachabilityScheduler reachabilityScheduler = new ServiceReachabilityScheduler(repo);
 
+        // Daten-Aufbereitung (Stundenwerte, Aufbewahrung, Zeitfenster); Start weiter unten
+        DataPrepScheduler dataPrepScheduler = new DataPrepScheduler(repo);
+
         // Webserver starten (kennt den Stopp-Ausloeser fuer den lokalen Stopp-Endpunkt)
         WebServer webServer = new WebServer(repo, reachabilityScheduler::triggerManualRun,
-                SignalReportApp::requestStop);
+                SignalReportApp::requestStop, dataPrepScheduler);
         webServer.start(config.getWebserver().getPort());
 
         // Host registrieren
@@ -187,6 +190,9 @@ public class SignalReportApp
         // Periodische Dienst-Erreichbarkeitspruefung als Daemon-Thread starten (nur aktiv,
         // wenn eingeschaltet; ueberspringt Laeufe, wenn die Leitung gerade unten ist).
         reachabilityScheduler.start();
+
+        // Daten-Aufbereitung im Hintergrund (verdichtet abgeschlossene Stunden, raeumt im Zeitfenster auf)
+        dataPrepScheduler.start();
 
         // Kontinuierliche Messung
         logger.info("Starte kontinuierliche Messung...\n");
@@ -291,6 +297,7 @@ public class SignalReportApp
             round++;
             }
 
+        dataPrepScheduler.stop();
         shutdownGracefully(webServer, repo);
     }
 
