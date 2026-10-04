@@ -100,6 +100,40 @@ if ($existingService -and (Test-Path "$INSTALL_DIR\prunsrv.exe")) {
         Copy-Item "desktop_icon.ico" "$INSTALL_DIR\desktop_icon.ico" -Force -ErrorAction SilentlyContinue
     }
 
+    # 2b. Dienst-Parameter aktualisieren. Seit 2.0.2 beendet "signalreport.jar stop" die
+    #     laufende Instanz geordnet (vorher startete es versehentlich eine zweite Instanz,
+    #     waehrend die erste nach 10 s hart beendet wurde). Dafuer muss die Stop-JVM im
+    #     Datenverzeichnis laufen (StopPath, liest dort config.json) und genug Zeit zum
+    #     sauberen Schliessen der Datenbanken bekommen (StopTimeout).
+    Write-Host "[INFO] Aktualisiere Dienst-Parameter (StopPath, StopTimeout)..."
+    & "$INSTALL_DIR\prunsrv.exe" //US//SignalReport "--StopPath=$DATA_DIR" --StopTimeout=120 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[WARNUNG] Dienst-Parameter konnten nicht aktualisiert werden (prunsrv //US// Exit-Code $LASTEXITCODE)." -ForegroundColor Yellow
+    }
+
+    # 2c. Altlasten des alten Stop-Mechanismus entfernen: Die Stop-JVM lief ohne StopPath
+    #     in System32 und hat dort eine eigene config.json, Datenbank und Logs angelegt.
+    #     Entfernt werden ausschliesslich SignalReport-eigene Dateien.
+    $sys32 = "$env:SystemRoot\System32"
+    if (Test-Path "$sys32\data\signalreport.mv.db") {
+        Remove-Item "$sys32\data\signalreport*.db" -Force -ErrorAction SilentlyContinue
+        if (-not (Get-ChildItem "$sys32\data" -Force -ErrorAction SilentlyContinue)) {
+            Remove-Item "$sys32\data" -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "[INFO] Verwaiste SignalReport-Datenbankdateien aus System32\data entfernt."
+    }
+    if ((Test-Path "$sys32\config.json") -and (Select-String -Path "$sys32\config.json" -Pattern '"measurement"' -Quiet)) {
+        Remove-Item "$sys32\config.json" -Force -ErrorAction SilentlyContinue
+        Write-Host "[INFO] Verwaiste SignalReport-config.json aus System32 entfernt."
+    }
+    if (Test-Path "$sys32\logs\signalreport.log") {
+        Remove-Item "$sys32\logs\signalreport*.log" -Force -ErrorAction SilentlyContinue
+        if (-not (Get-ChildItem "$sys32\logs" -Force -ErrorAction SilentlyContinue)) {
+            Remove-Item "$sys32\logs" -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "[INFO] Verwaiste SignalReport-Logs aus System32\logs entfernt."
+    }
+
     # 3. Dienst wieder starten
     Write-Host "[INFO] Starte SignalReport-Dienst..."
     & "$INSTALL_DIR\prunsrv.exe" //ES//SignalReport
@@ -219,8 +253,9 @@ Write-Host "[INFO] Installiere Windows-Dienst `"SignalReport`"..."
     --StopMode=exe `
     "--StopImage=$JAVA_HOME\bin\java.exe" `
     "--StopParams=-Dfile.encoding=UTF-8#-jar#$INSTALL_DIR\signalreport.jar#stop" `
-    --StopTimeout=10 `
+    --StopTimeout=120 `
     "--StartPath=$DATA_DIR" `
+    "--StopPath=$DATA_DIR" `
     --StdOutput=auto `
     --StdError=auto `
     "--LogPath=$DATA_DIR\logs" `

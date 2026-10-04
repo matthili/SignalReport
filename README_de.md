@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-156%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.0.1-blue" alt="Version 2.0.1">
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-163%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.0.2-blue" alt="Version 2.0.2">
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 | **Visualisierung** | 📊 Live-Charts mit Chart.js<br>📋 Mess-Tabelle pro Messzyklus (aufklappbar)<br>🌡️ Heatmap pro Stunde<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
 | **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export (vollständig oder gefiltert) |
 | **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
-| **Datensicherheit** | 🛟 Twin-Datenbank (synchrone Spiegelung)<br>🔄 Auto-Recovery beim Start (Korruption → Rekonstruktion aus intakter Kopie)<br>⚡ Synchrone Schreibvorgänge (`WRITE_DELAY=0`)<br>🛡️ Schutz vor Crash durch Update-Reboots / Stromausfälle |
+| **Datensicherheit** | 🛟 Twin-Datenbank (gespiegelte Schreibvorgänge)<br>🔄 Auto-Recovery beim Start (Korruption → Rekonstruktion aus intakter Kopie)<br>⚡ Eine Transaktion pro Messrunde, laufende H2-Hintergrund-Kompaktierung<br>🛑 Geordneter Stopp (`signalreport.jar stop`, vom Windows-Dienst genutzt) schließt beide Datenbanken sauber |
 | **Mehrsprachigkeit** | 🌐 9 Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Gilt für Web-UI, PDF-Berichte und CSV-Exporte<br>🎛️ Sprachwahl im Setup-Wizard und in den Einstellungen<br>📂 Erweiterbar ohne Neukompilieren: eigene Sprachdatei in `./lang/` ablegen |
 | **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark (Server weltweit)<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
 
@@ -178,7 +178,8 @@ Eine kompakte Übersicht der Verzeichnisse und Klassen findest du in [`docs/Proj
 ```
 signalreport/
 ├── src/main/java/at/mafue/signalreport/
-│   ├── SignalReportApp.java              # Hauptklasse (Entry Point)
+│   ├── SignalReportApp.java              # Hauptklasse (Entry Point, Messschleife, geordneter Stopp)
+│   ├── StopCommand.java                  # "signalreport.jar stop": bittet die laufende Instanz um sauberes Herunterfahren
 │   ├── ServiceReachabilityScheduler.java # Langsamer Dienst-Erreichbarkeits-Lauf + Leitungs-Gate
 │   ├── config/                           # Schlankes Config + eine Datei je Bereich (Measurement, Gateway, ServiceReachability, ServiceTarget, …)
 │   ├── measurement/                      # Measurer-Interface + Ping/Dns/Http, Measurement, DnsBenchmark
@@ -187,16 +188,17 @@ signalreport/
 │   ├── report/                           # ReliabilityReport, ConnectivityAssessment, ServiceReachabilityAssessment/Report, PdfReportGenerator
 │   ├── web/                              # WebServer (Javalin-Orchestrator), SessionManager
 │   │   ├── view/                         #   HtmlPageRenderer, SetupPageRenderer, LoginPageRenderer
-│   │   └── api/                          #   10 Routen-Registrare (Measurement, Reliability, ServiceReachability, Settings, …)
+│   │   └── api/                          #   11 Routen-Registrare (Measurement, Reliability, ServiceReachability, Settings, System, …)
 │   ├── i18n/                             # I18n (9 Sprachen, erweiterbar)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 20 Testklassen, 156 Tests (spiegeln die Pakete oben)
+├── src/test/java/at/mafue/signalreport/  # 22 Testklassen, 163 Tests (spiegeln die Pakete oben)
 ├── src/main/resources/web/               # Statische Assets: app.css, app.js, Logos, Favicons
 ├── src/main/resources/lang/              # Sprachdateien (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/fonts/             # DejaVu-Schriften für PDF (Unicode/Kyrillisch)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
 │   ├── latex/                            # Vollständige LaTeX-Dokumentation
+│   ├── notes/                            # Arbeitsnotizen mit Messungen (z. B. die Datenbank-Analyse 2026-10)
 │   └── screenshots/                      # UI-Screenshots
 ├── deployment/                           # Installations-Skripte (Win/Linux/macOS)
 ├── config.json                           # Auto-generierte Konfiguration

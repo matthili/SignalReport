@@ -6,7 +6,8 @@
 SignalReport/
 ├── src/
 │   ├── main/java/at/mafue/signalreport/  # Geschichtete Pakete (siehe unten)
-│   │   ├── SignalReportApp.java          # Hauptklasse (Entry Point + kontinuierliche Mess-Schleife)
+│   │   ├── SignalReportApp.java          # Hauptklasse (Entry Point + kontinuierliche Mess-Schleife + geordneter Stopp)
+│   │   ├── StopCommand.java              # "signalreport.jar stop": bittet die laufende Instanz um sauberes Herunterfahren (Loopback-Endpunkt)
 │   │   ├── ServiceReachabilityScheduler.java  # Langsamer Dienst-Erreichbarkeits-Lauf + Leitungs-Gate + manueller Auslöser
 │   │   ├── config/                       # Konfiguration (Config + je eine Datei pro Aspekt)
 │   │   │   ├── Config.java               # Singleton-Fassade (Laden/Speichern, Passwort-Hash, Defaults)
@@ -69,19 +70,20 @@ SignalReport/
 │   │   │       ├── SettingsRoutes.java   # Config-/Theme-/Push-Einstellungs-Endpunkte
 │   │   │       ├── SetupRoutes.java      # Setup-Wizard-Endpunkte
 │   │   │       ├── AuthRoutes.java       # Authentifizierungs-Endpunkte (Nonce/Login/Logout)
-│   │   │       └── ServiceReachabilityRoutes.java  # Dienst-Status/-Verlauf/-Einstellungen + Jetzt-prüfen (Cooldown)
+│   │   │       ├── ServiceReachabilityRoutes.java  # Dienst-Status/-Verlauf/-Einstellungen + Jetzt-prüfen (Cooldown)
+│   │   │       └── SystemRoutes.java     # Nur per Loopback erreichbarer System-Endpunkt (geordneter Stopp)
 │   │   ├── i18n/
 │   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
-│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (20 Klassen, 156 Tests + 3 opt-in Smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik)
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (22 Klassen, 163 Tests + 3 opt-in Smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin)
 │   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (Netz, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8), ServiceCheckRepositoryTest (3)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3)
 │   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Statische Dateien: app.css, app.js, Logos, Favicons, Service Worker
@@ -89,6 +91,7 @@ SignalReport/
 │       └── fonts/                        # DejaVu-Schriften für PDF (Unicode/Kyrillisch)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
+│   ├── notes/                            # Arbeitsnotizen mit Messungen (Datenbank-Analyse 2026-10 + Messprogramm)
 │   ├── latex/                            # LaTeX-Dokumentation
 │   │   ├── signalreport-dokumentation.tex
 │   │   └── kapitel/                      # Einzelne Kapitel

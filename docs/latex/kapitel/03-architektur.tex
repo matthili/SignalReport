@@ -167,9 +167,12 @@ gehen ausschließlich auf die Primary, was den Performance-Overhead minimiert.
 gegen abrupte Prozess-Terminierungen (Stromausfall, Update-Neustart, kill -9):
 
 \begin{enumerate}
-  \item \texttt{WRITE\_DELAY=0} im JDBC-URL: Jede Transaktion wird synchron auf die
-    Platte geflusht (statt Default 500\,ms). Damit verkleinert sich das Korruptions-Fenster
-    von Hunderten von Millisekunden auf wenige Mikrosekunden.
+  \item \textbf{Eine Transaktion pro Messrunde} (\texttt{saveAll}) bei H2-Standard-%
+    \texttt{WRITE\_DELAY} (500\,ms): H2 bündelt die Commits und kompaktiert die Datei
+    laufend im Hintergrund. Bis Version 2.0.1 stand \texttt{WRITE\_DELAY=0} im JDBC-URL;
+    in H2 2.4.240 schaltet das den Hintergrund-Thread und damit jede Kompaktierung ab,
+    wodurch die Dateien im Dauerbetrieb auf Dutzende Gigabyte anwuchsen (gemessen:
+    37,7\,KB Dateiwachstum pro Zeile statt 92,6\,Byte Nutzdaten).
   \item \textbf{Twin-Spiegelung}: Selbst wenn eine der beiden Dateien während eines
     Schreibvorgangs zerstört wird, bleibt die jeweils andere konsistent.
   \item \textbf{Auto-Recovery beim Start}: Erkennt der Konstruktor von

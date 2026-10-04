@@ -377,7 +377,7 @@ WebServer --> ServiceReachabilityRoutes
 
 note top of H2MeasurementRepository
   Embedded H2 (Twin-DB):
-  Primary + Shadow, synchrones Schreiben (WRITE_DELAY=0).
+  Primary + Shadow, eine Transaktion pro Messrunde (saveAll).
   Lesen nur aus Primary. Auto-Recovery: korrupte DB
   wird beim Start aus der intakten rekonstruiert.
   Tabellen: measurements (+ Spalte excluded), hosts, ip_changes, service_checks

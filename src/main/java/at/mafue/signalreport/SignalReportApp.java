@@ -21,12 +21,27 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalReportApp
 {
     // Logger-Instanz (statisch für die ganze Klasse)
     private static final Logger logger = LoggerFactory.getLogger(SignalReportApp.class);
     protected static final String CONFIG_JSON = "config.json";
+
+    /**
+     * Geordneter Stopp: gesetzt, sobald der lokale Stopp-Endpunkt (siehe
+     * {@link StopCommand}) ihn angefordert hat. Die Messschleife beendet dann die
+     * laufende Runde, verlaesst die Schleife und schliesst alles sauber.
+     * Der Latch weckt die Schleife aus der Intervall-Wartezeit, ohne den Thread zu
+     * unterbrechen (ein Interrupt mitten in einem Datenbankzugriff wird so vermieden).
+     */
+    private static final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    private static final CountDownLatch stopLatch = new CountDownLatch(1);
 
     static
         {
@@ -35,10 +50,21 @@ public class SignalReportApp
 
     public static void main(String[] args) throws Exception
     {
+        // "stop": nicht starten, sondern die laufende Instanz geordnet beenden. Genau
+        // dieses Kommando ruft der Windows-Dienst (prunsrv, StopMode=exe) beim Stoppen auf.
+        // Bis 2.0.1 wurde das Argument ignoriert und damit eine zweite Instanz gestartet,
+        // die am belegten Port scheiterte, waehrend die erste hart beendet wurde.
+        if (args.length > 0 && "stop".equalsIgnoreCase(args[0]))
+            {
+            boolean ok = StopCommand.run(CONFIG_JSON);
+            System.exit(ok ? 0 : 1);
+            return;
+            }
+
         // Logger/Info statt println
         logger.info("📡 SignalReport – Starte Mess-Engine und Web-Interface");
         logger.info("   {}", HostIdentifier.getFullHostInfo());
-        logger.info("   (Beenden mit STRG+C)\n");
+        logger.info("   (Beenden mit STRG+C oder \"signalreport.jar stop\")\n");
 
         // Konfiguration laden oder erstellen
         Config config;
@@ -81,10 +107,11 @@ public class SignalReportApp
         H2MeasurementRepository repo = new H2MeasurementRepository(config.getDatabase().getPath());
 
         // Shutdown-Hook: schliesst beide DBs sauber bei normaler Terminierung
-        // (Service-Stop, STRG+C, SIGTERM). Bei abrupten Terminierungen
+        // (SIGTERM unter Linux/macOS, STRG+C, System.exit). Bei abrupten Terminierungen
         // (kill -9, Stromausfall, Windows-Update-Reboot) sorgt die Twin-DB-
         // Architektur dafuer, dass die intakte DB beim Neustart die korrupte
-        // automatisch rekonstruiert.
+        // automatisch rekonstruiert. Der Windows-Dienst stoppt ueber "signalreport.jar
+        // stop" (geordnet, siehe oben); der Hook findet die DBs dann bereits geschlossen vor.
         Runtime.getRuntime().addShutdownHook(new Thread(() ->
         {
         logger.info("Shutdown-Hook: schliesse Datenbanken...");
@@ -102,8 +129,9 @@ public class SignalReportApp
         // angelegt, damit der Webserver den "Jetzt pruefen"-Ausloeser kennt.
         ServiceReachabilityScheduler reachabilityScheduler = new ServiceReachabilityScheduler(repo);
 
-        // Webserver starten
-        WebServer webServer = new WebServer(repo, reachabilityScheduler::triggerManualRun);
+        // Webserver starten (kennt den Stopp-Ausloeser fuer den lokalen Stopp-Endpunkt)
+        WebServer webServer = new WebServer(repo, reachabilityScheduler::triggerManualRun,
+                SignalReportApp::requestStop);
         webServer.start(config.getWebserver().getPort());
 
         // Host registrieren
@@ -156,7 +184,7 @@ public class SignalReportApp
         // Lokale IP merken, um bei einem Netzwechsel die Gateways neu zu ermitteln.
         String lastLocalIp = NetworkInfo.getLocalIPv4();
         int round = 1;
-        while (true)
+        while (!stopRequested.get())
             {
             Config currentConfig = Config.getInstance();
 
@@ -209,10 +237,13 @@ public class SignalReportApp
                     String hostHash = HostIdentifier.getHostHash();
                     repo.trackIpChange(currentExternalIp, hostHash);
 
-                    // Messungen durchführen
-                    repo.save(pingMeasurer.measure(pingTarget));
-                    repo.save(dnsMeasurer.measure(dnsTarget));
-                    repo.save(httpMeasurer.measure(httpTarget));
+                    // Messungen durchführen; alle Ergebnisse der Runde werden gesammelt
+                    // und in EINER Transaktion gespeichert (ein Commit pro Runde statt
+                    // zwei pro Messung, siehe H2MeasurementRepository.saveAll).
+                    List<Measurement> batch = new ArrayList<>(5);
+                    batch.add(pingMeasurer.measure(pingTarget));
+                    batch.add(dnsMeasurer.measure(dnsTarget));
+                    batch.add(httpMeasurer.measure(httpTarget));
 
                     // Lokale Gateways messen (eigene Typen, fliessen NICHT in die
                     // Internet-PING-Statistik ein). Lokalisiert eine Stoerung:
@@ -220,19 +251,18 @@ public class SignalReportApp
                     GatewayConfig gw = currentConfig.getGateway();
                     String nearGw = gw.getNear();
                     String farGw = gw.getFar();
-                    int gwCount = 0;
                     if (nearGw != null && !nearGw.isBlank())
                         {
-                        repo.save(pingMeasurer.measure(nearGw, GatewayDiscovery.TYPE_NEAR));
-                        gwCount++;
+                        batch.add(pingMeasurer.measure(nearGw, GatewayDiscovery.TYPE_NEAR));
                         }
                     if (farGw != null && !farGw.isBlank() && !farGw.equals(nearGw) && gw.isFarPingEnabled())
                         {
-                        repo.save(pingMeasurer.measure(farGw, GatewayDiscovery.TYPE_FAR));
-                        gwCount++;
+                        batch.add(pingMeasurer.measure(farGw, GatewayDiscovery.TYPE_FAR));
                         }
 
-                    logger.info("{} Messungen gespeichert | IP: {}", 3 + gwCount, currentExternalIp);
+                    repo.saveAll(batch);
+
+                    logger.info("{} Messungen gespeichert | IP: {}", batch.size(), currentExternalIp);
                     } catch (Exception e)
                     {
                     logger.error("Fehler bei Messung", e);
@@ -241,12 +271,66 @@ public class SignalReportApp
 
             logger.debug("   ---");
 
-            // auf nächstes Intervall warten
+            // auf nächstes Intervall warten; ein Stopp-Wunsch beendet die Wartezeit sofort
             Config updatedConfig = Config.getInstance();
             int nextInterval = updatedConfig.getMeasurement().getIntervalSeconds();
-            Thread.sleep(nextInterval * 1000L);
+            if (stopLatch.await(nextInterval, TimeUnit.SECONDS))
+                {
+                break;
+                }
             round++;
             }
+
+        shutdownGracefully(webServer, repo);
+    }
+
+    /**
+     * Fordert den geordneten Stopp an (aufgerufen vom lokalen Stopp-Endpunkt
+     * {@code POST /api/system/shutdown}, den {@link StopCommand} benutzt). Kehrt sofort
+     * zurueck; die Messschleife beendet ihre laufende Runde und faehrt dann herunter.
+     */
+    public static void requestStop()
+    {
+        if (stopRequested.compareAndSet(false, true))
+            {
+            logger.info("Stopp angefordert – beende Messschleife und fahre geordnet herunter...");
+            stopLatch.countDown();
+            }
+    }
+
+    /**
+     * Geordnetes Herunterfahren nach dem Ende der Messschleife: Webserver stoppen,
+     * beide Datenbanken sauber schliessen (H2 schreibt dabei den sauberen Abschluss und
+     * kompaktiert kurz), dann die JVM beenden. Der Shutdown-Hook findet die DBs bereits
+     * geschlossen vor und tut nichts mehr.
+     */
+    private static void shutdownGracefully(WebServer webServer, H2MeasurementRepository repo)
+    {
+        logger.info("Messschleife beendet, fahre herunter...");
+        try
+            {
+            // Der Stopp-Aufruf bekommt seine Antwort noch zugestellt, bevor Jetty stoppt.
+            Thread.sleep(500);
+            } catch (InterruptedException e)
+            {
+            Thread.currentThread().interrupt();
+            }
+        try
+            {
+            webServer.stop();
+            } catch (Exception e)
+            {
+            logger.warn("Webserver-Stopp meldete: {}", e.getMessage());
+            }
+        try
+            {
+            repo.close();
+            logger.info("Datenbanken sauber geschlossen.");
+            } catch (Exception e)
+            {
+            logger.error("Fehler beim Schliessen der Datenbanken: {}", e.getMessage());
+            }
+        System.exit(0);
     }
 
     /**

@@ -17,21 +17,28 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Repository fuer Messungen mit Twin-Database-Architektur.
  * <p>
  * Es werden zwei H2-Datenbanken parallel gefuehrt: eine Primary (Default-Quelle
- * fuer Lese-Operationen) und eine Shadow (synchrone Spiegelung aller Schreiboperationen).
+ * fuer Lese-Operationen) und eine Shadow (Spiegelung aller Schreiboperationen).
  * Bei Korruption einer der beiden DBs wird sie beim naechsten Start automatisch
  * aus der noch intakten DB rekonstruiert. Damit ueberlebt SignalReport abrupte
  * Prozess-Terminierungen (Windows-Update-Neustart, Stromausfall) ohne nennens-
  * werten Datenverlust.
  * <p>
  * Schutz-Stufen:
- * 1. WRITE_DELAY=0 - synchrone OS-Flush nach jedem Commit (Korruptions-Fenster
- * ist nur wenige Mikrosekunden gross statt 500 ms).
+ * 1. Eine Transaktion pro Messrunde ({@link #saveAll(List)}) bei H2-Standard-WRITE_DELAY
+ * (500 ms): H2 schreibt die Commits gebuendelt und kompaktiert die Datei laufend im
+ * Hintergrund. Bis 2.0.1 stand WRITE_DELAY=0 in der URL; das schaltet den
+ * MVStore-Hintergrund-Thread und damit jede Kompaktierung ab (H2 2.4.240,
+ * FileStore.setAutoCommitDelay startet ihn nur fuer Werte groesser 0). Gemessen:
+ * 37,7 KB Dateiwachstum pro Messzeile statt 92,6 Byte Nutzdaten, siehe
+ * docs/notes/2026-10-04_Datenbank-Analyse.md.
  * 2. Twin-Spiegelung - jede Aenderung wird in beide DBs geschrieben.
  * 3. Auto-Recovery - beim Start werden korrupte DBs in Quarantaene verschoben
  * und aus der intakten DB per File-Copy wiederhergestellt.
@@ -52,8 +59,10 @@ public class H2MeasurementRepository
     {
         this.primaryDbPath = dbPath;
         this.shadowDbPath = dbPath + "-shadow";
-        // WRITE_DELAY=0: synchrone Flushes minimieren das Korruptions-Fenster.
-        String jdbcSuffix = ";DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0";
+        // WRITE_DELAY bleibt auf dem H2-Standard (500 ms): nur dann laeuft der
+        // MVStore-Hintergrund-Thread, der Commits buendelt und die Datei kompaktiert.
+        // WRITE_DELAY=0 (bis 2.0.1) liess die Dateien ungebremst wachsen, siehe Klassen-Javadoc.
+        String jdbcSuffix = ";DB_CLOSE_ON_EXIT=FALSE";
         this.primaryJdbcUrl = "jdbc:h2:" + primaryDbPath + jdbcSuffix;
         this.shadowJdbcUrl = "jdbc:h2:" + shadowDbPath + jdbcSuffix;
 
@@ -332,7 +341,10 @@ public class H2MeasurementRepository
                 """;
 
         String indexTimestamp = "CREATE INDEX IF NOT EXISTS idx_measurements_timestamp ON measurements(timestamp)";
-        String indexType = "CREATE INDEX IF NOT EXISTS idx_measurements_type ON measurements(type)";
+        // Migration: idx_measurements_type entfaellt. Er ist ein Praefix von
+        // idx_measurements_type_timestamp (beide type-Abfragen filtern zusaetzlich auf
+        // timestamp) und kostete pro INSERT einen weiteren B-Baum-Schreibvorgang.
+        String dropIndexType = "DROP INDEX IF EXISTS idx_measurements_type";
         String indexTypeTimestamp = "CREATE INDEX IF NOT EXISTS idx_measurements_type_timestamp ON measurements(type, timestamp)";
         String indexHostHash = "CREATE INDEX IF NOT EXISTS idx_measurements_host_hash ON measurements(host_hash)";
         String indexIpChangesTimestamp = "CREATE INDEX IF NOT EXISTS idx_ip_changes_timestamp ON ip_changes(timestamp)";
@@ -366,11 +378,21 @@ public class H2MeasurementRepository
             stmt.execute(addExcluded);
             stmt.execute(serviceChecksTable);
             stmt.execute(indexTimestamp);
-            stmt.execute(indexType);
             stmt.execute(indexTypeTimestamp);
             stmt.execute(indexHostHash);
             stmt.execute(indexIpChangesTimestamp);
             stmt.execute(indexServiceChecks);
+            }
+
+        // Den alten Index separat entfernen: Scheitert das (z. B. weil in einer vorgeschaedigten
+        // Datei eine seiner Seiten unlesbar ist), darf das den Start nicht verhindern. Der
+        // Index wird nur noch nicht gebraucht, er stoert nicht.
+        try (Statement stmt = c.createStatement())
+            {
+            stmt.execute(dropIndexType);
+            } catch (SQLException e)
+            {
+            logger.warn("Alter Index idx_measurements_type konnte nicht entfernt werden: {}", e.getMessage());
             }
     }
 
@@ -458,8 +480,25 @@ public class H2MeasurementRepository
         });
     }
 
+    /** Speichert eine einzelne Messung (eigene Transaktion). Fuer Messrunden {@link #saveAll(List)} verwenden. */
     public void save(Measurement m) throws SQLException
     {
+        saveAll(List.of(m));
+    }
+
+    /**
+     * Speichert alle Messungen einer Messrunde in EINER Transaktion pro DB (ein Commit
+     * statt zwei pro Messung) und aktualisiert den Host-Eintrag einmal pro Runde.
+     * Weniger Commits bedeuten bei H2/MVStore weniger Chunks und damit weniger
+     * Dateiwachstum; die Runde ist zudem atomar (alles oder nichts).
+     */
+    public void saveAll(List<Measurement> batch) throws SQLException
+    {
+        if (batch == null || batch.isEmpty())
+            {
+            return;
+            }
+
         String insertSql = """
                 INSERT INTO measurements
                 (timestamp, target, latency_ms, success, type, local_ipv4, local_ipv6,
@@ -476,28 +515,60 @@ public class H2MeasurementRepository
         String hostname = HostIdentifier.getHostname();
         String os = HostIdentifier.getOperatingSystem();
 
+        // Host-Hashes der Runde (praktisch immer genau einer)
+        Set<String> hostHashes = new LinkedHashSet<>();
+        for (Measurement m : batch)
+            {
+            hostHashes.add(m.getHostHash());
+            }
+
         writeOnBoth(c ->
         {
-        try (PreparedStatement pstmt = c.prepareStatement(insertSql))
+        boolean previousAutoCommit = c.getAutoCommit();
+        c.setAutoCommit(false);
+        try
             {
-            pstmt.setTimestamp(1, Timestamp.from(m.getTimestamp()));
-            pstmt.setString(2, m.getTarget());
-            pstmt.setDouble(3, m.getLatencyMs());
-            pstmt.setBoolean(4, m.isSuccess());
-            pstmt.setString(5, m.getType());
-            pstmt.setString(6, m.getLocalIPv4());
-            pstmt.setString(7, m.getLocalIPv6());
-            pstmt.setString(8, m.getExternalIPv4());
-            pstmt.setString(9, m.getExternalIPv6());
-            pstmt.setString(10, m.getHostHash());
-            pstmt.executeUpdate();
-            }
-        try (PreparedStatement pstmt = c.prepareStatement(mergeHostSql))
+            try (PreparedStatement pstmt = c.prepareStatement(insertSql))
+                {
+                for (Measurement m : batch)
+                    {
+                    pstmt.setTimestamp(1, Timestamp.from(m.getTimestamp()));
+                    pstmt.setString(2, m.getTarget());
+                    pstmt.setDouble(3, m.getLatencyMs());
+                    pstmt.setBoolean(4, m.isSuccess());
+                    pstmt.setString(5, m.getType());
+                    pstmt.setString(6, m.getLocalIPv4());
+                    pstmt.setString(7, m.getLocalIPv6());
+                    pstmt.setString(8, m.getExternalIPv4());
+                    pstmt.setString(9, m.getExternalIPv6());
+                    pstmt.setString(10, m.getHostHash());
+                    pstmt.addBatch();
+                    }
+                pstmt.executeBatch();
+                }
+            try (PreparedStatement pstmt = c.prepareStatement(mergeHostSql))
+                {
+                for (String hostHash : hostHashes)
+                    {
+                    pstmt.setString(1, hostHash);
+                    pstmt.setString(2, hostname);
+                    pstmt.setString(3, os);
+                    pstmt.executeUpdate();
+                    }
+                }
+            c.commit();
+            } catch (SQLException e)
             {
-            pstmt.setString(1, m.getHostHash());
-            pstmt.setString(2, hostname);
-            pstmt.setString(3, os);
-            pstmt.executeUpdate();
+            try
+                {
+                c.rollback();
+                } catch (SQLException ignored)
+                {
+                }
+            throw e;
+            } finally
+            {
+            c.setAutoCommit(previousAutoCommit);
             }
         });
     }

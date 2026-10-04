@@ -74,6 +74,34 @@ class H2MeasurementRepositoryTest
     }
 
     @Test
+    void testSaveAllStoresWholeBatchAndRegistersHostOnce() throws SQLException
+    {
+        // Arrange: eine komplette Messrunde (wie in SignalReportApp)
+        List<Measurement> batch = List.of(
+                new Measurement("8.8.8.8", 12.0, true, "PING"),
+                new Measurement("google.com", 20.0, true, "DNS"),
+                new Measurement("https://example.com", 80.0, false, "HTTP"));
+
+        // Act: eine Transaktion pro Runde
+        repo.saveAll(batch);
+
+        // Assert: alle Messungen gespeichert, Host genau einmal registriert
+        List<Measurement> results = repo.findLastN(10);
+        assertEquals(3, results.size(), "Alle Messungen der Runde muessen gespeichert sein");
+        List<String> types = results.stream().map(Measurement::getType).toList();
+        assertTrue(types.containsAll(List.of("PING", "DNS", "HTTP")));
+        assertEquals(1, repo.getAllHosts().size(), "Der Host wird pro Runde genau einmal registriert");
+    }
+
+    @Test
+    void testSaveAllWithEmptyBatchIsNoop() throws SQLException
+    {
+        repo.saveAll(List.of());
+        repo.saveAll(null);
+        assertTrue(repo.findLastN(10).isEmpty(), "Leere Runde darf nichts schreiben");
+    }
+
+    @Test
     void testFindLastNLimit() throws SQLException
     {
         // Arrange: 5 Messungen speichern

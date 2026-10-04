@@ -6,7 +6,8 @@
 SignalReport/
 ├── src/
 │   ├── main/java/at/mafue/signalreport/  # Layered packages (see below)
-│   │   ├── SignalReportApp.java          # Main class (entry point + continuous measurement loop)
+│   │   ├── SignalReportApp.java          # Main class (entry point + continuous measurement loop + orderly stop)
+│   │   ├── StopCommand.java              # "signalreport.jar stop": asks the running instance to shut down cleanly (loopback endpoint)
 │   │   ├── ServiceReachabilityScheduler.java  # Slow service-reachability loop + line-gate + manual trigger
 │   │   ├── config/                       # Configuration (Config + one file per aspect)
 │   │   │   ├── Config.java               # Singleton facade (load/save, password hashing, defaults)
@@ -69,19 +70,20 @@ SignalReport/
 │   │   │       ├── SettingsRoutes.java   # Config/theme/push settings endpoints
 │   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints
 │   │   │       ├── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
-│   │   │       └── ServiceReachabilityRoutes.java  # Service status/history/settings + check-now (cooldown)
+│   │   │       ├── ServiceReachabilityRoutes.java  # Service status/history/settings + check-now (cooldown)
+│   │   │       └── SystemRoutes.java     # Loopback-only system endpoint (orderly stop)
 │   │   ├── i18n/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (20 classes, 156 tests + 3 opt-in smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (22 classes, 163 tests + 3 opt-in smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin)
 │   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (10), StatisticsTest (8), ServiceCheckRepositoryTest (3)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3)
 │   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker
@@ -89,6 +91,7 @@ SignalReport/
 │       └── fonts/                        # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/
 │   ├── diagrams/                         # PlantUML diagrams (.puml + .png)
+│   ├── notes/                            # Working notes with measurements (2026-10 database analysis + experiment)
 │   ├── latex/                            # LaTeX documentation
 │   │   ├── signalreport-dokumentation.tex
 │   │   └── kapitel/                      # Individual chapters

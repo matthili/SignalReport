@@ -14,6 +14,7 @@ import at.mafue.signalreport.web.api.ReliabilityRoutes;
 import at.mafue.signalreport.web.api.ServiceReachabilityRoutes;
 import at.mafue.signalreport.web.api.SettingsRoutes;
 import at.mafue.signalreport.web.api.SetupRoutes;
+import at.mafue.signalreport.web.api.SystemRoutes;
 import at.mafue.signalreport.web.view.HtmlPageRenderer;
 import at.mafue.signalreport.web.view.LoginPageRenderer;
 import at.mafue.signalreport.web.view.SetupPageRenderer;
@@ -31,16 +32,22 @@ public class WebServer
     private static final Logger logger = LoggerFactory.getLogger(WebServer.class);
     private final H2MeasurementRepository repository;
     private final LongSupplier reachabilityTrigger;
+    private final Runnable stopRequest;
     private final HtmlPageRenderer htmlPageRenderer = new HtmlPageRenderer();
     private final SetupPageRenderer setupPageRenderer = new SetupPageRenderer();
     private final LoginPageRenderer loginPageRenderer = new LoginPageRenderer();
     private final SessionManager sessionManager = new SessionManager();
     private Javalin app;
 
-    public WebServer(H2MeasurementRepository repository, LongSupplier reachabilityTrigger)
+    /**
+     * @param reachabilityTrigger Ausloeser fuer "Dienste jetzt pruefen" (liefert Rest-Abkuehlzeit)
+     * @param stopRequest         Ausloeser fuer den geordneten Stopp (lokaler Endpunkt, siehe SystemRoutes)
+     */
+    public WebServer(H2MeasurementRepository repository, LongSupplier reachabilityTrigger, Runnable stopRequest)
     {
         this.repository = repository;
         this.reachabilityTrigger = reachabilityTrigger;
+        this.stopRequest = stopRequest;
     }
 
     public void start(int port)
@@ -61,10 +68,12 @@ public class WebServer
         {
         Config config = Config.getInstance();
 
-        // Setup-Seite, Login, Auth-Endpoints und statische Ressourcen sind immer erlaubt
+        // Setup-Seite, Login, Auth-Endpoints, der lokale Stopp-Endpunkt und statische
+        // Ressourcen sind immer erlaubt
         String path = ctx.path();
         if (path.equals("/setup") || path.equals("/api/setup/complete")
                 || path.equals("/login") || path.startsWith("/api/auth/")
+                || path.equals(SystemRoutes.SHUTDOWN_PATH)
                 || path.endsWith(".png") || path.endsWith(".ico") || path.endsWith(".css")
                 || path.endsWith(".js") || path.endsWith(".jpg") || path.endsWith(".svg"))
             {
@@ -90,10 +99,12 @@ public class WebServer
             return; // Keine Authentifizierung erforderlich
             }
 
-        // Login-Seite, Auth-Endpoints und statische Ressourcen sind ohne Session erlaubt
+        // Login-Seite, Auth-Endpoints, der lokale Stopp-Endpunkt (nur Loopback, prueft
+        // SystemRoutes selbst) und statische Ressourcen sind ohne Session erlaubt
         String path = ctx.path();
         if (path.equals("/login") || path.startsWith("/api/auth/")
                 || path.equals("/setup") || path.equals("/api/setup/complete")
+                || path.equals(SystemRoutes.SHUTDOWN_PATH)
                 || path.endsWith(".png") || path.endsWith(".ico") || path.endsWith(".css")
                 || path.endsWith(".js") || path.endsWith(".jpg") || path.endsWith(".svg"))
             {
@@ -130,6 +141,7 @@ public class WebServer
         ServiceReachabilityRoutes.register(app, repository, reachabilityTrigger);
         SetupRoutes.register(app);
         AuthRoutes.register(app, sessionManager);
+        SystemRoutes.register(app, stopRequest);
 
         logger.info("Web-Interface läuft unter: http://localhost:{}", port);
     }

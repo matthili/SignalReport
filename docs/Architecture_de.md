@@ -155,13 +155,19 @@ Online-Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder
 ## Twin-Datenbank (Crash-Resistenz)
 
 Statt einer einzelnen H2-Datei werden zwei parallel geführt: eine **Primary**
-(Quelle für alle Lesezugriffe) und eine **Shadow** (synchrone Spiegelung aller
+(Quelle für alle Lesezugriffe) und eine **Shadow** (Spiegelung aller
 Schreibvorgänge). Drei Schutz-Stufen sichern die Daten gegen abrupte
 Prozess-Terminierungen (Windows-Update-Neustart, Stromausfall):
 
-1. **`WRITE_DELAY=0`** – jede Transaktion wird sofort auf die Platte geschrieben (statt Default 500 ms), wodurch das Korruptions-Fenster auf wenige Mikrosekunden schrumpft
+1. **Eine Transaktion pro Messrunde** – alle Messungen einer Runde werden gemeinsam committet (`saveAll`), und H2 läuft mit seinem Standard-`WRITE_DELAY` (500 ms), damit sein Hintergrund-Thread die Commits bündelt und die Datei laufend kompaktiert. Bis 2.0.1 erzwang die URL `WRITE_DELAY=0`; in H2 2.4.240 schaltet das den Hintergrund-Thread und damit jede Kompaktierung ab, wodurch die Dateien auf Dutzende Gigabyte anwuchsen (gemessen: 37,7 KB Dateiwachstum pro Zeile statt 92,6 Byte Nutzdaten, siehe `docs/notes/2026-10-04_Datenbank-Analyse.md`)
 2. **Twin-Spiegelung** – wird eine Datei mitten im Schreibvorgang zerstört, bleibt die andere konsistent
 3. **Auto-Recovery beim Start** – eine als korrupt erkannte DB (H2-Fehlercode 90030) wird nach `data/quarantine/` verschoben und per Datei-Kopie aus der intakten DB rekonstruiert; der Betrieb läuft unterbrechungsfrei weiter
+
+Sauberes Beenden ist für H2 wichtig: `java -jar signalreport.jar stop` (der Befehl,
+den der Windows-Dienst ausführt) bittet die laufende Instanz über den nur per
+Loopback erreichbaren Endpunkt `POST /api/system/shutdown`, die laufende Runde zu
+beenden und beide Datenbanken ordentlich zu schließen; unter Linux/macOS erledigt
+das der SIGTERM-Shutdown-Hook.
 
 Bestehende Single-DB-Installationen erhalten beim ersten Start automatisch ihre
 Shadow-Kopie – kein manueller Migrationsschritt nötig.

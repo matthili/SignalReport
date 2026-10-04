@@ -12,7 +12,7 @@ package "signalreport" {
 }
 package "web" {
   [WebServer] as Web
-  [web.api: 10 Registrare] as Api
+  [web.api: 11 Registrare] as Api
   [web.view: Renderer] as View
   [SessionManager] as SessionMgr
 }
@@ -79,7 +79,7 @@ Repo --> ShadowDB
 
 note bottom of Web
   Javalin (Port 4567): Setup + 2 before-Filter
-  (Setup-/Auth-Gating), register() der 10 web.api-Klassen,
+  (Setup-/Auth-Gating), register() der 11 web.api-Klassen,
   statische Assets /app.css + /app.js, SHA-256-Auth.
 end note
 note bottom of GwDisc
@@ -87,7 +87,8 @@ note bottom of GwDisc
   Docker-Bridge uebersprungen; VM/NAT -> Warnung.
 end note
 note bottom of ShadowDB
-  Synchrone Spiegelung (WRITE_DELAY=0),
+  Spiegelung aller Schreibvorgaenge,
+  eine Transaktion pro Messrunde,
   Auto-Recovery bei Korruption (H2 90030).
 end note
 @enduml

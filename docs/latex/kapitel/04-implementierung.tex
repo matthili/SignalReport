@@ -214,8 +214,9 @@ Die Persistenz erfolgt über Jackson JSON-Serialisierung in \texttt{config.json}
 
 H2 wird im FILE-Modus mit Twin-Architektur betrieben: zwei parallele Datenbanken
 \texttt{signalreport.mv.db} (Primary) und \texttt{signalreport-shadow.mv.db} (Shadow).
-Beide nutzen das identische Schema. Die JDBC-URL enthält \texttt{WRITE\_DELAY=0}, um
-synchrone OS-Flushes nach jedem Commit zu erzwingen (siehe Abschnitt \ref{subsec:twindb}).
+Beide nutzen das identische Schema. Die JDBC-URL belässt \texttt{WRITE\_DELAY} auf dem
+H2-Standard (500\,ms); alle Messungen einer Runde werden in einer Transaktion geschrieben
+(\texttt{saveAll}, siehe Abschnitt \ref{subsec:twindb}).
 
 Vier Tabellen bilden das Schema. Die Abfrage-Methoden \texttt{findSince(Instant)} und
 \texttt{findAll()} ermöglichen sowohl zeitraumbasierte als auch vollständige Datenexporte,
