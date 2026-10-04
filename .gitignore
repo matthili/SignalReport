@@ -67,6 +67,9 @@ nb-configuration.xml
 # Local data
 data/
 
+# Arbeitsnotizen mit Messungen und Host-Details: nur lokal, nicht veroeffentlichen
+/docs/notes/
+
 # Plugin directory
 /.quarkus/cli/plugins/
 

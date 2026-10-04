@@ -25,10 +25,12 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 
 /**
@@ -118,6 +120,22 @@ public class DatabaseRebuilder
     record RowKey(Instant timestamp, String target, String type, String hostHash)
     {
     }
+
+    /** Zeitreihenfolge der Schluessel (dann Typ, Ziel, Host), ohne Lambdas im Vergleich. */
+    private static final Comparator<RowKey> ROW_ORDER = new Comparator<>()
+    {
+        @Override
+        public int compare(RowKey a, RowKey b)
+        {
+            int c = a.timestamp().compareTo(b.timestamp());
+            if (c != 0) return c;
+            c = a.type().compareTo(b.type());
+            if (c != 0) return c;
+            c = a.target().compareTo(b.target());
+            if (c != 0) return c;
+            return a.hostHash().compareTo(b.hostHash());
+        }
+    };
 
     public DatabaseRebuilder(String dbPath, Consumer<String> progress)
     {
@@ -484,7 +502,11 @@ public class DatabaseRebuilder
             while (day.isBefore(end))
                 {
                 Instant next = day.plus(1, ChronoUnit.DAYS);
-                Map<RowKey, MeasurementRow> merged = new LinkedHashMap<>();
+                // Vereinigung in einer sortierten Map: Dubletten fallen ueber den Schluessel
+                // zusammen, und die Zeilen liegen ohne nachtraegliches Sortieren in
+                // Zeitreihenfolge vor (kein List.sort/TimSort: auf dem Referenzsystem stuerzte
+                // JDK 26.0.1 genau dort im JIT-kompilierten Code ab).
+                Map<RowKey, MeasurementRow> merged = new TreeMap<>(ROW_ORDER);
                 for (SourceDb src : sources)
                     {
                     for (MeasurementRow row : readRangeWithFallback(src, day, next))
@@ -492,8 +514,7 @@ public class DatabaseRebuilder
                         merged.merge(row.key(), row, (a, b) -> (a.excluded() || b.excluded()) ? a.withExcluded(true) : a);
                         }
                     }
-                List<MeasurementRow> rows = new ArrayList<>(merged.values());
-                rows.sort(Comparator.comparing(MeasurementRow::timestamp).thenComparing(MeasurementRow::type));
+                Collection<MeasurementRow> rows = merged.values();
                 int n = 0;
                 for (MeasurementRow r : rows)
                     {

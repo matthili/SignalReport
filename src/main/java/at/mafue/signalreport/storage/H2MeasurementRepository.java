@@ -37,8 +37,7 @@ import java.util.Set;
  * Hintergrund. Bis 2.0.1 stand WRITE_DELAY=0 in der URL; das schaltet den
  * MVStore-Hintergrund-Thread und damit jede Kompaktierung ab (H2 2.4.240,
  * FileStore.setAutoCommitDelay startet ihn nur fuer Werte groesser 0). Gemessen:
- * 37,7 KB Dateiwachstum pro Messzeile statt 92,6 Byte Nutzdaten, siehe
- * docs/notes/2026-10-04_Datenbank-Analyse.md.
+ * 37,7 KB Dateiwachstum pro Messzeile statt 92,6 Byte Nutzdaten (siehe docs/Architecture.md).
  * 2. Twin-Spiegelung - jede Aenderung wird in beide DBs geschrieben.
  * 3. Auto-Recovery - beim Start werden DBs, die sich nicht oeffnen lassen, in
  * Quarantaene verschoben und aus der intakten DB per File-Copy wiederhergestellt.

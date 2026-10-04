@@ -94,7 +94,6 @@ SignalReport/
 │       └── fonts/                        # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/
 │   ├── diagrams/                         # PlantUML diagrams (.puml + .png)
-│   ├── notes/                            # Working notes with measurements (2026-10 database analysis + experiment)
 │   ├── latex/                            # LaTeX documentation
 │   │   ├── signalreport-dokumentation.tex
 │   │   └── kapitel/                      # Individual chapters

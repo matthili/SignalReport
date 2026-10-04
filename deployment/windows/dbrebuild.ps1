@@ -63,10 +63,16 @@ if ($svc -and $svc.Status -ne "Stopped") {
     Write-Host "[INFO] Dienst laeuft nicht."
 }
 
-# 2. Neuaufbau im Datenverzeichnis ausfuehren (dort liegen config.json und data\)
+# 2. Neuaufbau im Datenverzeichnis ausfuehren (dort liegen config.json und data\).
+#    -XX:TieredStopAtLevel=1 laesst nur den einfachen JIT-Compiler (C1) arbeiten: Auf dem
+#    Referenzsystem stuerzte JDK 26.0.1 mit dem optimierenden Compiler (C2) mitten im
+#    Neuaufbau ab (EXCEPTION_ACCESS_VIOLATION in java.util.TimSort). Fuer dieses einmalige,
+#    vor allem festplattenlastige Werkzeug kostet C1 wenig und vermeidet solche Abstuerze.
+Write-Host "[INFO] Java fuer den Neuaufbau:"
+java -version 2>&1 | ForEach-Object { Write-Host "       $_" }
 Write-Host "[INFO] Starte Neuaufbau (das kann je nach Dateigroesse einige Minuten dauern)..."
 Write-Host ""
-$proc = Start-Process -FilePath "java" -ArgumentList "-Dfile.encoding=UTF-8", "-jar", "`"$INSTALL_DIR\signalreport.jar`"", "rebuild-db" `
+$proc = Start-Process -FilePath "java" -ArgumentList "-XX:TieredStopAtLevel=1", "-Dfile.encoding=UTF-8", "-jar", "`"$INSTALL_DIR\signalreport.jar`"", "rebuild-db" `
     -WorkingDirectory $DATA_DIR -NoNewWindow -Wait -PassThru
 Write-Host ""
 if ($proc.ExitCode -eq 0) {

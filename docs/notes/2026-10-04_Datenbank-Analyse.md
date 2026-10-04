@@ -197,6 +197,16 @@ Rollups, CSV-Streaming + `.zip`, Einstellungs-Karte „Daten-Aufbereitung" unter
 - Tests: `DatabaseRebuilderTest` (Vereinigung inkl. `excluded`-ODER, Stunden-Fallback bei simuliert
   unlesbarem Tag, Dateitausch mit Quarantäne und Shadow-Kopie, Marker-gesteuerter Neuaufbau beim
   Start, Abbruch ohne lesbare Quelle), `RebuildCommandTest`. 171 Tests gesamt, 168 ausgeführt.
+- **Erster Lauf auf tars (2026-10-04 18:24, Oracle JDK 26.0.1, `java` aus dem PATH):** Beide
+  Quellen geöffnet (Primary 25,0 GB / 4.752.982 Zeilen, Shadow 46,1 GB / 4.752.980 Zeilen), nach
+  ~20 Tagen (818.402 Zeilen, 39 s) **Absturz der JVM**: `EXCEPTION_ACCESS_VIOLATION` im
+  C2-kompilierten `java.util.TimSort.countRunAndMakeAscending` (hs_err_pid16212.log in
+  `C:\ProgramData\SignalReport`). Alte Dateien unverändert (Abbruch vor dem Dateitausch).
+  Ob es ein bekannter JDK-26.0.1-Fehler ist, ließ sich per Websuche nicht belegen.
+  Gegenmaßnahmen: Vereinigung pro Tag jetzt in einer `TreeMap` mit festem Comparator statt
+  `List.sort` (kein TimSort mehr auf diesem Pfad); die Skripte starten den Neuaufbau mit
+  `-XX:TieredStopAtLevel=1` (nur C1-JIT) und zeigen die verwendete Java-Version an. Empfehlung:
+  tars auf ein LTS-JDK (21 oder 25) umstellen; prüfen, welches Java der Dienst selbst nutzt.
 - **Anwendung auf tars:** Update auf 2.1.0 per `install.bat` (Update-Modus), danach `dbrebuild.bat`
   als Administrator. Erwartung laut Inventar: 4.752.282 Zeilen aus Shadow + 2 Zeilen nur aus der
   Primary, eine unlesbare Stunde am 2026-08-18 in der Primary (durch die Shadow abgedeckt), Ergebnis

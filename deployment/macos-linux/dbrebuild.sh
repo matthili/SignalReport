@@ -58,10 +58,16 @@ else
 fi
 sleep 3
 
-# 2. Neuaufbau als Dienst-Benutzer im Datenverzeichnis ausfuehren (Dateirechte bleiben stimmig)
+# 2. Neuaufbau als Dienst-Benutzer im Datenverzeichnis ausfuehren (Dateirechte bleiben stimmig).
+#    -XX:TieredStopAtLevel=1 laesst nur den einfachen JIT-Compiler (C1) arbeiten: Auf dem
+#    Referenzsystem stuerzte JDK 26.0.1 mit dem optimierenden Compiler (C2) mitten im
+#    Neuaufbau ab (EXCEPTION_ACCESS_VIOLATION in java.util.TimSort). Fuer dieses einmalige,
+#    vor allem festplattenlastige Werkzeug kostet C1 wenig und vermeidet solche Abstuerze.
+echo "[INFO] Java fuer den Neuaufbau:"
+java -version 2>&1 | sed 's/^/       /'
 echo "[INFO] Starte Neuaufbau (das kann je nach Dateigroesse einige Minuten dauern)..."
 echo
-sudo -u "$SERVICE_USER" bash -c "cd '$DATA_DIR' && java -Dfile.encoding=UTF-8 -jar '$INSTALL_DIR/signalreport.jar' rebuild-db"
+sudo -u "$SERVICE_USER" bash -c "cd '$DATA_DIR' && java -XX:TieredStopAtLevel=1 -Dfile.encoding=UTF-8 -jar '$INSTALL_DIR/signalreport.jar' rebuild-db"
 RESULT=$?
 echo
 if [ $RESULT -eq 0 ]; then

@@ -205,7 +205,6 @@ signalreport/
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)
 │   ├── latex/                            # Vollständige LaTeX-Dokumentation
-│   ├── notes/                            # Arbeitsnotizen mit Messungen (z. B. die Datenbank-Analyse 2026-10)
 │   └── screenshots/                      # UI-Screenshots
 ├── deployment/                           # Installations-/Update-, Deinstallations- und Datenbank-Neuaufbau-Skripte (Win/Linux/macOS)
 ├── config.json                           # Auto-generierte Konfiguration
