@@ -48,7 +48,7 @@ import java.util.Set;
  * naechsten Start vorgemerkt ({@link DatabaseRebuilder}: Vereinigung beider Dateien in
  * eine frische, kompakte Datei; alte Dateien wandern in die Quarantaene).
  */
-public class H2MeasurementRepository
+public class H2MeasurementRepository implements AutoCloseable
 {
     private static final Logger logger = LoggerFactory.getLogger(H2MeasurementRepository.class);
 
@@ -100,6 +100,41 @@ public class H2MeasurementRepository
         openTwins();
         createSchema(primary);
         createSchema(shadow);
+    }
+
+    /**
+     * Nebenkanal: eigene Verbindungen auf dieselbe, bereits geoeffnete Twin-Datenbank fuer
+     * Hintergrundarbeit (Daten-Aufbereitung, grosser CSV-Export). H2 fuehrt je Verbindung nur
+     * eine Anweisung gleichzeitig aus; ein Dauerlaeufer auf den Hauptverbindungen wuerde
+     * Messschleife und Web-Anfragen aushungern (so geschehen mit 2.2.0). Der Nebenkanal hat
+     * eine eigene H2-Session und laeuft parallel zum Hauptkanal. Keine Recovery, kein Schema:
+     * das hat der Hauptkanal beim Start erledigt. Der Aufrufer schliesst den Nebenkanal wieder
+     * ({@link #close()}, try-with-resources), sonst bleibt die Datenbank offen.
+     */
+    private H2MeasurementRepository(H2MeasurementRepository main) throws SQLException
+    {
+        this.primaryDbPath = main.primaryDbPath;
+        this.shadowDbPath = main.shadowDbPath;
+        this.primaryJdbcUrl = main.primaryJdbcUrl;
+        this.shadowJdbcUrl = main.shadowJdbcUrl;
+        this.primary = DriverManager.getConnection(primaryJdbcUrl, "sa", "");
+        if (main.shadow != null)
+            {
+            try
+                {
+                this.shadow = DriverManager.getConnection(shadowJdbcUrl, "sa", "");
+                } catch (SQLException e)
+                {
+                logger.warn("Nebenkanal: Shadow nicht geoeffnet ({}); dieser Kanal schreibt nur auf die Primary.", e.getMessage());
+                this.shadow = null;
+                }
+            }
+    }
+
+    /** Oeffnet einen Nebenkanal mit eigenen Verbindungen (siehe privater Konstruktor). */
+    public H2MeasurementRepository openSideChannel() throws SQLException
+    {
+        return new H2MeasurementRepository(this);
     }
 
     // ========================================================================
@@ -1362,45 +1397,101 @@ public class H2MeasurementRepository
         });
     }
 
+    /** Ergebnis eines Aufbewahrungs-Tages: geloeschte Zeilen (Primary) und ob der Tag vollstaendig bearbeitet wurde. */
+    public record DeleteOutcome(int deleted, boolean completed)
+    {
+    }
+
+    /** Paketgroesse beim Loeschen ueber den Primaerschluessel (eine Transaktion je Paket). */
+    static final int DELETE_BATCH_SIZE = 1000;
+
     /**
      * Aufbewahrungsregel fuer einen Tag [day, next): loescht erfolgreiche, nicht ausgenommene
      * Rohmessungen (keine Wartungs-Marker), deren Vorgaenger (gleicher Typ und Ziel) ebenfalls
      * erfolgreich war. Die erste erfolgreiche Messung nach einem Fehlschlag bleibt damit als
      * Ausfall-Ende erhalten. Das Fenster fuer den Vorgaenger-Vergleich beginnt einen Tag
      * frueher, damit die Tagesgrenze keinen Vorgaenger verschluckt.
-     *
-     * @return Anzahl geloeschter Zeilen (Primary)
+     * <p>
+     * Zwei Schritte je Twin: zuerst die Kandidaten-IDs per Fensterfunktion ermitteln (nur der
+     * Zeitraum, ueber den Zeitstempel-Index), dann ueber den Primaerschluessel in Paketen von
+     * {@value #DELETE_BATCH_SIZE} Zeilen loeschen, jedes Paket als eigene kurze Transaktion.
+     * Ein einzelnes {@code DELETE ... WHERE id IN (Unterabfrage)} (2.2.0) lief ueber die ganze
+     * Tabelle und brauchte Minuten pro Tag. {@code keepGoing} wird nach jedem Paket befragt;
+     * bei Abbruch meldet das Ergebnis {@code completed = false}, der Tag wird dann beim naechsten
+     * Lauf neu ausgewertet.
      */
-    public int deleteAggregatedOkRows(Instant day, Instant next) throws SQLException
+    public DeleteOutcome deleteAggregatedOkRows(Instant day, Instant next, java.util.function.BooleanSupplier keepGoing)
+            throws SQLException
     {
-        String sql = """
-                DELETE FROM measurements WHERE id IN (
-                    SELECT id FROM (
-                        SELECT id, timestamp, success, excluded, type,
-                               LAG(success) OVER (PARTITION BY type, target ORDER BY timestamp) AS prev_success
-                        FROM measurements
-                        WHERE timestamp >= ? AND timestamp < ?
-                    ) t
-                    WHERE t.timestamp >= ?
-                      AND t.success = TRUE
-                      AND t.excluded = FALSE
-                      AND t.type <> 'MAINTENANCE'
-                      AND t.prev_success = TRUE
-                )
+        String candidates = """
+                SELECT id FROM (
+                    SELECT id, timestamp, success, excluded, type,
+                           LAG(success) OVER (PARTITION BY type, target ORDER BY timestamp) AS prev_success
+                    FROM measurements
+                    WHERE timestamp >= ? AND timestamp < ?
+                ) t
+                WHERE t.timestamp >= ?
+                  AND t.success = TRUE
+                  AND t.excluded = FALSE
+                  AND t.type <> 'MAINTENANCE'
+                  AND t.prev_success = TRUE
                 """;
-        int[] affected = {0};
+        int[] deletedPrimary = {0};
+        boolean[] completed = {true};
         writeOnBoth(c ->
         {
-        try (PreparedStatement pstmt = c.prepareStatement(sql))
+        List<Long> ids = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(candidates))
             {
             pstmt.setTimestamp(1, Timestamp.from(day.minus(1, java.time.temporal.ChronoUnit.DAYS)));
             pstmt.setTimestamp(2, Timestamp.from(next));
             pstmt.setTimestamp(3, Timestamp.from(day));
-            int n = pstmt.executeUpdate();
-            if (c == primary) affected[0] = n;
+            try (ResultSet rs = pstmt.executeQuery())
+                {
+                while (rs.next()) ids.add(rs.getLong(1));
+                }
+            }
+
+        int done = 0;
+        boolean finished = true;
+        boolean previousAutoCommit = c.getAutoCommit();
+        c.setAutoCommit(false);
+        try (PreparedStatement del = c.prepareStatement("DELETE FROM measurements WHERE id = ?"))
+            {
+            int inBatch = 0;
+            for (int i = 0; i < ids.size(); i++)
+                {
+                del.setLong(1, ids.get(i));
+                del.addBatch();
+                inBatch++;
+                boolean last = i == ids.size() - 1;
+                if (inBatch >= DELETE_BATCH_SIZE || last)
+                    {
+                    for (int r : del.executeBatch()) done += r >= 0 ? r : 1;
+                    c.commit();
+                    inBatch = 0;
+                    if (!last && !keepGoing.getAsBoolean())
+                        {
+                        finished = false;
+                        break;
+                        }
+                    }
+                }
+            } catch (SQLException e)
+            {
+            c.rollback();
+            throw e;
+            } finally
+            {
+            c.setAutoCommit(previousAutoCommit);
+            }
+        if (c == primary)
+            {
+            deletedPrimary[0] = done;
+            completed[0] = finished;
             }
         });
-        return affected[0];
+        return new DeleteOutcome(deletedPrimary[0], completed[0]);
     }
 
     public Instant getRollupWatermark() throws SQLException

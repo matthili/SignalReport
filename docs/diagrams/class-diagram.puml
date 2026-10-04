@@ -22,6 +22,7 @@ package "signalreport" {
     ~{static} boolean internetConfirmedUp(List<Measurement> recent)
   }
   class DataPrepScheduler {
+    -AtomicBoolean running
     +void start()
     +void stop()
     ~void tick(Instant now)
@@ -132,8 +133,9 @@ package "storage" {
     +List<HourlyRollup> findHourlyRollups(String type, Instant from, Instant to)
     +List<HourlyRollup> findWorstHours(Instant from, Instant to, int limit)
     +Statistics calculateStatisticsFromRollups(String type, Instant from, Instant to)
-    +int deleteAggregatedOkRows(Instant day, Instant next)
+    +DeleteOutcome deleteAggregatedOkRows(Instant day, Instant next, BooleanSupplier keepGoing)
     +Instant getRollupWatermark()
+    +H2MeasurementRepository openSideChannel()
     -void writeOnBoth(ConnectionAction action)
     -T readWithFallback(ReadAction<T> action)
     ~{static} void createSchema(Connection c)
@@ -142,6 +144,7 @@ package "storage" {
     {static} +String STATE_LAST_HOUR
     {static} +String STATE_RETENTION_DONE_UNTIL
     +Instant nextHourToRollup()
+    +long pendingHours(Instant now)
     +int rollupCompletedHours(Instant now, int maxHours, BooleanSupplier keepGoing)
     +List<HourlyRollup> rollupHour(Instant hourStart)
     ~{static} List<HourlyRollup> computeRollups(Instant hourStart, List<RawRow> rows)
@@ -499,6 +502,9 @@ end note
 note right of RollupService
   Verdichtung je abgeschlossener Stunde (MERGE, wiederholbar);
   ausserhalb des Zeitfensters max. 2 Stunden pro Minute.
+  Laeuft auf einem Nebenkanal (eigene H2-Verbindungen,
+  openSideChannel) mit Pause je Stunde: Messschleife und
+  Web-Oberflaeche warten nie dahinter (2.2.1).
   Aufbewahrung: loescht OK-Zeilen nach OK-Zeilen aelter als
   retentionDays (Standard 90) nur aus verdichteten Stunden;
   Fehlschlaege, Ausfall-Ende, excluded und MAINTENANCE bleiben.

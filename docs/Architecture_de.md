@@ -189,17 +189,24 @@ Minutentakt) die Rohdaten in zwei Schritten:
   und ausgenommen, Minimum, Durchschnitt, Median, 95. Perzentil, Maximum mit Zeitpunkt,
   Jitter). Die Wasserstandsmarke `rollup.lastHour` in `rollup_state` merkt die letzte
   verdichtete Stunde; geschrieben wird per `MERGE`, ein wiederholter Lauf ist daher
-  unschädlich. Außerhalb des Zeitfensters werden höchstens 2 Stunden pro Takt verdichtet,
-  damit die Messschleife nie lange auf die Datenbank wartet; im Fenster (Standard
-  03:00–05:00 oder das Maintenance-Fenster) wird einmal täglich der gesamte Rückstand
-  abgearbeitet.
+  unschädlich. Jeder Lauf arbeitet auf einem Nebenkanal mit eigenen H2-Verbindungen
+  (`openSideChannel()`) und legt nach jeder Stunde eine kurze Pause ein, damit Messschleife
+  und Web-Oberfläche nie hinter ihm warten (H2 führt je Verbindung nur eine Anweisung
+  gleichzeitig aus; in 2.2.0 teilte sich der Lauf die Verbindungen mit der Messschleife und
+  blockierte sie bei der Erstverdichtung minutenlang). Außerhalb des Zeitfensters werden
+  höchstens 2 Stunden pro Takt verdichtet; im Fenster (Standard 03:00–05:00 oder das
+  Maintenance-Fenster) wird einmal täglich der gesamte Rückstand abgearbeitet, mit
+  Fortschritt im Log und in der Einstellungs-Karte.
 - **Aufbewahrung** – nach dem Rückstand löscht `applyRetention()` tageweise und nur aus
   bereits verdichteten Stunden erfolgreiche Rohmessungen, die älter als die
   Aufbewahrungsfrist sind (Standard 90 Tage, 0 = nie) und deren Vorgänger für denselben
   Typ und dasselbe Ziel ebenfalls erfolgreich war (Fensterfunktion `LAG(success)`).
   Fehlgeschlagene Messungen, der jeweils erste Erfolg nach einem Fehlschlag (das Ende
   eines Ausfalls), ausgenommene Messungen und `MAINTENANCE`-Marker werden nie gelöscht;
-  die Ausfall-Analyse bleibt dadurch exakt. Der Fortschritt steht in
+  die Ausfall-Analyse bleibt dadurch exakt. Die Kandidaten eines Tages werden zuerst
+  ermittelt und dann über den Primärschlüssel in Paketen von 1.000 Zeilen gelöscht (kurze
+  Transaktionen; ein einzelnes `DELETE … WHERE id IN (Unterabfrage)` lief in 2.2.0 über die
+  ganze Tabelle und brauchte Minuten pro Tag). Der Fortschritt steht in
   `retention.doneUntil`.
 
 Abnehmer: Die Heatmap liest verdichtete Stunden plus den noch rohen Rest. PDF-Berichte

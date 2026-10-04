@@ -182,17 +182,23 @@ condenses the raw data in two steps:
   type and target in `measurement_hourly` (sample / ok / excluded count, min, average,
   median, 95th percentile, max with its timestamp, jitter). The watermark
   `rollup.lastHour` in `rollup_state` marks the last condensed hour; rows are written
-  with `MERGE`, so a repeated run is harmless. Outside the time window at most 2 hours are
-  condensed per tick, so the measurement loop never waits long for the database; inside
-  the window (default 03:00–05:00, or the maintenance window) the whole backlog is
-  processed once a day.
+  with `MERGE`, so a repeated run is harmless. Every run works on a side channel with its
+  own H2 connections (`openSideChannel()`) and pauses briefly after each hour, so the
+  measurement loop and the web UI never wait behind it (H2 executes one statement at a time
+  per connection; in 2.2.0 the run shared the connections with the measurement loop and
+  blocked it for minutes during the first condensation). Outside the time window at most
+  2 hours are condensed per tick; inside the window (default 03:00–05:00, or the
+  maintenance window) the whole backlog is processed once a day, with progress in the log
+  and in the settings card.
 - **Retention** – after the backlog, `applyRetention()` deletes, day by day and only from
   hours that are already condensed, successful raw measurements older than the retention
   period (default 90 days, 0 = never) whose predecessor for the same type and target was
   also successful (`LAG(success)` window function). Failed measurements, the first success
   after a failure (the end of an outage), excluded measurements and `MAINTENANCE` markers
-  are never deleted, so the outage analysis stays exact. Progress is kept in
-  `retention.doneUntil`.
+  are never deleted, so the outage analysis stays exact. The candidate ids of a day are
+  determined first and then deleted by primary key in batches of 1,000 rows (short
+  transactions; a single `DELETE … WHERE id IN (subquery)` scanned the whole table and took
+  minutes per day in 2.2.0). Progress is kept in `retention.doneUntil`.
 
 Consumers: the heatmap reads condensed hours plus the still-raw remainder. PDF reports
 longer than 7 days (`PdfReportGenerator.RAW_DETAIL_HOURS`) use the hourly values for the

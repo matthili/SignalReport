@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-204%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.2.0-blue" alt="Version 2.2.0">
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-210%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.2.1-blue" alt="Version 2.2.1">
 </p>
 
 <p align="center">
@@ -27,14 +27,14 @@ A professional, open-source monitoring tool for the continuous supervision of yo
 
 | Category | Functions |
 |----------|-----------|
-| **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP + gateways)<br>⏱️ Configurable interval (5s–1h, default 30s)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
+| **Monitoring** | 🔁 Continuous measurement (ping/DNS/HTTP + gateways)<br>🧪 The HTTP check rates the line, not the website: any server response counts as reachable, only timeouts and connection errors fail (the reason is logged)<br>⏱️ Configurable interval (5s–1h, default 30s)<br>⏸️ Maintenance window (router updates)<br>🌐 IP tracking (detect external IP changes) |
 | **Fault localisation & reliability** | 🛰️ Pinpoint router vs. internet gateway vs. ISP (traceroute gateway chain)<br>🐳 Virtual-gateway detection in VM/Docker<br>📈 Availability, coverage, MTBF & MTTR (gap-aware)<br>📉 Aggregated connection outages, individually excludable from the rating |
 | **Service reachability** | 🚫 Detects whether services (Facebook, Instagram, X, YouTube, WhatsApp, …) are reachable or **blocked** — distinguishing DNS / TCP / SNI / block-page filtering<br>🕒 Separate slow schedule (default 6 h), line-gated, **off by default**<br>📅 Per-service block/outage timeline in the PDF report |
 | **Visualisation** | 📊 Live charts with Chart.js<br>📋 Per-cycle measurement table (collapsible)<br>🌡️ Hourly heatmap (fed from the condensed hourly values)<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
 | **Reports** | 📄 PDF export (24h / 7 days / 12 months; ranges beyond 7 days are built from the hourly values and finish in seconds even with years of data)<br>📈 3 charts (PING/DNS/HTTP) with target-change markers<br>🏆 Top 10 worst measurements (worst hours in long reports)<br>⚠️ Connection-outage analysis<br>📤 CSV export: time range filtered, all raw data as ZIP (streamed), hourly values as CSV |
 | **Security** | 🔐 Setup wizard (web-based, no CLI)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles with session management<br>🛡️ Password is never transmitted in plaintext |
 | **Data safety** | 🛟 Twin database (mirrored writes)<br>🩺 Self-healing: a read that hits a corrupted page falls back to the twin and schedules a rebuild; the rebuild unites both files into a fresh, compact database (automatically at the next start, or on demand with `dbrebuild.bat` / `dbrebuild.sh`)<br>⚡ One transaction per measurement cycle, continuous H2 background compaction<br>🛑 Orderly stop (`signalreport.jar stop`, used by the Windows service) closes both databases cleanly |
-| **Data preparation** | 🗜️ Hourly condensation: count, min / average / median / 95th percentile / max and jitter per hour, type and target (`measurement_hourly`)<br>🧹 Retention: unremarkable raw measurements older than 90 days (configurable, 0 = never) are removed; failed measurements, the end of each outage, excluded measurements and maintenance markers are kept forever<br>🕒 Heavy steps only inside a time window (default 03:00–05:00, or the maintenance window); the light hourly step runs continuously; "Run now" button with status in the settings |
+| **Data preparation** | 🗜️ Hourly condensation: count, min / average / median / 95th percentile / max and jitter per hour, type and target (`measurement_hourly`)<br>🧹 Retention: unremarkable raw measurements older than 90 days (configurable, 0 = never) are removed; failed measurements, the end of each outage, excluded measurements and maintenance markers are kept forever<br>🕒 Heavy steps only inside a time window (default 03:00–05:00, or the maintenance window); the light hourly step runs continuously; "Run now" button with progress and status in the settings<br>🧵 Runs on its own database connections with short pauses, so measurements and the web UI never wait behind it |
 | **Internationalisation** | 🌐 9 languages: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Applies to web UI, PDF reports and CSV exports<br>🎛️ Language choice in the setup wizard and in the settings<br>📂 Extensible without recompiling: drop your own language file into `./lang/` |
 | **Configuration** | ⚙️ Dynamic measurement targets (ping/DNS/HTTP)<br>🌍 DNS benchmark (servers worldwide)<br>👤 User info (provider/customer number for reports) |
 
@@ -203,7 +203,7 @@ signalreport/
 │   │   └── api/                          #   12 route registrars (Measurement, Reliability, ServiceReachability, Settings, DataPrep, System, …)
 │   ├── i18n/                             # I18n (9 languages, extensible)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 28 test classes, 204 tests (mirror the packages above)
+├── src/test/java/at/mafue/signalreport/  # 29 test classes, 210 tests (mirror the packages above)
 ├── src/main/resources/web/               # Static assets: app.css, app.js, logos, favicons
 ├── src/main/resources/lang/              # Language files (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/fonts/             # DejaVu fonts for the PDF (Unicode/Cyrillic)

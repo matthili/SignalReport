@@ -19,7 +19,8 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{HostIdentifierTest} (4 Tests): Stabile Host-Identifikation über Neustarts
     \item \textbf{StatisticsTest} (8 Tests): Mathematisch korrekte Berechnung von 95. Perzentil, Jitter und Paketverlust mit realen DB-Abfragen
     \item \textbf{ConfigTest} (18 Tests): Laden/Speichern von Konfiguration, hashPassword, Auth-Verifikation, Theme, Save+Reload, Standardwerte und Aktualisierung der Daten-Aufbereitung
-    \item \textbf{H2MeasurementRepositoryTest} (12 Tests): Vollstaendige Datenbank-Integration mit IP-Tracking, Host-Registrierung, Messrunde als eine Transaktion (\texttt{saveAll})
+    \item \textbf{H2MeasurementRepositoryTest} (13 Tests): Vollstaendige Datenbank-Integration mit IP-Tracking, Host-Registrierung, Messrunde als eine Transaktion (\texttt{saveAll}), Nebenkanal mit eigenen Verbindungen (sieht und schreibt dieselben Daten, schließt unabhängig)
+    \item \textbf{HttpMeasurerTest} (3 Tests): HTTP-Messung gegen einen echten lokalen Server -- 200, 302, 403, 404 und 503 zählen als erreichbar, verweigerte Verbindung als Fehlschlag, Fehlergründe benannt
     \item \textbf{MeasurerInterfaceTest} (6 Tests): Interface-Implementierung, Polymorphie, reale Messungen (Ping/DNS/HTTP)
     \item \textbf{MaintenanceWindowTest} (7 Tests): Deaktiviert, ganztägig, aktuelle Zeit, Mitternachtsübergang, Standardwerte
     \item \textbf{SessionManagerTest} (19 Tests): Nonce-Generierung und -Validierung (Single-Use, Ablauf), Session-Erstellung und -Timeout (24\,h), Rollen\-unter\-schei\-dung (Admin/User), Challenge-Response-Verifikation, Replay-Schutz
@@ -38,8 +39,8 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{DatabaseRebuilderTest} (4 Tests): Neuaufbau mit echten H2-Dateien -- Vereinigung von Primary und Shadow inkl.\ \texttt{excluded}-Flag, Übernahme der Stundenwerte und der Wasserstandsmarke, Stunden-Fallback bei simuliert unlesbarem Tag, Dateitausch mit Quarantäne und Shadow-Kopie, Marker-gesteuerter Neuaufbau beim Repository-Start, Abbruch ohne lesbare Quelle
     \item \textbf{RebuildCommandTest} (1 Test): Pfad-Fallback des Kommandozeilen-Neuaufbaus ohne Konfiguration
     \item \textbf{DataPrepConfigTest} (10 Tests): Zeitfenster (einfach, über Mitternacht, Start = Ende), Umschaltung auf das Maintenance-Fenster mit Rückfall, Begrenzung der Aufbewahrungsfrist (7--3650 Tage, 0 = nie), Begrenzung von Stunde/Minute, JSON-Round-Trip
-    \item \textbf{DataPrepSchedulerTest} (4 Tests): Entscheidung \enquote{voller Lauf einmal pro Tag im Fenster}, Obergrenze außerhalb des Fensters, voller Lauf gegen echte H2-Datei inkl.\ Statusdaten, manueller Start mit Abkühlphase
-    \item \textbf{RollupServiceTest} (11 Tests): Stundenstatistik ohne DB (Min/Ø/Median/P95/Max/Jitter; Fehlschläge und ausgenommene Messungen), Verdichtung nur abgeschlossener Stunden, Wasserstandsmarke und Stundenlimit, Wiederholbarkeit (\texttt{MERGE}), Heatmap aus Stundenwerten plus Rohrest, Aufbewahrungsregel (Funde, Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben; nur verdichtete Stunden; Tageslimit pro Lauf)
+    \item \textbf{DataPrepSchedulerTest} (5 Tests): Entscheidung \enquote{voller Lauf einmal pro Tag im Fenster}, Obergrenze außerhalb des Fensters, voller Lauf gegen echte H2-Datei inkl.\ Status und Fortschritt, manueller Start mit Abkühlphase, sofortige Abweisung eines zweiten Starts während ein Lauf aktiv ist (keine blockierende Sperre)
+    \item \textbf{RollupServiceTest} (12 Tests): Stundenstatistik ohne DB (Min/Ø/Median/P95/Max/Jitter; Fehlschläge und ausgenommene Messungen), Verdichtung nur abgeschlossener Stunden, Wasserstandsmarke und Stundenlimit, ausstehende Stunden und Fortschrittsmeldung, Wiederholbarkeit (\texttt{MERGE}), Heatmap aus Stundenwerten plus Rohrest, Aufbewahrungsregel (Funde, Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben; nur verdichtete Stunden; Tageslimit pro Lauf)
     \item \textbf{ExportRoutesTest} (7 Tests): gestreamter CSV-Export, Typfilter, Parameterfehler, \enquote{alle Daten} als ZIP mit genau einer CSV-Datei, Stundenwerte-CSV (gegen echten Javalin-Server), CSV-Escaping und Zeilenformat
 \end{itemize}
 
@@ -75,13 +76,13 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, DataPrepConfig, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand, DataPrepScheduler-Entscheidung) & 150 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, StopCommand) & 54 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, HttpMeasurer, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, StopCommand) & 60 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
 Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung 24\,h und 12 Monate) & 4 & -- \\
 \hline
-\textbf{Gesamt} & \textbf{204 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{210 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}

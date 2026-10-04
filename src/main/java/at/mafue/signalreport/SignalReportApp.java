@@ -122,11 +122,17 @@ public class SignalReportApp
         // Architektur dafuer, dass die intakte DB beim Neustart die korrupte
         // automatisch rekonstruiert. Der Windows-Dienst stoppt ueber "signalreport.jar
         // stop" (geordnet, siehe oben); der Hook findet die DBs dann bereits geschlossen vor.
+        // Daten-Aufbereitung (Stundenwerte, Aufbewahrung, Zeitfenster); Start weiter unten.
+        // Schon hier angelegt, damit der Shutdown-Hook einen laufenden Lauf beenden kann,
+        // bevor die Datenbank geschlossen wird (der Lauf haelt einen eigenen Nebenkanal offen).
+        DataPrepScheduler dataPrepScheduler = new DataPrepScheduler(repo);
+
         Runtime.getRuntime().addShutdownHook(new Thread(() ->
         {
         logger.info("Shutdown-Hook: schliesse Datenbanken...");
         try
             {
+            dataPrepScheduler.stop();
             repo.close();
             logger.info("Datenbanken sauber geschlossen.");
             } catch (Exception e)
@@ -138,9 +144,6 @@ public class SignalReportApp
         // Dienst-Erreichbarkeits-Scheduler erzeugen (Start weiter unten). Hier bereits
         // angelegt, damit der Webserver den "Jetzt pruefen"-Ausloeser kennt.
         ServiceReachabilityScheduler reachabilityScheduler = new ServiceReachabilityScheduler(repo);
-
-        // Daten-Aufbereitung (Stundenwerte, Aufbewahrung, Zeitfenster); Start weiter unten
-        DataPrepScheduler dataPrepScheduler = new DataPrepScheduler(repo);
 
         // Webserver starten (kennt den Stopp-Ausloeser fuer den lokalen Stopp-Endpunkt)
         WebServer webServer = new WebServer(repo, reachabilityScheduler::triggerManualRun,

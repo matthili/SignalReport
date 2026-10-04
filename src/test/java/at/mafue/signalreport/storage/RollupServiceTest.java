@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -208,6 +209,21 @@ class RollupServiceTest
         assertEquals(2, service.rollupCompletedHours(now, 10, () -> true), "h0+1 (leer) und h0+2");
         assertEquals(current.minus(1, ChronoUnit.HOURS), repo.getRollupWatermark());
         assertEquals(2, repo.countHourlyRollups(), "leere Stunden erzeugen keine Zeile");
+    }
+
+    @Test
+    void testPendingHoursAndProgressCallback() throws SQLException
+    {
+        Instant now = Instant.now();
+        assertEquals(0, service.pendingHours(now), "leere DB -> nichts ausstehend");
+        repo.saveAll(List.of(ping(now.minus(3, ChronoUnit.HOURS), 10.0, true)));
+        assertEquals(3, service.pendingHours(now), "drei abgeschlossene Stunden seit der aeltesten Messung");
+
+        List<Integer> progress = new ArrayList<>();
+        RollupService withPause = new RollupService(repo, 1L);   // Pause-Pfad mitlaufen lassen
+        assertEquals(3, withPause.rollupCompletedHours(now, Integer.MAX_VALUE, () -> true, progress::add));
+        assertEquals(List.of(1, 2, 3), progress, "Fortschritt nach jeder Stunde");
+        assertEquals(0, service.pendingHours(now));
     }
 
     @Test

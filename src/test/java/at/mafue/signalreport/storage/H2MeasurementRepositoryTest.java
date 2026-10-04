@@ -50,8 +50,28 @@ class H2MeasurementRepositoryTest
                 stmt.execute("DELETE FROM measurements");
                 stmt.execute("DELETE FROM ip_changes");
                 stmt.execute("DELETE FROM hosts");
+                stmt.execute("DELETE FROM rollup_state");
                 }
             }
+    }
+
+    @Test
+    void testSideChannelSharesDatabaseAndClosesIndependently() throws SQLException
+    {
+        repo.save(new Measurement("8.8.8.8", 9.0, true, "PING"));
+
+        try (H2MeasurementRepository side = repo.openSideChannel())
+            {
+            assertEquals(1, side.findLastN(10).size(), "Nebenkanal sieht die Daten des Hauptkanals");
+            assertEquals(1, side.countMeasurements());
+            side.setState("test.key", "42");
+            assertEquals("42", repo.getState("test.key"), "Hauptkanal sieht Schreibvorgaenge des Nebenkanals");
+            }
+
+        // nach dem Schliessen des Nebenkanals arbeitet der Hauptkanal unveraendert weiter
+        repo.save(new Measurement("google.com", 5.0, true, "DNS"));
+        assertEquals(2, repo.findLastN(10).size());
+        assertEquals("42", repo.getState("test.key"));
     }
 
     @Test

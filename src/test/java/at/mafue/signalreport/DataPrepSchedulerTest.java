@@ -14,6 +14,9 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,11 +92,13 @@ class DataPrepSchedulerTest
         DataPrepConfig cfg = new DataPrepConfig();
         cfg.setRetentionDays(0); // nie loeschen
 
-        scheduler.runFull(cfg, () -> true);
+        assertTrue(scheduler.runFull(cfg, () -> true), "kein anderer Lauf aktiv -> startet");
 
         Map<String, Object> status = scheduler.status();
         assertEquals(Boolean.FALSE, status.get("running"));
         assertEquals("", status.get("lastError"));
+        assertEquals(3, ((Number) status.get("runHoursDone")).intValue(), "Fortschritt des letzten Laufs");
+        assertEquals(3L, ((Number) status.get("runHoursTotal")).longValue(), "Umfang des letzten Laufs");
         // abgeschlossene Stunden ab der aeltesten Messung: now-3h, now-2h, now-1h (die laufende nicht)
         assertEquals(3, ((Number) status.get("lastHoursRolled")).intValue());
         assertEquals(0L, ((Number) status.get("lastRowsDeleted")).longValue());
@@ -128,5 +133,49 @@ class DataPrepSchedulerTest
         assertEquals(Boolean.FALSE, status.get("running"));
         assertEquals("", status.get("lastError"));
         assertEquals(0, ((Number) status.get("lastHoursRolled")).intValue(), "ohne Messungen gibt es nichts zu verdichten");
+    }
+
+    @Test
+    void testManualRunIsRejectedImmediatelyWhileAnotherRunIsActive() throws Exception
+    {
+        repo.saveAll(List.of(m(Instant.now().minus(3, ChronoUnit.HOURS), 10.0)));
+        DataPrepScheduler scheduler = new DataPrepScheduler(repo);
+        DataPrepConfig cfg = new DataPrepConfig();
+        cfg.setRetentionDays(0);
+
+        // keepGoing haelt den Lauf an, bis der Test ihn freigibt
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        BooleanSupplier blocking = () ->
+        {
+        entered.countDown();
+        try
+            {
+            release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e)
+            {
+            Thread.currentThread().interrupt();
+            }
+        return true;
+        };
+        Thread worker = new Thread(() -> scheduler.runFull(cfg, blocking), "test-dataprep-run");
+        worker.start();
+        assertTrue(entered.await(10, TimeUnit.SECONDS), "der Lauf muss begonnen haben");
+
+        long t0 = System.nanoTime();
+        long answer = scheduler.triggerManualRun();
+        long waitedMs = (System.nanoTime() - t0) / 1_000_000;
+        assertEquals(1L, answer, "laufender Lauf -> Rueckmeldung 1 s statt Start");
+        assertTrue(waitedMs < 1000, "die Antwort darf nicht auf das Ende des Laufs warten, dauerte " + waitedMs + " ms");
+        assertEquals(Boolean.TRUE, scheduler.status().get("running"));
+        assertFalse(scheduler.runFull(cfg, () -> true), "ein zweiter voller Lauf wird abgewiesen");
+
+        release.countDown();
+        worker.join(15_000);
+        assertFalse(worker.isAlive(), "der Lauf muss nach der Freigabe enden");
+        Map<String, Object> status = scheduler.status();
+        assertEquals(Boolean.FALSE, status.get("running"));
+        assertEquals(3, ((Number) status.get("lastHoursRolled")).intValue());
+        assertEquals("", status.get("lastError"));
     }
 }

@@ -100,7 +100,9 @@ public class ExportRoutes
                 + HostIdentifier.getHostname() + "-" + stamp;
         String csvName = baseName + ".csv";
 
-        try
+        // Eigene DB-Verbindungen (Nebenkanal): ein langer Export darf Messschleife und
+        // Web-Oberflaeche nicht aufhalten, siehe H2MeasurementRepository.openSideChannel().
+        try (H2MeasurementRepository side = repository.openSideChannel())
             {
             if (exportAll)
                 {
@@ -110,7 +112,7 @@ public class ExportRoutes
                 ZipOutputStream zip = new ZipOutputStream(raw, StandardCharsets.UTF_8);
                 zip.putNextEntry(new ZipEntry(csvName));
                 Writer writer = new BufferedWriter(new OutputStreamWriter(zip, StandardCharsets.UTF_8), 1 << 16);
-                writeMeasurementsCsv(writer, repository, from, to, typeFilter);
+                writeMeasurementsCsv(writer, side, from, to, typeFilter);
                 writer.flush();
                 zip.closeEntry();
                 zip.finish();
@@ -120,7 +122,7 @@ public class ExportRoutes
                 ctx.contentType("text/csv; charset=utf-8");
                 ctx.header("Content-Disposition", "attachment; filename=" + csvName);
                 Writer writer = new BufferedWriter(new OutputStreamWriter(ctx.res().getOutputStream(), StandardCharsets.UTF_8), 1 << 16);
-                writeMeasurementsCsv(writer, repository, from, to, typeFilter);
+                writeMeasurementsCsv(writer, side, from, to, typeFilter);
                 writer.flush();
                 }
             } catch (Exception e)

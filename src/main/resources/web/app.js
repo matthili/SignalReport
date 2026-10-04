@@ -812,7 +812,7 @@ function loadDataPrepStatus() {
         .then(s => {
             const parts = [];
             let lastRun = s.lastRunStartEpoch ? formatEpochSeconds(s.lastRunStartEpoch) : I18N['dataprep.status.never'];
-            if (s.running) lastRun += ' (' + I18N['dataprep.running'] + ')';
+            if (s.running) lastRun += ' (' + I18N['dataprep.running'] + ': ' + (s.runHoursDone || 0) + ' / ' + (s.runHoursTotal || 0) + ' h)';
             parts.push(I18N['dataprep.status.lastRun'] + ': ' + lastRun);
             if (s.lastHoursRolled >= 0) {
                 parts.push(I18N['dataprep.status.hoursRolled'] + ': ' + s.lastHoursRolled

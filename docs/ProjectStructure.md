@@ -85,12 +85,12 @@ SignalReport/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (28 classes, 204 tests + 4 opt-in smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (4, once-per-day decision, full run + status, manual run cooldown)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (29 classes, 210 tests + 4 opt-in smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, once-per-day decision, full run + progress, manual run cooldown, non-blocking while a run is active)
 │   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8), DataPrepConfigTest (10, window incl. midnight, maintenance option, retention clamp, JSON)
-│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
+│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, any response counts as reachable, refused connection fails, failure reasons)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker/hourly values), RollupServiceTest (11, hourly statistics, watermark, repeatability, retention rules)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (13, incl. side channel), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker/hourly values), RollupServiceTest (12, hourly statistics, watermark, progress, repeatability, retention rules)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 months from hourly values)
 │   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin)
 │   │   └── i18n/          # I18nTest (10)

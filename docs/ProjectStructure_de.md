@@ -85,12 +85,12 @@ SignalReport/
 │   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
-│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (28 Klassen, 204 Tests + 4 opt-in Smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (4, Einmal-pro-Tag-Entscheidung, voller Lauf + Status, Abkühlphase des manuellen Starts)
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (29 Klassen, 210 Tests + 4 opt-in Smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, Einmal-pro-Tag-Entscheidung, voller Lauf + Fortschritt, Abkühlphase des manuellen Starts, keine Blockade während eines Laufs)
 │   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8), DataPrepConfigTest (10, Fenster inkl. Mitternacht, Maintenance-Option, Begrenzung der Aufbewahrung, JSON)
-│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
+│   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, jede Antwort zählt als erreichbar, verweigerte Verbindung schlägt fehl, Fehlergründe)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (Netz, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, Vereinigung/Fallback/Tausch/Marker/Stundenwerte), RollupServiceTest (11, Stundenstatistik, Wasserstandsmarke, Wiederholbarkeit, Aufbewahrungsregeln)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (13, inkl. Nebenkanal), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, Vereinigung/Fallback/Tausch/Marker/Stundenwerte), RollupServiceTest (12, Stundenstatistik, Wasserstandsmarke, Fortschritt, Wiederholbarkeit, Aufbewahrungsregeln)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 Monate aus Stundenwerten)
 │   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, gestreamtes CSV, ZIP, Stunden-CSV gegen echten Javalin)
 │   │   └── i18n/          # I18nTest (10)

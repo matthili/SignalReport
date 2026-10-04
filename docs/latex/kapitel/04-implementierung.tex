@@ -21,7 +21,12 @@ Die drei Implementierungen:
   \item[DnsMeasurer] Nutzt \texttt{InetAddress.getByName(hostname)} und misst die Zeit
     der DNS-Auflösung.
   \item[HttpMeasurer] Nutzt \texttt{java.net.http.HttpClient} mit konfigurierbarem
-    Timeout (5\,Sekunden). Misst die Gesamtzeit des HTTP-GET-Requests.
+    Timeout (5\,Sekunden). Misst die Gesamtzeit des HTTP-GET-Requests. Jede empfangene
+    Antwort zählt als Erfolg, auch 4xx und 5xx: Sie belegt, dass Verbindung, TLS und HTTP
+    bis zum Server und zurück funktionieren; bewertet wird die Leitung, nicht die Website.
+    Fehlschlag sind nur Timeout und Verbindungsfehler; der Grund wird je Ursache höchstens
+    alle zehn Minuten ins Log geschrieben (seit 2.2.1; bis 2.2.0 galten nur 2xx/3xx und der
+    Grund eines Fehlschlags verschwand stillschweigend).
 \end{description}
 
 \begin{lstlisting}[language=Java, caption={PingMeasurer-Implementierung}]
