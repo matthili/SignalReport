@@ -163,8 +163,9 @@ wird über einen zentralen \texttt{writeOnBoth(\dots)}-Helper sequenziell auf be
 Connections angewendet -- zuerst auf die Primary, danach auf die Shadow. Lese-Operationen
 gehen ausschließlich auf die Primary, was den Performance-Overhead minimiert.
 
-\paragraph{Schutz-Stufen.} Drei zusammenwirkende Mechanismen sorgen für Robustheit
-gegen abrupte Prozess-Terminierungen (Stromausfall, Update-Neustart, kill -9):
+\paragraph{Schutz-Stufen.} Vier zusammenwirkende Mechanismen sorgen für Robustheit
+gegen abrupte Prozess-Terminierungen (Stromausfall, Update-Neustart, kill -9) und gegen
+schleichende Dateischäden:
 
 \begin{enumerate}
   \item \textbf{Eine Transaktion pro Messrunde} (\texttt{saveAll}) bei H2-Standard-%
@@ -175,11 +176,19 @@ gegen abrupte Prozess-Terminierungen (Stromausfall, Update-Neustart, kill -9):
     37,7\,KB Dateiwachstum pro Zeile statt 92,6\,Byte Nutzdaten).
   \item \textbf{Twin-Spiegelung}: Selbst wenn eine der beiden Dateien während eines
     Schreibvorgangs zerstört wird, bleibt die jeweils andere konsistent.
-  \item \textbf{Auto-Recovery beim Start}: Erkennt der Konstruktor von
-    \texttt{H2MeasurementRepository} eine Korruption (H2-Fehlercode 90030), wird die
-    defekte Datei in ein \texttt{quarantine/}-Unterverzeichnis verschoben und per
-    \texttt{Files.copy()} aus der intakten DB rekonstruiert. Anschließend werden beide
+  \item \textbf{Auto-Recovery beim Start}: Lässt sich eine der beiden Dateien nicht öffnen
+    (H2-Fehlercode 90030), wird sie in ein \texttt{quarantine/}-Unterverzeichnis verschoben
+    und per \texttt{Files.copy()} aus der intakten DB rekonstruiert. Anschließend werden beide
     Connections normal geöffnet -- der Betrieb läuft unterbrechungsfrei weiter.
+  \item \textbf{Selbstheilung im Betrieb}: Scheitert ein Lesezugriff auf der Primary an einer
+    Korruption (typisch eine einzelne unlesbare Seite, die das Öffnen nicht verhindert), wird
+    er auf der Shadow wiederholt und eine Marker-Datei \texttt{<db>.REBUILD\_REQUIRED} gesetzt.
+    Beim nächsten Start vereinigt \texttt{DatabaseRebuilder} beide Dateien (nur lesend geöffnet,
+    Tag für Tag, unlesbare Stunden einer Datei deckt die andere ab) in eine frische, mit
+    \texttt{SHUTDOWN COMPACT} kompaktierte Datei, verschiebt die alten Dateien nach
+    \texttt{quarantine/rebuild\_<Zeit>/} und setzt die neue als Primary samt Shadow-Kopie ein.
+    Derselbe Neuaufbau ist manuell über \texttt{signalreport.jar rebuild-db} bzw. die
+    Skripte \texttt{dbrebuild.bat}/\texttt{dbrebuild.sh} auslösbar.
 \end{enumerate}
 
 \paragraph{Fehlerszenarien.} Die Tabelle \ref{tab:twindb-szenarien} dokumentiert das

@@ -40,8 +40,13 @@ import java.util.Set;
  * 37,7 KB Dateiwachstum pro Messzeile statt 92,6 Byte Nutzdaten, siehe
  * docs/notes/2026-10-04_Datenbank-Analyse.md.
  * 2. Twin-Spiegelung - jede Aenderung wird in beide DBs geschrieben.
- * 3. Auto-Recovery - beim Start werden korrupte DBs in Quarantaene verschoben
- * und aus der intakten DB per File-Copy wiederhergestellt.
+ * 3. Auto-Recovery - beim Start werden DBs, die sich nicht oeffnen lassen, in
+ * Quarantaene verschoben und aus der intakten DB per File-Copy wiederhergestellt.
+ * 4. Selbstheilung im Betrieb - scheitert ein Lesezugriff auf der Primary an einer
+ * Korruption (H2 90030, z. B. eine einzelne unlesbare Seite, die das Oeffnen nicht
+ * verhindert), wird die Abfrage auf der Shadow wiederholt und ein Neuaufbau fuer den
+ * naechsten Start vorgemerkt ({@link DatabaseRebuilder}: Vereinigung beider Dateien in
+ * eine frische, kompakte Datei; alte Dateien wandern in die Quarantaene).
  */
 public class H2MeasurementRepository
 {
@@ -75,9 +80,26 @@ public class H2MeasurementRepository
             throw new SQLException("Fehler bei der Datenbank-Initialisierung", e);
             }
 
+        // Angeforderter Neuaufbau (Marker-Datei, gesetzt nach einem Korruptions-Lesefehler im
+        // Betrieb): vor dem Oeffnen der Twins aus den vorhandenen Dateien neu aufbauen.
+        if (DatabaseRebuilder.isRebuildRequested(primaryDbPath))
+            {
+            logger.warn("Neuaufbau der Datenbank angefordert ({}). Baue aus den vorhandenen Dateien neu auf...",
+                    DatabaseRebuilder.markerFile(primaryDbPath));
+            try
+                {
+                RebuildReport report = new DatabaseRebuilder(primaryDbPath, logger::info).rebuild(true);
+                logger.warn("Neuaufbau abgeschlossen:\n{}", report.toText());
+                } catch (Exception e)
+                {
+                logger.error("Neuaufbau fehlgeschlagen: {} – oeffne die vorhandenen Dateien.", e.getMessage());
+                DatabaseRebuilder.markFailed(primaryDbPath, e.getMessage());
+                }
+            }
+
         openTwins();
-        createTablesOn(primary);
-        createTablesOn(shadow);
+        createSchema(primary);
+        createSchema(shadow);
     }
 
     // ========================================================================
@@ -297,11 +319,46 @@ public class H2MeasurementRepository
             }
     }
 
+    /**
+     * Funktionales Interface fuer Leseoperationen auf einer bestimmten Connection.
+     */
+    @FunctionalInterface
+    private interface ReadAction<T>
+    {
+        T apply(Connection c) throws SQLException;
+    }
+
+    /**
+     * Fuehrt eine Leseoperation auf der Primary aus. Scheitert sie an einer Korruption
+     * (H2 90030), wird sie auf der Shadow wiederholt und ein Neuaufbau fuer den naechsten
+     * Start vorgemerkt. Andere Fehler werden unveraendert durchgereicht. So bleiben
+     * Berichte und Exporte auch mit einer beschaedigten Primary benutzbar.
+     */
+    private <T> T readWithFallback(ReadAction<T> action) throws SQLException
+    {
+        try
+            {
+            return action.apply(primary);
+            } catch (SQLException e)
+            {
+            if (!isCorruptionError(e) || shadow == null)
+                {
+                throw e;
+                }
+            logger.error("Lesefehler auf der Primary-DB (Korruption): {}", e.getMessage());
+            logger.warn("Weiche fuer diese Abfrage auf die Shadow-DB aus; Neuaufbau beim naechsten Start vorgemerkt ({}).",
+                    DatabaseRebuilder.markerFile(primaryDbPath));
+            DatabaseRebuilder.requestRebuild(primaryDbPath, "Lesefehler Primary: " + e.getMessage());
+            return action.apply(shadow);
+            }
+    }
+
     // ========================================================================
     //  Schema
     // ========================================================================
 
-    private void createTablesOn(Connection c) throws SQLException
+    /** Legt Tabellen und Indizes an bzw. migriert sie; auch fuer den Neuaufbau ({@link DatabaseRebuilder}). */
+    static void createSchema(Connection c) throws SQLException
     {
         String measurementsTable = """
                 CREATE TABLE IF NOT EXISTS measurements (
@@ -427,7 +484,7 @@ public class H2MeasurementRepository
             return;
             }
 
-        // Lese-Operation: nur Primary
+        // Lese-Operation (Primary, bei Korruption Shadow)
         String lastIp = getLastKnownIp(hostHash);
 
         if (lastIp == null)
@@ -448,7 +505,9 @@ public class H2MeasurementRepository
                 LIMIT 1
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setString(1, hostHash);
             ResultSet rs = pstmt.executeQuery();
@@ -458,6 +517,7 @@ public class H2MeasurementRepository
                 }
             return null;
             }
+        });
     }
 
     private void recordIpChange(String oldIp, String newIp, String changeType, String hostHash) throws SQLException
@@ -598,12 +658,11 @@ public class H2MeasurementRepository
     }
 
     // ========================================================================
-    //  Lese-Operationen (immer auf Primary)
+    //  Lese-Operationen (Primary; bei Korruption Ausweichen auf die Shadow)
     // ========================================================================
 
     public List<IpChange> getIpChanges(int limit) throws SQLException
     {
-        List<IpChange> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, old_ip, new_ip, change_type, host_hash
                 FROM ip_changes
@@ -611,7 +670,10 @@ public class H2MeasurementRepository
                 LIMIT ?
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        List<IpChange> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setInt(1, limit);
             ResultSet rs = pstmt.executeQuery();
@@ -627,11 +689,11 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     public List<IpChangeStats> getIpChangeStatistics() throws SQLException
     {
-        List<IpChangeStats> results = new ArrayList<>();
         String sql = """
                 SELECT
                     host_hash,
@@ -643,7 +705,10 @@ public class H2MeasurementRepository
                 ORDER BY last_change DESC
                 """;
 
-        try (Statement stmt = primary.createStatement();
+        return readWithFallback(c ->
+        {
+        List<IpChangeStats> results = new ArrayList<>();
+        try (Statement stmt = c.createStatement();
              ResultSet rs = stmt.executeQuery(sql))
             {
             while (rs.next())
@@ -657,11 +722,11 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     public List<Measurement> findLastN(int n) throws SQLException
     {
-        List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
                        local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
@@ -670,7 +735,10 @@ public class H2MeasurementRepository
                 LIMIT ?
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        List<Measurement> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setInt(1, n);
             ResultSet rs = pstmt.executeQuery();
@@ -680,11 +748,11 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     public List<Measurement> findSince(Instant since) throws SQLException
     {
-        List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
                        local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
@@ -693,7 +761,10 @@ public class H2MeasurementRepository
                 ORDER BY timestamp ASC
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        List<Measurement> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setTimestamp(1, java.sql.Timestamp.from(since));
             ResultSet rs = pstmt.executeQuery();
@@ -703,11 +774,11 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     public List<Measurement> findAll() throws SQLException
     {
-        List<Measurement> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, target, latency_ms, success, type,
                        local_ipv4, local_ipv6, external_ipv4, external_ipv6, host_hash, excluded
@@ -715,7 +786,10 @@ public class H2MeasurementRepository
                 ORDER BY timestamp ASC
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        List<Measurement> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             ResultSet rs = pstmt.executeQuery();
             while (rs.next())
@@ -724,6 +798,7 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     private Measurement readMeasurement(ResultSet rs) throws SQLException
@@ -746,10 +821,12 @@ public class H2MeasurementRepository
 
     public List<HostInfo> getAllHosts() throws SQLException
     {
-        List<HostInfo> results = new ArrayList<>();
         String sql = "SELECT host_hash, hostname, operating_system, first_seen, last_seen FROM hosts ORDER BY last_seen DESC";
 
-        try (Statement stmt = primary.createStatement();
+        return readWithFallback(c ->
+        {
+        List<HostInfo> results = new ArrayList<>();
+        try (Statement stmt = c.createStatement();
              ResultSet rs = stmt.executeQuery(sql))
             {
             while (rs.next())
@@ -764,6 +841,12 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
+    }
+
+    /** Rohwerte einer Statistik-Abfrage: Latenzen der erfolgreichen Messungen, Gesamt- und Fehlzahl. */
+    private record RawStatistics(List<Double> latencies, int total, int failed)
+    {
     }
 
     public Statistics calculateStatistics(String type, int hours) throws SQLException
@@ -777,11 +860,13 @@ public class H2MeasurementRepository
                 ORDER BY timestamp ASC
                 """;
 
-        List<Double> latencies = new ArrayList<>();
+        // Rohwerte lesen (Primary, bei Korruption Shadow); die Auswertung folgt im Speicher
+        RawStatistics raw = readWithFallback(c ->
+        {
+        List<Double> lat = new ArrayList<>();
         int total = 0;
         int failed = 0;
-
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setString(1, type);
             pstmt.setInt(2, -hours);
@@ -795,13 +880,18 @@ public class H2MeasurementRepository
                 total++;
                 if (success)
                     {
-                    latencies.add(latency);
+                    lat.add(latency);
                     } else
                     {
                     failed++;
                     }
                 }
             }
+        return new RawStatistics(lat, total, failed);
+        });
+        List<Double> latencies = raw.latencies();
+        int total = raw.total();
+        int failed = raw.failed();
 
         if (latencies.isEmpty())
             {
@@ -851,8 +941,10 @@ public class H2MeasurementRepository
                 ORDER BY hour_of_day
                 """;
 
+        return readWithFallback(c ->
+        {
         List<HourlyAverage> results = new ArrayList<>();
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setString(1, type);
             pstmt.setInt(2, -days);
@@ -867,6 +959,7 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     // ========================================================================
@@ -901,7 +994,6 @@ public class H2MeasurementRepository
     /** Pruefungen eines Dienstes ab einem Zeitpunkt, chronologisch (fuer die Episoden-Bildung). */
     public List<ServiceCheck> findServiceChecksSince(String serviceId, Instant since) throws SQLException
     {
-        List<ServiceCheck> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms
                 FROM service_checks
@@ -909,7 +1001,10 @@ public class H2MeasurementRepository
                 ORDER BY timestamp ASC
                 """;
 
-        try (PreparedStatement pstmt = primary.prepareStatement(sql))
+        return readWithFallback(c ->
+        {
+        List<ServiceCheck> results = new ArrayList<>();
+        try (PreparedStatement pstmt = c.prepareStatement(sql))
             {
             pstmt.setString(1, serviceId);
             pstmt.setTimestamp(2, Timestamp.from(since));
@@ -920,12 +1015,12 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     /** Jeweils die neueste Pruefung pro Dienst (fuer die "aktueller Status"-Anzeige). */
     public List<ServiceCheck> findLatestServiceChecks() throws SQLException
     {
-        List<ServiceCheck> results = new ArrayList<>();
         String sql = """
                 SELECT timestamp, service_id, verdict, method, http_status, resolved_ip, latency_ms
                 FROM (
@@ -937,7 +1032,10 @@ public class H2MeasurementRepository
                 ORDER BY service_id ASC
                 """;
 
-        try (Statement stmt = primary.createStatement();
+        return readWithFallback(c ->
+        {
+        List<ServiceCheck> results = new ArrayList<>();
+        try (Statement stmt = c.createStatement();
              ResultSet rs = stmt.executeQuery(sql))
             {
             while (rs.next())
@@ -946,6 +1044,7 @@ public class H2MeasurementRepository
                 }
             }
         return results;
+        });
     }
 
     private ServiceCheck readServiceCheck(ResultSet rs) throws SQLException

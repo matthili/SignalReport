@@ -12,7 +12,7 @@ Die Teststrategie umfasste:
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die 20 Testklassen mit laufenden Tests -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 163 Tests (zuzüglich zweier netz- bzw.\ PDF-gebundener Smoke-Klassen, die per Umgebungsvariable aktivierbar sind) decken folgende Bereiche ab:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufenden Tests -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 168 Tests (zuzüglich zweier netz- bzw.\ PDF-gebundener Smoke-Klassen, die per Umgebungsvariable aktivierbar sind) decken folgende Bereiche ab:
 
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
@@ -35,6 +35,8 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 20 Testklassen mit laufen
     \item \textbf{ServiceReachabilityRoutesTest} (2 Tests): \enquote{Jetzt prüfen}-Endpoint inkl.\ Abkühlphase (gegen echten Javalin-Server)
     \item \textbf{SystemRoutesTest} (2 Tests): lokaler Stopp-Endpoint (gegen echten Javalin-Server) und Loopback-Erkennung (IPv4/IPv6-Literale, keine Hostnamen-Auflösung)
     \item \textbf{StopCommandTest} (3 Tests): Stopp-Kommando \texttt{signalreport.jar stop} beendet eine laufende Instanz über den Endpoint; Randfälle \enquote{keine Instanz} und \enquote{keine Konfiguration}
+    \item \textbf{DatabaseRebuilderTest} (4 Tests): Neuaufbau mit echten H2-Dateien -- Vereinigung von Primary und Shadow inkl.\ \texttt{excluded}-Flag, Stunden-Fallback bei simuliert unlesbarem Tag, Dateitausch mit Quarantäne und Shadow-Kopie, Marker-gesteuerter Neuaufbau beim Repository-Start, Abbruch ohne lesbare Quelle
+    \item \textbf{RebuildCommandTest} (1 Test): Pfad-Fallback des Kommandozeilen-Neuaufbaus ohne Konfiguration
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2 In-Memory-Datenbanken für Integrationstests) und sind in unter 2 Sekunden durchführbar.
@@ -67,15 +69,15 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler) & 133 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand) & 134 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, ServiceReachabilityRoutes, SystemRoutes, StopCommand) & 30 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, ServiceReachabilityRoutes, SystemRoutes, StopCommand) & 34 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
 Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung) & 3 & -- \\
 \hline
-\textbf{Gesamt} & \textbf{163 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{168 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -100,5 +102,5 @@ SignalReport verwendet eine gezielte Test-Strategie:
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 163 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 168 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

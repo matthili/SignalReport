@@ -346,7 +346,16 @@ public class Config
         config.dnsServers.add(new DnsServer("LibreDNS Primary", "88.198.92.222", "Europa", "LibreOps"));
         config.dnsServers.add(new DnsServer("DNSlify Primary", "185.235.81.1", "Weltweit", "Peerix"));
         config.dnsServers.add(new DnsServer("DNSlify Secondary", "185.235.81.2", "Weltweit", "Peerix"));
-
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution Primary", "86.54.11.1", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection Primary", "86.54.11.12", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with ad blocking Primary", "86.54.11.13", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection and ad blocking Primary", "86.54.11.11", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Unfiltered resolution Primary", "86.54.11.100", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution Secondary", "86.54.11.201", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection Secondary", "86.54.11.212", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with ad blocking Secondary", "86.54.11.213", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection and ad blocking Secondary", "86.54.11.211", "Europa", "whalebone"));
+        config.dnsServers.add(new DnsServer("DNS4EU Unfiltered resolution Secondary", "86.54.11.200", "Europa", "whalebone"));
 
         // Standard-Werte für Maintenance und UserInfo
         config.maintenanceWindow = new MaintenanceWindow();

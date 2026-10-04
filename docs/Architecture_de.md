@@ -156,12 +156,14 @@ Online-Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder
 
 Statt einer einzelnen H2-Datei werden zwei parallel geführt: eine **Primary**
 (Quelle für alle Lesezugriffe) und eine **Shadow** (Spiegelung aller
-Schreibvorgänge). Drei Schutz-Stufen sichern die Daten gegen abrupte
-Prozess-Terminierungen (Windows-Update-Neustart, Stromausfall):
+Schreibvorgänge). Vier Schutz-Stufen sichern die Daten gegen abrupte
+Prozess-Terminierungen (Windows-Update-Neustart, Stromausfall) und gegen
+schleichende Dateischäden:
 
 1. **Eine Transaktion pro Messrunde** – alle Messungen einer Runde werden gemeinsam committet (`saveAll`), und H2 läuft mit seinem Standard-`WRITE_DELAY` (500 ms), damit sein Hintergrund-Thread die Commits bündelt und die Datei laufend kompaktiert. Bis 2.0.1 erzwang die URL `WRITE_DELAY=0`; in H2 2.4.240 schaltet das den Hintergrund-Thread und damit jede Kompaktierung ab, wodurch die Dateien auf Dutzende Gigabyte anwuchsen (gemessen: 37,7 KB Dateiwachstum pro Zeile statt 92,6 Byte Nutzdaten, siehe `docs/notes/2026-10-04_Datenbank-Analyse.md`)
 2. **Twin-Spiegelung** – wird eine Datei mitten im Schreibvorgang zerstört, bleibt die andere konsistent
-3. **Auto-Recovery beim Start** – eine als korrupt erkannte DB (H2-Fehlercode 90030) wird nach `data/quarantine/` verschoben und per Datei-Kopie aus der intakten DB rekonstruiert; der Betrieb läuft unterbrechungsfrei weiter
+3. **Auto-Recovery beim Start** – eine DB, die sich nicht öffnen lässt (H2-Fehlercode 90030), wird nach `data/quarantine/` verschoben und per Datei-Kopie aus der intakten DB rekonstruiert; der Betrieb läuft unterbrechungsfrei weiter
+4. **Selbstheilung im Betrieb** – scheitert ein Lesezugriff auf der Primary an einer Korruption (typisch eine einzelne unlesbare Seite, die das Öffnen nicht verhindert), wird er auf der Shadow wiederholt, sodass Berichte und Exporte weiter funktionieren, und eine Marker-Datei `<db>.REBUILD_REQUIRED` merkt einen Neuaufbau vor. Beim nächsten Start liest `DatabaseRebuilder` beide Dateien nur lesend, vereinigt ihre Inhalte Tag für Tag (unlesbare Stunden der einen Datei deckt die andere ab), schreibt sie in eine frische Datei mit dem aktuellen Schema, kompaktiert sie (`SHUTDOWN COMPACT`), verschiebt die alten Dateien nach `data/quarantine/rebuild_<Zeit>/` und setzt die neue Datei als Primary mit einer Kopie als Shadow ein. Ein Bericht landet in `data/signalreport_rebuild-report_<Zeit>.txt`. Derselbe Neuaufbau lässt sich von Hand mit `java -jar signalreport.jar rebuild-db` (Dienst gestoppt) oder über `dbrebuild.bat` / `dbrebuild.sh` starten, die den Dienst davor stoppen und danach wieder starten.
 
 Sauberes Beenden ist für H2 wichtig: `java -jar signalreport.jar stop` (der Befehl,
 den der Windows-Dienst ausführt) bittet die laufende Instanz über den nur per

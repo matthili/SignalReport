@@ -21,6 +21,13 @@ package "signalreport" {
     +long triggerManualRun()
     ~{static} boolean internetConfirmedUp(List<Measurement> recent)
   }
+  class StopCommand {
+    {static} +boolean run(String configFile)
+    {static} +boolean requestShutdown(int port, Duration waitForExit)
+  }
+  class RebuildCommand {
+    {static} +boolean run(String configFile, boolean swap)
+  }
 }
 
 ' ============================================================
@@ -102,6 +109,7 @@ package "storage" {
     -Connection primary
     -Connection shadow
     +void save(Measurement m)
+    +void saveAll(List<Measurement> batch)
     +List<Measurement> findLastN(int n)
     +List<Measurement> findSince(Instant since)
     +Statistics calculateStatistics(String type, int hours)
@@ -109,6 +117,19 @@ package "storage" {
     +List<IpChange> getIpChanges(int limit)
     +List<HostInfo> getAllHosts()
     -void writeOnBoth(ConnectionAction action)
+    -T readWithFallback(ReadAction<T> action)
+    ~{static} void createSchema(Connection c)
+  }
+  class DatabaseRebuilder {
+    +RebuildReport rebuild(boolean swap)
+    {static} +boolean isRebuildRequested(String dbPath)
+    {static} +void requestRebuild(String dbPath, String reason)
+    #List<MeasurementRow> readMeasurements(SourceDb src, Instant from, Instant to)
+  }
+  class RebuildReport {
+    +long unionMeasurements
+    +Path quarantineDir
+    +String toText()
   }
   class Statistics {
     -double avgLatency
@@ -286,6 +307,7 @@ package "web.api" {
   class SetupRoutes
   class AuthRoutes
   class ServiceReachabilityRoutes
+  class SystemRoutes
 }
 
 ' ============================================================
@@ -363,6 +385,16 @@ SignalReportApp --> H2MeasurementRepository
 SignalReportApp --> WebServer
 SignalReportApp --> Config
 
+' --- Stopp und Neuaufbau (2.0.2 / 2.1.0) ---
+SignalReportApp ..> StopCommand : "stop"
+SignalReportApp ..> RebuildCommand : "rebuild-db"
+WebServer --> SystemRoutes
+StopCommand ..> SystemRoutes : POST /api/system/shutdown (nur Loopback)
+RebuildCommand --> DatabaseRebuilder
+DatabaseRebuilder --> RebuildReport
+DatabaseRebuilder ..> H2MeasurementRepository : createSchema()
+H2MeasurementRepository ..> DatabaseRebuilder : Marker, Neuaufbau beim Start
+
 ' --- Dienst-Erreichbarkeit (V2) ---
 SignalReportApp --> ServiceReachabilityScheduler
 ServiceReachabilityScheduler --> ServiceReachabilityProbe
@@ -378,8 +410,9 @@ WebServer --> ServiceReachabilityRoutes
 note top of H2MeasurementRepository
   Embedded H2 (Twin-DB):
   Primary + Shadow, eine Transaktion pro Messrunde (saveAll).
-  Lesen nur aus Primary. Auto-Recovery: korrupte DB
-  wird beim Start aus der intakten rekonstruiert.
+  Lesen aus Primary; bei Korruption (H2 90030) Fallback auf die
+  Shadow + Marker -> Neuaufbau beim naechsten Start (DatabaseRebuilder).
+  Auto-Recovery: nicht oeffenbare DB wird aus der intakten rekonstruiert.
   Tabellen: measurements (+ Spalte excluded), hosts, ip_changes, service_checks
 end note
 

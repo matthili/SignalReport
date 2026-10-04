@@ -152,12 +152,13 @@ An optional, **off-by-default** feature checks whether selected online services
 
 Instead of a single H2 file, two are maintained in parallel: a **primary**
 (source for all reads) and a **shadow** (mirror of all writes).
-Three protection layers safeguard the data against abrupt process terminations
-(Windows update reboot, power failure):
+Four protection layers safeguard the data against abrupt process terminations
+(Windows update reboot, power failure) and against latent file damage:
 
 1. **One transaction per measurement cycle** – all measurements of a cycle are committed together (`saveAll`), and H2 runs with its default `WRITE_DELAY` (500 ms) so that its background thread bundles the commits and compacts the file continuously. Up to 2.0.1 the URL forced `WRITE_DELAY=0`; in H2 2.4.240 that disables the background thread and with it every compaction, which let the files grow to tens of gigabytes (measured: 37.7 KB of file growth per row instead of 92.6 bytes of data, see `docs/notes/2026-10-04_Datenbank-Analyse.md`)
 2. **Twin mirroring** – if one file is destroyed mid-write, the other stays consistent
-3. **Auto-recovery on startup** – a DB detected as corrupt (H2 error code 90030) is moved to `data/quarantine/` and reconstructed from the intact DB by a file copy; operation continues without interruption
+3. **Auto-recovery on startup** – a DB that cannot be opened (H2 error code 90030) is moved to `data/quarantine/` and reconstructed from the intact DB by a file copy; operation continues without interruption
+4. **Self-healing during operation** – a read that fails with a corruption error on the primary (typically a single unreadable page that does not prevent opening) is repeated on the shadow, so reports and exports keep working, and a marker file `<db>.REBUILD_REQUIRED` schedules a rebuild. At the next start `DatabaseRebuilder` reads both files read-only, unites their contents day by day (unreadable hours of one file are covered by the other), writes them into a fresh file with the current schema, compacts it (`SHUTDOWN COMPACT`), moves the old files to `data/quarantine/rebuild_<time>/` and installs the new file as primary with a copy as shadow. A report lands in `data/signalreport_rebuild-report_<time>.txt`. The same rebuild can be started by hand with `java -jar signalreport.jar rebuild-db` (service stopped) or via `dbrebuild.bat` / `dbrebuild.sh`, which stop and restart the service around it.
 
 A clean shutdown matters for H2: `java -jar signalreport.jar stop` (the command the
 Windows service runs) asks the running instance via the loopback-only endpoint

@@ -8,6 +8,7 @@ SignalReport/
 │   ├── main/java/at/mafue/signalreport/  # Layered packages (see below)
 │   │   ├── SignalReportApp.java          # Main class (entry point + continuous measurement loop + orderly stop)
 │   │   ├── StopCommand.java              # "signalreport.jar stop": asks the running instance to shut down cleanly (loopback endpoint)
+│   │   ├── RebuildCommand.java           # "signalreport.jar rebuild-db [--no-swap]": database rebuild from the command line
 │   │   ├── ServiceReachabilityScheduler.java  # Slow service-reachability loop + line-gate + manual trigger
 │   │   ├── config/                       # Configuration (Config + one file per aspect)
 │   │   │   ├── Config.java               # Singleton facade (load/save, password hashing, defaults)
@@ -39,7 +40,9 @@ SignalReport/
 │   │   │   ├── ServiceReachabilityProbe.java   # Layered probe (DNS/TCP/TLS-SNI/HTTP), parallel via virtual threads
 │   │   │   └── ServiceReachabilityResult.java  # Probe result DTO (verdict, method, IP, status, latency)
 │   │   ├── storage/                      # Persistence + read DTOs
-│   │   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow)
+│   │   │   ├── H2MeasurementRepository.java  # Twin-database access (primary + shadow, read fallback to the shadow on corruption)
+│   │   │   ├── DatabaseRebuilder.java    # Rebuild: unites primary + shadow into a fresh compact file, quarantines the old ones
+│   │   │   ├── RebuildReport.java        # Rebuild result (sources, unreadable ranges, sizes), written as text report
 │   │   │   ├── Statistics.java           # Aggregated statistics DTO
 │   │   │   ├── IpChange.java             # Single IP change record
 │   │   │   ├── IpChangeStats.java        # IP change statistics DTO
@@ -76,12 +79,12 @@ SignalReport/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (22 classes, 163 tests + 3 opt-in smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (24 classes, 168 tests + 3 opt-in smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1)
 │   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker)
 │   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
 │   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2)
 │   │   └── i18n/          # I18nTest (10)
@@ -99,16 +102,19 @@ SignalReport/
 │   └── ProjectStructure.md / ProjectStructure_de.md  # Project structure (EN/DE, this file)
 ├── deployment/
 │   ├── windows/
-│   │   ├── install.bat                   # Install the Windows service
-│   │   └── uninstall.bat                 # Remove the Windows service
+│   │   ├── install.bat                   # Install or update the Windows service
+│   │   ├── uninstall.bat                 # Remove the Windows service (optionally keep config/database)
+│   │   └── dbrebuild.bat                 # Stop service, rebuild the database (rebuild-db), start service
 │   ├── macos-linux/
-│   │   ├── install.sh                    # Install the Linux/macOS service
-│   │   └── uninstall.sh                  # Remove the Linux/macOS service
+│   │   ├── install.sh                    # Install or update the Linux/macOS service
+│   │   ├── uninstall.sh                  # Remove the Linux/macOS service (optionally keep config/database)
+│   │   └── dbrebuild.sh                  # Stop service, rebuild the database (rebuild-db), start service
 │   └── docker/                           # Docker deployment
 ├── data/                                 # H2 twin database (gitignored)
 │   ├── signalreport.mv.db                # Primary database
-│   ├── signalreport-shadow.mv.db         # Shadow database (synchronous mirror)
-│   └── quarantine/                       # Corrupt DB files kept for analysis
+│   ├── signalreport-shadow.mv.db         # Shadow database (mirror of all writes)
+│   ├── signalreport.REBUILD_REQUIRED     # Marker (only after a corruption read error): rebuild at next start
+│   └── quarantine/                       # Old/corrupt DB files kept for analysis (rebuild_<time>/ after a rebuild)
 ├── logs/                                 # Application logs
 ├── config.json                           # Configuration (auto-generated)
 ├── pom.xml                               # Maven build configuration

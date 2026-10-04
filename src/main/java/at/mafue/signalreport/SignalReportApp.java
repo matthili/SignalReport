@@ -61,6 +61,16 @@ public class SignalReportApp
             return;
             }
 
+        // "rebuild-db [--no-swap]": Datenbank aus Primary + Shadow in eine frische, kompakte
+        // Datei neu aufbauen. Im Datenverzeichnis bei gestopptem Dienst ausfuehren.
+        if (args.length > 0 && "rebuild-db".equalsIgnoreCase(args[0]))
+            {
+            boolean swap = !(args.length > 1 && "--no-swap".equalsIgnoreCase(args[1]));
+            boolean ok = RebuildCommand.run(CONFIG_JSON, swap);
+            System.exit(ok ? 0 : 1);
+            return;
+            }
+
         // Logger/Info statt println
         logger.info("📡 SignalReport – Starte Mess-Engine und Web-Interface");
         logger.info("   {}", HostIdentifier.getFullHostInfo());

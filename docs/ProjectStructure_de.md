@@ -8,6 +8,7 @@ SignalReport/
 │   ├── main/java/at/mafue/signalreport/  # Geschichtete Pakete (siehe unten)
 │   │   ├── SignalReportApp.java          # Hauptklasse (Entry Point + kontinuierliche Mess-Schleife + geordneter Stopp)
 │   │   ├── StopCommand.java              # "signalreport.jar stop": bittet die laufende Instanz um sauberes Herunterfahren (Loopback-Endpunkt)
+│   │   ├── RebuildCommand.java           # "signalreport.jar rebuild-db [--no-swap]": Datenbank-Neuaufbau von der Kommandozeile
 │   │   ├── ServiceReachabilityScheduler.java  # Langsamer Dienst-Erreichbarkeits-Lauf + Leitungs-Gate + manueller Auslöser
 │   │   ├── config/                       # Konfiguration (Config + je eine Datei pro Aspekt)
 │   │   │   ├── Config.java               # Singleton-Fassade (Laden/Speichern, Passwort-Hash, Defaults)
@@ -39,7 +40,9 @@ SignalReport/
 │   │   │   ├── ServiceReachabilityProbe.java   # Schicht-Probe (DNS/TCP/TLS-SNI/HTTP), parallel über Virtual Threads
 │   │   │   └── ServiceReachabilityResult.java  # Probe-Ergebnis-DTO (Verdikt, Methode, IP, Status, Latenz)
 │   │   ├── storage/                      # Persistenz + Lese-DTOs
-│   │   │   ├── H2MeasurementRepository.java  # Twin-Datenbank-Zugriff (Primary + Shadow)
+│   │   │   ├── H2MeasurementRepository.java  # Twin-Datenbank-Zugriff (Primary + Shadow, Lese-Fallback auf die Shadow bei Korruption)
+│   │   │   ├── DatabaseRebuilder.java    # Neuaufbau: vereinigt Primary + Shadow in eine frische kompakte Datei, alte in Quarantäne
+│   │   │   ├── RebuildReport.java        # Ergebnis des Neuaufbaus (Quellen, unlesbare Bereiche, Größen), als Textbericht geschrieben
 │   │   │   ├── Statistics.java           # Aggregierte Statistik-DTO
 │   │   │   ├── IpChange.java             # Einzelner IP-Wechsel-Datensatz
 │   │   │   ├── IpChangeStats.java        # IP-Wechsel-Statistik-DTO
@@ -76,12 +79,12 @@ SignalReport/
 │   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
-│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (22 Klassen, 163 Tests + 3 opt-in Smoke)
-│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin)
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (24 Klassen, 168 Tests + 3 opt-in Smoke)
+│   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin), RebuildCommandTest (1)
 │   │   ├── config/        # ConfigTest (17), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (Netz, opt-in)
-│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3)
+│   │   ├── storage/       # H2MeasurementRepositoryTest (12), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, Vereinigung/Fallback/Tausch/Marker)
 │   │   ├── report/        # ReliabilityReportTest (10), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in)
 │   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2)
 │   │   └── i18n/          # I18nTest (10)
@@ -99,16 +102,19 @@ SignalReport/
 │   └── ProjectStructure.md / ProjectStructure_de.md  # Projektstruktur (EN/DE, diese Datei)
 ├── deployment/
 │   ├── windows/
-│   │   ├── install.bat                   # Windows-Dienst installieren
-│   │   └── uninstall.bat                 # Windows-Dienst entfernen
+│   │   ├── install.bat                   # Windows-Dienst installieren oder aktualisieren
+│   │   ├── uninstall.bat                 # Windows-Dienst entfernen (Konfiguration/Datenbank optional behalten)
+│   │   └── dbrebuild.bat                 # Dienst stoppen, Datenbank neu aufbauen (rebuild-db), Dienst starten
 │   ├── macos-linux/
-│   │   ├── install.sh                    # Linux/macOS-Dienst installieren
-│   │   └── uninstall.sh                  # Linux/macOS-Dienst entfernen
+│   │   ├── install.sh                    # Linux/macOS-Dienst installieren oder aktualisieren
+│   │   ├── uninstall.sh                  # Linux/macOS-Dienst entfernen (Konfiguration/Datenbank optional behalten)
+│   │   └── dbrebuild.sh                  # Dienst stoppen, Datenbank neu aufbauen (rebuild-db), Dienst starten
 │   └── docker/                           # Docker-Deployment
 ├── data/                                 # H2-Twin-Datenbank (gitignored)
 │   ├── signalreport.mv.db                # Primary-Datenbank
-│   ├── signalreport-shadow.mv.db         # Shadow-Datenbank (synchrone Spiegelung)
-│   └── quarantine/                       # Defekte DB-Dateien zur Nachanalyse
+│   ├── signalreport-shadow.mv.db         # Shadow-Datenbank (Spiegelung aller Schreibvorgänge)
+│   ├── signalreport.REBUILD_REQUIRED     # Marker (nur nach einem Korruptions-Lesefehler): Neuaufbau beim nächsten Start
+│   └── quarantine/                       # Alte/defekte DB-Dateien zur Nachanalyse (rebuild_<Zeit>/ nach einem Neuaufbau)
 ├── logs/                                 # Anwendungs-Logs
 ├── config.json                           # Konfiguration (auto-generiert)
 ├── pom.xml                               # Maven Build-Konfiguration
