@@ -89,3 +89,4 @@ package-lock.json
 /docs/package.json
 # weitere Projektpflege mit Claude-Code Unterstuetzung
 /.claude/
+/docs/notes/

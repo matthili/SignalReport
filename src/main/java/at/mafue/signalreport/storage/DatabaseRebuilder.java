@@ -394,9 +394,17 @@ public class DatabaseRebuilder
         return merged.size();
     }
 
+    /**
+     * Zwei ip_changes-Zeilen gelten als dieselbe Aenderung, wenn alt/neu/Typ/Host gleich sind
+     * und die Zeitstempel hoechstens so weit auseinanderliegen. Noetig, weil beide Twins den
+     * Zeitstempel getrennt per CURRENT_TIMESTAMP erzeugen und er deshalb um Millisekunden abweicht.
+     */
+    private static final long IP_CHANGE_DEDUPE_MS = 5_000;
+
     private long copyIpChanges(List<SourceDb> sources, Connection target) throws SQLException
     {
-        Map<String, Object[]> merged = new LinkedHashMap<>();
+        // Alle Zeilen beider Quellen in Zeitreihenfolge (Baum statt Sortierfunktion)
+        Map<Long, List<Object[]>> byTime = new TreeMap<>();
         for (SourceDb src : sources)
             {
             if (!tableExists(src.connection, "IP_CHANGES")) continue;
@@ -406,17 +414,32 @@ public class DatabaseRebuilder
                 {
                 while (rs.next())
                     {
-                    Object[] row = {rs.getTimestamp(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)};
-                    String key = row[0] + "|" + row[2] + "|" + row[3] + "|" + row[4];
-                    merged.putIfAbsent(key, row);
+                    Timestamp ts = rs.getTimestamp(1);
+                    Object[] row = {ts, rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)};
+                    byTime.computeIfAbsent(ts.getTime(), k -> new ArrayList<>()).add(row);
                     }
                 } catch (SQLException e)
                 {
                 src.summary.tableErrors.add("ip_changes nicht lesbar: " + shortMessage(e));
                 }
             }
-        List<Object[]> rows = new ArrayList<>(merged.values());
-        rows.sort(Comparator.comparing(r -> (Timestamp) r[0]));
+        // Dubletten ueber die Zeit-Toleranz zusammenfassen
+        Map<String, Long> lastKeptByKey = new LinkedHashMap<>();
+        List<Object[]> rows = new ArrayList<>();
+        for (Map.Entry<Long, List<Object[]>> entry : byTime.entrySet())
+            {
+            for (Object[] r : entry.getValue())
+                {
+                String key = r[1] + "|" + r[2] + "|" + r[3] + "|" + r[4];
+                Long lastKept = lastKeptByKey.get(key);
+                if (lastKept != null && entry.getKey() - lastKept <= IP_CHANGE_DEDUPE_MS)
+                    {
+                    continue;
+                    }
+                lastKeptByKey.put(key, entry.getKey());
+                rows.add(r);
+                }
+            }
         try (PreparedStatement ps = target.prepareStatement(
                 "INSERT INTO ip_changes (timestamp, old_ip, new_ip, change_type, host_hash) VALUES (?, ?, ?, ?, ?)"))
             {

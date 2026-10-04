@@ -69,6 +69,11 @@ class DatabaseRebuilderTest
         insertRaw(BASE, T0.plusSeconds(10), "8.8.8.8", "PING", 15.0, true, false);
         insertRaw(BASE + "-shadow", T0.plusSeconds(20), "8.8.8.8", "PING", 16.0, true, false);
         markExcluded(BASE + "-shadow", T0, "DNS");
+        // IP-Wechsel: dieselbe Aenderung mit 2 s Zeitversatz in beiden Twins (= eine Aenderung),
+        // dazu eine weitere nur in der Primary
+        insertIpChangeRaw(BASE, T0, "1.2.3.4", "5.6.7.8", "CHANGE", "rebuildhost");
+        insertIpChangeRaw(BASE + "-shadow", T0.plusSeconds(2), "1.2.3.4", "5.6.7.8", "CHANGE", "rebuildhost");
+        insertIpChangeRaw(BASE, T0.plusSeconds(120), "5.6.7.8", "9.9.9.9", "CHANGE", "rebuildhost");
         long oldPrimarySize = Files.size(Paths.get(BASE + ".mv.db"));
 
         // Act
@@ -83,7 +88,7 @@ class DatabaseRebuilderTest
         assertEquals(0, report.unreadableRangeCount());
         assertEquals(1, report.hosts);
         assertEquals(1, report.serviceChecks);
-        assertEquals(1, report.ipChanges);
+        assertEquals(3, report.ipChanges, "INITIAL (beide Twins, Zeitversatz) + CHANGE (beide, 2 s versetzt) + CHANGE (nur Primary)");
         assertNotNull(report.reportFile);
         assertTrue(Files.exists(report.reportFile));
         assertTrue(report.toText().contains("Vereinigung"));
@@ -209,6 +214,22 @@ class DatabaseRebuilderTest
             ps.setString(9, "::1");
             ps.setString(10, "rebuildhost");
             ps.setBoolean(11, excluded);
+            ps.executeUpdate();
+            }
+    }
+
+    private static void insertIpChangeRaw(String base, Instant ts, String oldIp, String newIp, String type,
+                                          String hostHash) throws SQLException
+    {
+        try (Connection c = DriverManager.getConnection("jdbc:h2:" + base + ";DB_CLOSE_ON_EXIT=FALSE", "sa", "");
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO ip_changes (timestamp, old_ip, new_ip, change_type, host_hash) VALUES (?, ?, ?, ?, ?)"))
+            {
+            ps.setTimestamp(1, Timestamp.from(ts));
+            ps.setString(2, oldIp);
+            ps.setString(3, newIp);
+            ps.setString(4, type);
+            ps.setString(5, hostHash);
             ps.executeUpdate();
             }
     }
