@@ -208,7 +208,7 @@ package "storage" {
 ' ============================================================
 package "report" {
   class ReliabilityReport {
-    +{static} ReliabilityReport compute(List<Measurement> ping, int interval, long windowSeconds, int maintenanceSamples)
+    +{static} ReliabilityReport compute(ping, interval, windowSeconds, maintenanceSamples)
     +double getUptimePercent()
     +double getCoveragePercent()
     +long getMtbfSeconds()
@@ -262,11 +262,13 @@ package "config" {
     -ServiceReachabilityConfig serviceReachability
     -MaintenanceWindow maintenanceWindow
     -DataPrepConfig dataPrep
+    -DnsBenchmarkConfig dnsBenchmark
     +{static} Config load(String path)
     +{static} void save(String path)
     +{static} Config getInstance()
     +{static} String hashPassword(String password)
     +void updateGateway(...)
+    +boolean migrateLegacyLists()
   }
   class MeasurementConfig {
     -int intervalSeconds
@@ -291,7 +293,32 @@ package "config" {
     -boolean enabled
     +boolean isMaintenanceTime()
   }
-  class DnsServer
+  class DnsServer {
+    -String name
+    -String address
+    -String region
+    -String provider
+    -boolean custom
+  }
+  class BuiltinCatalog <<utility>> {
+    {static} +dnsServers()
+    {static} +services()
+    {static} +servicesById()
+  }
+  class DnsBenchmarkConfig {
+    -List<CustomDnsServer> customServers
+    -List<String> hiddenBuiltins
+    +serversFor(scope)
+    +adoptLegacyList(legacy)
+    {static} +canonicalAddress(text)
+    {static} +validate(incoming, stored)
+  }
+  class CustomDnsServer {
+    -String name
+    -String address
+    -String note
+    -boolean enabled
+  }
   class DatabaseConfig
   class WebserverConfig
   class UserInfo
@@ -303,7 +330,11 @@ package "config" {
     -boolean enabled
     -int intervalMinutes
     -boolean useControlSni
-    -List<ServiceTarget> services
+    -Map<String,Boolean> serviceOverrides
+    -List<ServiceTarget> customServices
+    +effectiveServices()
+    +applyServiceSwitch(id, on)
+    +adoptLegacyServices()
   }
   class DataPrepConfig {
     -boolean enabled
@@ -460,6 +491,15 @@ RebuildCommand --> DatabaseRebuilder
 DatabaseRebuilder --> RebuildReport
 DatabaseRebuilder ..> H2MeasurementRepository : createSchema()
 H2MeasurementRepository ..> DatabaseRebuilder : Marker, Neuaufbau beim Start
+
+' --- Mitgelieferte Listen und eigener Teil (2.3.0) ---
+Config --> DnsBenchmarkConfig
+DnsBenchmarkConfig --> CustomDnsServer
+DnsBenchmarkConfig ..> BuiltinCatalog : mitgelieferte DNS-Server
+ServiceReachabilityConfig ..> BuiltinCatalog : mitgelieferte Dienste
+BuiltinCatalog ..> DnsServer
+BuiltinCatalog ..> ServiceTarget
+DnsRoutes ..> DnsBenchmarkConfig
 
 ' --- Daten-Aufbereitung (2.2.0) ---
 SignalReportApp --> DataPrepScheduler

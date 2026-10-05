@@ -2,6 +2,7 @@ package at.mafue.signalreport.config;
 
 import at.mafue.signalreport.i18n.I18n;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.slf4j.Logger;
@@ -11,7 +12,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 
 public class Config
@@ -22,7 +22,10 @@ public class Config
     private MeasurementConfig measurement;
     private DatabaseConfig database;
     private WebserverConfig webserver;
-    private List<DnsServer> dnsServers;
+    // DNS-Benchmark: nur der Nutzer-Teil (eigene Server, ausgeblendete); die Liste kommt mit dem Programm
+    private DnsBenchmarkConfig dnsBenchmark = new DnsBenchmarkConfig();
+    // Altbestand bis 2.2.1: komplette DNS-Liste unter "dnsServers"; nur Lesen, siehe migrateLegacyLists()
+    private List<DnsServer> legacyDnsServers;
     private MaintenanceWindow maintenanceWindow;
     private UserInfo userInfo;
     private AuthConfig auth = new AuthConfig();
@@ -104,6 +107,18 @@ public class Config
                 mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                 instance = mapper.readValue(configFile, Config.class);
                 logger.info("Konfiguration geladen: {}", configFile.getAbsolutePath());
+                if (instance.migrateLegacyLists())
+                    {
+                    try
+                        {
+                        save(path);
+                        logger.info("config.json auf das Format \"mitgelieferte Liste + eigener Teil\" umgestellt.");
+                        } catch (IOException e)
+                        {
+                        // Im Speicher ist die Umstellung erfolgt; der naechste Speichervorgang schreibt sie.
+                        logger.warn("config.json konnte nach der Umstellung nicht gespeichert werden: {}", e.getMessage());
+                        }
+                    }
                 } else
                 {
                 instance = createDefault();
@@ -164,9 +179,55 @@ public class Config
         return webserver;
     }
 
-    public List<DnsServer> getDnsServers()
+    /** Nutzer-Teil des DNS-Benchmarks (eigene Server, ausgeblendete mitgelieferte); nie null. */
+    public DnsBenchmarkConfig getDnsBenchmark()
     {
-        return dnsServers;
+        if (this.dnsBenchmark == null)
+            {
+            this.dnsBenchmark = new DnsBenchmarkConfig();
+            }
+        return this.dnsBenchmark;
+    }
+
+    public void setDnsBenchmark(DnsBenchmarkConfig dnsBenchmark)
+    {
+        this.dnsBenchmark = dnsBenchmark;
+    }
+
+    /** Liest die alte, komplette DNS-Liste aus config.json-Dateien bis 2.2.1 (wird nicht mehr geschrieben). */
+    @JsonProperty("dnsServers")
+    public void setLegacyDnsServers(List<DnsServer> dnsServers)
+    {
+        this.legacyDnsServers = dnsServers;
+    }
+
+    /**
+     * Ueberfuehrt Listen aus config.json-Dateien bis 2.2.1, in denen die komplette DNS- und
+     * Dienstliste stand, in das Modell "mitgelieferte Liste + eigener Teil": DNS-Server, die
+     * nicht mitgeliefert sind, werden eigene Server; Dienst-Schalter, die vom Standard abweichen,
+     * werden gemerkte Abweichungen. Es geht nichts verloren.
+     *
+     * @return true, wenn config.json neu geschrieben werden sollte (alte Schluessel entfallen dann)
+     */
+    public boolean migrateLegacyLists()
+    {
+        boolean changed = false;
+        if (legacyDnsServers != null)
+            {
+            int adopted = getDnsBenchmark().adoptLegacyList(legacyDnsServers);
+            logger.info("config.json: alte DNS-Liste mit {} Eintraegen uebernommen, davon {} als eigene Server "
+                    + "(die uebrigen sind mitgeliefert).", legacyDnsServers.size(), adopted);
+            legacyDnsServers = null;
+            changed = true;
+            }
+        ServiceReachabilityConfig reach = getServiceReachability();
+        if (reach.adoptLegacyServices())
+            {
+            logger.info("config.json: alte Dienstliste uebernommen ({} abweichende Schalter, {} eigene Dienste).",
+                    reach.getServiceOverrides().size(), reach.getCustomServices().size());
+            changed = true;
+            }
+        return changed;
     }
 
     public MaintenanceWindow getMaintenanceWindow()
@@ -326,67 +387,9 @@ public class Config
         config.webserver = new WebserverConfig();
         config.webserver.setPort(4567);
 
-        config.dnsServers = new ArrayList<>();
-        config.dnsServers.add(new DnsServer("Google Primary", "8.8.8.8", "Nordamerika", "Google"));
-        config.dnsServers.add(new DnsServer("Google Secondary", "8.8.4.4", "Nordamerika", "Google"));
-        config.dnsServers.add(new DnsServer("Cloudflare Primary", "1.1.1.1", "Nordamerika", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Cloudflare Secondary", "1.0.0.1", "Nordamerika", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Quad9 Primary", "9.9.9.9", "Weltweit", "Quad9"));
-        config.dnsServers.add(new DnsServer("Quad9 Secondary", "149.112.112.112", "Weltweit", "Quad9"));
-        config.dnsServers.add(new DnsServer("OpenDNS Primary", "208.67.222.222", "Nordamerika", "Cisco"));
-        config.dnsServers.add(new DnsServer("OpenDNS Secondary", "208.67.220.220", "Nordamerika", "Cisco"));
-        config.dnsServers.add(new DnsServer("AdGuard Primary", "94.140.14.14", "Weltweit", "AdGuard"));
-        config.dnsServers.add(new DnsServer("AdGuard Secondary", "94.140.15.15", "Weltweit", "AdGuard"));
-        config.dnsServers.add(new DnsServer("DNS.WATCH Primary", "84.200.69.80", "Europa", "DNS.WATCH"));
-        config.dnsServers.add(new DnsServer("DNS.WATCH Secondary", "84.200.70.40", "Europa", "DNS.WATCH"));
-        config.dnsServers.add(new DnsServer("Comodo Secure DNS Primary", "8.26.56.26", "Weltweit", "Comodo"));
-        config.dnsServers.add(new DnsServer("Comodo Secure DNS Secondary", "8.20.247.20", "Weltweit", "Comodo"));
-        config.dnsServers.add(new DnsServer("CleanBrowsing Primary", "185.228.168.168", "Weltweit", "CleanBrowsing"));
-        config.dnsServers.add(new DnsServer("CleanBrowsing Secondary", "185.228.169.168", "Weltweit", "CleanBrowsing"));
-        config.dnsServers.add(new DnsServer("Alternate DNS Primary", "76.76.19.19", "Nordamerika", "Alternate DNS"));
-        config.dnsServers.add(new DnsServer("Alternate DNS Secondary", "76.223.122.150", "Nordamerika", "Alternate DNS"));
-        config.dnsServers.add(new DnsServer("Verisign Primary", "64.6.64.6", "Nordamerika", "Verisign"));
-        config.dnsServers.add(new DnsServer("Verisign Secondary", "64.6.65.6", "Nordamerika", "Verisign"));
-        config.dnsServers.add(new DnsServer("OpenNIC Primary", "216.87.84.211", "Weltweit", "OpenNIC"));
-        config.dnsServers.add(new DnsServer("OpenNIC Secondary", "23.90.4.6", "Weltweit", "OpenNIC"));
-        config.dnsServers.add(new DnsServer("CenturyLink/Lumen Primary", "205.171.3.66", "Nordamerika", "Lumen"));
-        config.dnsServers.add(new DnsServer("CenturyLink/Lumen Secondary", "205.171.202.166", "Nordamerika", "Lumen"));
-        config.dnsServers.add(new DnsServer("Oracle Dyn Primary", "216.146.35.35", "Nordamerika", "Oracle"));
-        config.dnsServers.add(new DnsServer("Oracle Dyn Secondary", "216.146.36.36", "Nordamerika", "Oracle"));
-        config.dnsServers.add(new DnsServer("UncensoredDNS Primary", "91.239.100.100", "Europa", "UncensoredDNS"));
-        config.dnsServers.add(new DnsServer("UncensoredDNS Secondary", "89.233.43.71", "Europa", "UncensoredDNS"));
-        config.dnsServers.add(new DnsServer("Gcore Public DNS Primary", "95.85.95.85", "Weltweit", "Gcore"));
-        config.dnsServers.add(new DnsServer("Gcore Public DNS Secondary", "2.56.220.2", "Weltweit", "Gcore"));
-        config.dnsServers.add(new DnsServer("Neustar Security Services Primary", "156.154.70.5", "Nordamerika", "Neustar"));
-        config.dnsServers.add(new DnsServer("Neustar Security Services Secondary", "156.154.71.5", "Nordamerika", "Neustar"));
-        config.dnsServers.add(new DnsServer("GreenTeamDNS Primary", "81.218.119.11", "Europa", "GreenTeamDNS"));
-        config.dnsServers.add(new DnsServer("GreenTeamDNS Secondary", "209.88.198.133", "Europa", "GreenTeamDNS"));
-        config.dnsServers.add(new DnsServer("SafeDNS Primary", "195.46.39.39", "Nordamerika", "SafeDNS"));
-        config.dnsServers.add(new DnsServer("SafeDNS Secondary", "195.46.39.40", "Nordamerika", "SafeDNS"));
-        config.dnsServers.add(new DnsServer("ControlD Primary", "76.76.2.0", "Weltweit", "ControlD"));
-        config.dnsServers.add(new DnsServer("ControlD Secondary", "76.76.10.0", "Weltweit", "ControlD"));
-        config.dnsServers.add(new DnsServer("CIRA Canadian Shield Primary", "149.112.121.10", "Nordamerika", "CIRA"));
-        config.dnsServers.add(new DnsServer("CIRA Canadian Shield Secondary", "149.112.122.10", "Nordamerika", "CIRA"));
-        config.dnsServers.add(new DnsServer("CZ.NIC ODVR Primary", "193.17.47.1", "Europa", "CZ.NIC"));
-        config.dnsServers.add(new DnsServer("CZ.NIC ODVR Secondary", "185.43.135.1", "Europa", "CZ.NIC"));
-        config.dnsServers.add(new DnsServer("Cloudflare Security Primary", "1.1.1.2", "Weltweit", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Cloudflare Security Secondary", "1.0.0.2", "Weltweit", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Cloudflare Family Primary", "1.1.1.3", "Weltweit", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Cloudflare Family Secondary", "1.0.0.3", "Weltweit", "Cloudflare"));
-        config.dnsServers.add(new DnsServer("Applied Privacy DNS Primary", "94.130.106.88", "Europa", "Applied Privacy"));
-        config.dnsServers.add(new DnsServer("LibreDNS Primary", "88.198.92.222", "Europa", "LibreOps"));
-        config.dnsServers.add(new DnsServer("DNSlify Primary", "185.235.81.1", "Weltweit", "Peerix"));
-        config.dnsServers.add(new DnsServer("DNSlify Secondary", "185.235.81.2", "Weltweit", "Peerix"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution Primary", "86.54.11.1", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection Primary", "86.54.11.12", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with ad blocking Primary", "86.54.11.13", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection and ad blocking Primary", "86.54.11.11", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Unfiltered resolution Primary", "86.54.11.100", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution Secondary", "86.54.11.201", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection Secondary", "86.54.11.212", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with ad blocking Secondary", "86.54.11.213", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Protective resolution with child protection and ad blocking Secondary", "86.54.11.211", "Europa", "whalebone"));
-        config.dnsServers.add(new DnsServer("DNS4EU Unfiltered resolution Secondary", "86.54.11.200", "Europa", "whalebone"));
+        // DNS-Server fuer den Benchmark: Die Liste kommt mit dem Programm (BuiltinCatalog,
+        // /catalog/dns-servers.json); in config.json steht nur der eigene Teil.
+        config.dnsBenchmark = new DnsBenchmarkConfig();
 
         // Standard-Werte für Maintenance und UserInfo
         config.maintenanceWindow = new MaintenanceWindow();

@@ -32,6 +32,8 @@ function showTab(tabId) {
         loadIpChanges();
     } else if (tabId === 'security') {
        loadAuthStatus();
+    } else if (tabId === 'dns') {
+        loadDnsCatalog();
     }
 }
 
@@ -550,8 +552,156 @@ function loadHosts() {
         .catch(error => console.error('Host-Fehler:', error));
 }
 
-// DNS-Benchmark ausführen
-    function runDnsBenchmark() {
+// ===== DNS: mitgelieferte Liste und eigene Server =====
+// Die mitgelieferte Liste kommt mit dem Programm; gespeichert wird nur der eigene Teil
+// (eigene Server, ausgeblendete mitgelieferte). Benutzer-Eingaben nur ueber textContent.
+let dnsCatalog = { builtins: [], customServers: [], maxCustomServers: 50 };
+
+function loadDnsCatalog() {
+    fetch('/api/dns/catalog')
+        .then(response => response.json())
+        .then(data => { dnsCatalog = data; renderDnsCatalog(); })
+        .catch(error => console.error('DNS-Katalog-Fehler:', error));
+}
+
+function renderDnsCatalog() {
+    // Eigene Server
+    const box = document.getElementById('dns-custom-list');
+    box.innerHTML = '';
+    const own = dnsCatalog.customServers || [];
+    if (own.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'dns-hint';
+        p.textContent = I18N['dns.custom.none'];
+        box.appendChild(p);
+    } else {
+        const table = document.createElement('table');
+        const head = table.createTHead().insertRow();
+        [I18N['dns.custom.inBenchmark'], I18N['dns.custom.name'], I18N['dns.custom.address'], I18N['dns.custom.note'], '']
+            .forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                head.appendChild(th);
+            });
+        const body = table.createTBody();
+        own.forEach((s, i) => {
+            const row = body.insertRow();
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = !!s.enabled;
+            cb.addEventListener('change', () => toggleCustomDns(i, cb.checked));
+            row.insertCell().appendChild(cb);
+            row.insertCell().textContent = s.name;
+            row.insertCell().textContent = s.address;
+            row.insertCell().textContent = s.note || '';
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn btn-secondary';
+            del.style.padding = '4px 10px';
+            del.textContent = '🗑️';
+            del.title = I18N['dns.custom.delete'];
+            del.addEventListener('click', () => deleteCustomDns(i));
+            row.insertCell().appendChild(del);
+        });
+        box.appendChild(table);
+    }
+
+    // Mitgelieferte Server: angehakt = wird im Benchmark getestet
+    const grid = document.getElementById('dns-builtin-list');
+    grid.innerHTML = '';
+    const builtins = dnsCatalog.builtins || [];
+    let tested = 0;
+    builtins.forEach(b => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !b.hidden;
+        if (!b.hidden) tested++;
+        cb.addEventListener('change', () => toggleBuiltinDns(b.address, cb.checked));
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(b.name + ' (' + b.address + ')'));
+        grid.appendChild(label);
+    });
+    document.getElementById('dns-builtin-count').textContent = '(' + tested + ' / ' + builtins.length + ')';
+}
+
+function hiddenBuiltinDns() {
+    return (dnsCatalog.builtins || []).filter(b => b.hidden).map(b => b.address);
+}
+
+function showDnsStatus(text, isError) {
+    const status = document.getElementById('dns-custom-status');
+    status.className = isError ? 'dns-status error' : 'dns-status';
+    status.textContent = text;
+}
+
+// Speichert immer den kompletten eigenen Teil; der Server prueft und antwortet mit dem neuen Stand.
+function saveDnsSettings(customServers, hiddenBuiltins) {
+    return fetch('/api/dns/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customServers: customServers, hiddenBuiltins: hiddenBuiltins })
+    })
+    .then(response => response.json().then(data => ({ ok: response.ok, data: data })))
+    .then(res => {
+        if (!res.ok) {
+            showDnsStatus('❌ ' + (res.data.error || I18N['common.error']), true);
+            renderDnsCatalog();   // Anzeige auf den gespeicherten Stand zuruecksetzen
+            return false;
+        }
+        dnsCatalog = res.data;
+        showDnsStatus('✅ ' + I18N['dns.custom.saved'], false);
+        renderDnsCatalog();
+        return true;
+    })
+    .catch(error => {
+        showDnsStatus('❌ ' + I18N['common.error'] + ': ' + error.message, true);
+        loadDnsCatalog();
+        return false;
+    });
+}
+
+function addCustomDnsServer() {
+    const name = document.getElementById('dns-custom-name').value.trim();
+    const address = document.getElementById('dns-custom-address').value.trim();
+    const note = document.getElementById('dns-custom-note').value.trim();
+    if (!name || !address) {
+        showDnsStatus('❌ ' + I18N['dns.custom.fillRequired'], true);
+        return;
+    }
+    const list = (dnsCatalog.customServers || []).concat([{ name: name, address: address, note: note, enabled: true }]);
+    saveDnsSettings(list, hiddenBuiltinDns()).then(ok => {
+        if (ok) {
+            ['dns-custom-name', 'dns-custom-address', 'dns-custom-note'].forEach(id => { document.getElementById(id).value = ''; });
+        }
+    });
+}
+
+function toggleCustomDns(index, enabled) {
+    const list = (dnsCatalog.customServers || []).map((s, i) => i === index ? Object.assign({}, s, { enabled: enabled }) : s);
+    saveDnsSettings(list, hiddenBuiltinDns());
+}
+
+function deleteCustomDns(index) {
+    const own = dnsCatalog.customServers || [];
+    const s = own[index];
+    if (!s || !confirm(I18N['dns.custom.confirmDelete'].replace('{name}', s.name))) return;
+    saveDnsSettings(own.filter((_, i) => i !== index), hiddenBuiltinDns());
+}
+
+function toggleBuiltinDns(address, tested) {
+    const hidden = hiddenBuiltinDns().filter(a => a !== address);
+    if (!tested) hidden.push(address);
+    saveDnsSettings(dnsCatalog.customServers || [], hidden);
+}
+
+function selectAllBuiltinDns() {
+    saveDnsSettings(dnsCatalog.customServers || [], []);
+}
+
+// DNS-Benchmark ausführen: scope 'all' = voller Benchmark, 'custom' = nur eigene Server
+    function runDnsBenchmark(scope) {
+      scope = scope === 'custom' ? 'custom' : 'all';
       const loadingElement = document.getElementById('dnsLoading');
 
       // STATE-DEBUG: Immer ausgeben, um Problem zu diagnostizieren
@@ -587,7 +737,7 @@ function loadHosts() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      fetch(`/api/dns/benchmark?hostname=${hostname}`, { 
+      fetch(`/api/dns/benchmark?hostname=${encodeURIComponent(hostname)}&scope=${scope}`, {
           method: 'POST',
           signal: controller.signal
       })
@@ -600,19 +750,37 @@ function loadHosts() {
           const container = document.getElementById('dnsResults');
           container.innerHTML = '';
 
+          if (results.length === 0 && scope === 'custom') {
+              const p = document.createElement('p');
+              p.className = 'dns-hint';
+              p.textContent = I18N['dns.custom.noneToTest'];
+              container.appendChild(p);
+          }
+
+          // Kacheln per DOM aufbauen: Namen und Notizen eigener Server sind Benutzer-Eingaben
           results.forEach(result => {
               const card = document.createElement('div');
-              card.className = `dns-card region-${result.region.toLowerCase()}`;
+              card.className = 'dns-card ' + (result.custom ? 'custom' : 'region-' + String(result.region || '').toLowerCase());
 
-              const statusClass = result.success ? 'success' : 'failure';
-              const statusIcon = result.success ? '✅' : '❌';
+              const title = document.createElement('h4');
+              title.textContent = result.serverName;
+              if (result.custom) {
+                  const badge = document.createElement('span');
+                  badge.className = 'dns-badge';
+                  badge.textContent = I18N['dns.custom.badge'];
+                  title.appendChild(badge);
+              }
+              const latency = document.createElement('div');
+              latency.className = 'latency ' + (result.success ? 'success' : 'failure');
+              latency.textContent = result.latencyMs.toFixed(2) + ' ms ' + (result.success ? '✅' : '❌');
+              const meta = document.createElement('div');
+              meta.className = 'region';
+              meta.textContent = result.custom ? (result.region || '') : (result.region + ' • ' + result.provider);
+              const address = document.createElement('div');
+              address.style.cssText = 'font-size:0.8em;color:#6c757d;';
+              address.textContent = result.serverAddress;
 
-              card.innerHTML = `
-                  <h4>${result.serverName}</h4>
-                  <div class="latency ${statusClass}">${result.latencyMs.toFixed(2)} ms ${statusIcon}</div>
-                  <div class="region">${result.region} • ${result.provider}</div>
-                  <div style="font-size:0.8em;color:#6c757d;">${result.serverAddress}</div>
-              `;
+              card.append(title, latency, meta, address);
               container.appendChild(card);
           });
 

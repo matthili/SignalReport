@@ -113,3 +113,17 @@ input, select { background: var(--color-input-bg); color: var(--color-text); bor
 .reach-status.down { color: #fd7e14; }
 .reach-status.unknown { color: #6c757d; }
 .reach-meta { font-size: 0.82em; color: var(--color-text-secondary); margin-top: 4px; word-break: break-word; }
+
+/* DNS-Benchmark: eigene Server und mitgelieferte Liste */
+.dns-manage { background: var(--bg-card); padding: 20px; border-radius: 8px; margin-top: 25px; box-shadow: 0 2px 4px var(--color-shadow); }
+.dns-manage summary { cursor: pointer; font-weight: bold; font-size: 1.1em; }
+.dns-hint { color: var(--color-text-secondary); font-size: 0.9em; }
+.dns-custom-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+.dns-custom-form label { display: flex; flex-direction: column; gap: 4px; font-weight: bold; font-size: 0.9em; }
+.dns-custom-form input { padding: 8px; border-radius: 4px; font-weight: normal; }
+.dns-status { min-height: 1.2em; font-size: 0.9em; }
+.dns-status.error { color: #dc3545; }
+.dns-builtin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 15px; margin-top: 12px; }
+.dns-builtin-grid label { display: flex; align-items: center; gap: 8px; font-size: 0.85em; }
+.dns-card.custom { border-left: 4px solid var(--color-primary); }
+.dns-badge { display: inline-block; font-size: 0.7em; font-weight: normal; padding: 1px 7px; border-radius: 8px; background: var(--color-primary); color: white; margin-left: 6px; vertical-align: middle; }

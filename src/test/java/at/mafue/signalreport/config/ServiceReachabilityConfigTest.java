@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import at.mafue.signalreport.config.ServiceTarget.ServiceKind;
 
@@ -16,6 +17,11 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ServiceReachabilityConfigTest
 {
+    private static ServiceTarget byId(List<ServiceTarget> list, String id)
+    {
+        return list.stream().filter(t -> id.equals(t.getId())).findFirst().orElseThrow();
+    }
+
     @Test
     void testDefaultsDisabledAndSixHourInterval()
     {
@@ -23,18 +29,19 @@ class ServiceReachabilityConfigTest
         assertFalse(cfg.isEnabled(), "Feature muss standardmaessig deaktiviert sein");
         assertEquals(360, cfg.getIntervalMinutes(), "Standard-Takt muss 6 Stunden (360 min) sein");
         assertTrue(cfg.isUseControlSni(), "Kontroll-SNI-Test ist standardmaessig aktiv");
+        assertTrue(cfg.getServiceOverrides().isEmpty());
+        assertTrue(cfg.getCustomServices().isEmpty());
     }
 
     @Test
-    void testDefaultServiceListContainsKnownServicesAndControl()
+    void testDefaultServiceListComesFromCatalog()
     {
-        ServiceReachabilityConfig cfg = new ServiceReachabilityConfig();
-        List<ServiceTarget> services = cfg.getServices();
+        List<ServiceTarget> services = new ServiceReachabilityConfig().effectiveServices();
 
-        assertNotNull(services);
-        assertFalse(services.isEmpty(), "Standard-Dienstliste darf nicht leer sein");
-        assertTrue(services.stream().anyMatch(s -> "facebook".equals(s.getId())));
-        assertTrue(services.stream().anyMatch(s -> "whatsapp".equals(s.getId())));
+        assertEquals(BuiltinCatalog.services().size(), services.size());
+        assertTrue(byId(services, "facebook").isEnabled());
+        assertFalse(byId(services, "tiktok").isEnabled());
+        assertEquals(ServiceKind.MESSENGER, byId(services, "whatsapp").getKind());
         assertTrue(services.stream().anyMatch(s -> s.getKind() == ServiceKind.CONTROL),
                 "Es muss mindestens ein Referenz-Anker (CONTROL) vorhanden sein");
     }
@@ -102,8 +109,65 @@ class ServiceReachabilityConfigTest
         assertNotNull(c.getServiceReachability());
         assertFalse(c.getServiceReachability().isEnabled());
 
-        c.getServiceReachability().setServices(null);
-        assertNotNull(c.getServiceReachability().getServices(), "getServices darf nie null liefern");
+        c.getServiceReachability().setServiceOverrides(null);
+        c.getServiceReachability().setCustomServices(null);
+        assertNotNull(c.getServiceReachability().getServiceOverrides(), "getServiceOverrides darf nie null liefern");
+        assertNotNull(c.getServiceReachability().getCustomServices(), "getCustomServices darf nie null liefern");
+        assertFalse(c.getServiceReachability().effectiveServices().isEmpty());
+    }
+
+    @Test
+    void testSwitchStoresOnlyDeviationsFromDefault()
+    {
+        ServiceReachabilityConfig cfg = new ServiceReachabilityConfig();
+
+        cfg.applyServiceSwitch("facebook", false);   // Standard: ein
+        cfg.applyServiceSwitch("tiktok", true);      // Standard: aus
+        cfg.applyServiceSwitch("youtube", true);     // wie Standard: keine Abweichung
+        cfg.applyServiceSwitch("gibt-es-nicht", true);
+        assertEquals(Map.of("facebook", false, "tiktok", true), cfg.getServiceOverrides());
+
+        List<ServiceTarget> services = cfg.effectiveServices();
+        assertFalse(byId(services, "facebook").isEnabled());
+        assertTrue(byId(services, "tiktok").isEnabled());
+        assertTrue(byId(services, "youtube").isEnabled());
+
+        cfg.applyServiceSwitch("facebook", true);    // zurueck zum Standard: Abweichung entfaellt
+        assertEquals(Map.of("tiktok", true), cfg.getServiceOverrides());
+    }
+
+    @Test
+    void testAdoptLegacyServices()
+    {
+        ServiceReachabilityConfig cfg = new ServiceReachabilityConfig();
+        cfg.setLegacyServices(List.of(
+                new ServiceTarget("facebook", "Facebook", "facebook.com", ServiceKind.WEB, false),   // abweichend
+                new ServiceTarget("tiktok", "TikTok", "tiktok.com", ServiceKind.WEB, true),           // abweichend
+                new ServiceTarget("whatsapp", "WhatsApp", "web.whatsapp.com", ServiceKind.MESSENGER, true), // wie Standard
+                new ServiceTarget("orf", "ORF", "orf.at", ServiceKind.WEB, true),                      // eigener Dienst
+                new ServiceTarget("", "Ohne id", "x.example", ServiceKind.WEB, true)));                // verworfen
+
+        assertTrue(cfg.adoptLegacyServices());
+        assertEquals(Map.of("facebook", false, "tiktok", true), cfg.getServiceOverrides());
+        assertEquals(List.of("orf"), cfg.getCustomServices().stream().map(ServiceTarget::getId).toList());
+
+        List<ServiceTarget> services = cfg.effectiveServices();
+        assertEquals(BuiltinCatalog.services().size() + 1, services.size(),
+                "alle mitgelieferten Dienste, auch die in der alten Liste fehlenden, plus der eigene");
+        assertFalse(byId(services, "signal").isEnabled(), "in der alten Liste fehlender Dienst kommt mit seinem Standard");
+        assertTrue(byId(services, "orf").isEnabled());
+
+        assertFalse(cfg.adoptLegacyServices(), "nur einmal");
+    }
+
+    @Test
+    void testSwitchOfCustomService()
+    {
+        ServiceReachabilityConfig cfg = new ServiceReachabilityConfig();
+        cfg.setCustomServices(List.of(new ServiceTarget("orf", "ORF", "orf.at", ServiceKind.WEB, true)));
+        cfg.applyServiceSwitch("orf", false);
+        assertFalse(byId(cfg.effectiveServices(), "orf").isEnabled());
+        assertTrue(cfg.getServiceOverrides().isEmpty(), "eigene Dienste brauchen keine Abweichung");
     }
 
     @Test
@@ -114,15 +178,19 @@ class ServiceReachabilityConfigTest
         ServiceReachabilityConfig original = new ServiceReachabilityConfig();
         original.setEnabled(true);
         original.setIntervalMinutes(120);
+        original.applyServiceSwitch("tiktok", true);
+        original.setCustomServices(List.of(new ServiceTarget("signal-eigen", "Signal (eigen)", "signal.example", ServiceKind.MESSENGER, true)));
 
         String json = mapper.writeValueAsString(original);
+        assertFalse(json.contains("\"services\""), "die komplette Liste wird nicht mehr geschrieben: " + json);
         ServiceReachabilityConfig restored = mapper.readValue(json, ServiceReachabilityConfig.class);
 
         assertTrue(restored.isEnabled());
         assertEquals(120, restored.getIntervalMinutes());
-        assertFalse(restored.getServices().isEmpty());
-        assertEquals(original.getServices().size(), restored.getServices().size());
+        assertEquals(Map.of("tiktok", true), restored.getServiceOverrides());
+        assertEquals(original.effectiveServices().size(), restored.effectiveServices().size());
         // Enum-Werte muessen den JSON-Round-Trip ueberstehen
-        assertTrue(restored.getServices().stream().anyMatch(s -> s.getKind() == ServiceKind.CONTROL));
+        assertEquals(ServiceKind.MESSENGER, byId(restored.effectiveServices(), "signal-eigen").getKind());
+        assertTrue(restored.effectiveServices().stream().anyMatch(s -> s.getKind() == ServiceKind.CONTROL));
     }
 }

@@ -167,9 +167,9 @@ POST & \texttt{/api/dataprep/run-now} & Startet den vollen Lauf (Rückstand verd
 
 \subsection{DNS-Benchmark}
 
-Der DNS-Benchmark vergleicht die Antwortzeiten aller konfigurierten DNS-Server
-(über 30 weltweit) durch parallele Abfragen mittels Virtual Threads. Ein
-30-Sekunden-Cooldown verhindert übermäßige Belastung.
+Der DNS-Benchmark vergleicht die Antwortzeiten der mitgelieferten DNS-Server
+(über 50 weltweit) und der eigenen Server durch parallele Abfragen mittels Virtual
+Threads. Ein 30-Sekunden-Cooldown verhindert übermäßige Belastung.
 
 \begin{table}[h]
 \centering
@@ -178,14 +178,25 @@ Der DNS-Benchmark vergleicht die Antwortzeiten aller konfigurierten DNS-Server
 \hline
 \textbf{Methode} & \textbf{Pfad} & \textbf{Beschreibung} \\
 \hline
-GET & \texttt{/api/dns/servers} & Liste aller konfigurierten DNS-Server abrufen \\
+GET & \texttt{/api/dns/servers} & Server eines vollen Benchmarks: mitgelieferte ohne
+  abgewählte, dazu eingeschaltete eigene (Feld \texttt{custom}) \\
+\hline
+GET & \texttt{/api/dns/catalog} & Mitgelieferte Liste mit Abwahl-Status, eigene Server,
+  Obergrenze für eigene Server \\
+\hline
+POST & \texttt{/api/dns/settings} & Eigene Server und abgewählte mitgelieferte speichern.
+  Body: \texttt{customServers} (Name, IP-Adresse, Notiz, \texttt{enabled}),
+  \texttt{hiddenBuiltins} (Adressen). Ungültige Einträge (Hostname, Dublette, bereits
+  mitgeliefert, mehr als 50): 400 mit lesbarer Meldung \\
 \hline
 POST & \texttt{/api/dns/benchmark} & DNS-Benchmark starten.
-  Parameter: \texttt{hostname}.
-  Fragt alle DNS-Server parallel ab (Virtual Threads).
+  Parameter: \texttt{hostname}, \texttt{scope} (\texttt{all} = voller Lauf,
+  \texttt{custom} = alle eigenen Server).
+  Fragt die Server parallel ab (Virtual Threads).
   30-Sekunden-Cooldown. \\
 \hline
-GET & \texttt{/api/dns/statistics} & DNS-Statistik (Anzahl Server, Regionen, Provider) \\
+GET & \texttt{/api/dns/statistics} & DNS-Statistik (Anzahl Server, davon eigene,
+  Regionen und Provider der mitgelieferten) \\
 \hline
 \end{tabular}
 \caption{API-Endpunkte: DNS-Benchmark}

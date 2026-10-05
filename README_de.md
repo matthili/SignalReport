@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-210%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.2.1-blue" alt="Version 2.2.1">
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-230%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version 2.3.0">
 </p>
 
 <p align="center">
@@ -29,14 +29,14 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 |-----------|------------|
 | **Monitoring** | 🔁 Kontinuierliche Messung (Ping/DNS/HTTP + Gateways)<br>🧪 Der HTTP-Test bewertet die Leitung, nicht die Website: jede Server-Antwort zählt als erreichbar, nur Timeout und Verbindungsfehler schlagen fehl (der Grund steht im Log)<br>⏱️ Konfigurierbares Intervall (5s–1h, Standard 30s)<br>⏸️ Maintenance-Fenster (Router-Updates)<br>🌐 IP-Tracking (externe IP-Änderungen erkennen) |
 | **Störungs-Lokalisierung & Zuverlässigkeit** | 🛰️ Router vs. Internet-Gateway vs. Provider lokalisieren (Traceroute-Gateway-Kette)<br>🐳 virtuelle-Gateway-Erkennung in VM/Docker<br>📈 Verfügbarkeit, Abdeckung, MTBF & MTTR (lückenbewusst)<br>📉 aggregierte Verbindungsausfälle, einzeln aus der Wertung nehmbar |
-| **Dienst-Erreichbarkeit** | 🚫 Erkennt, ob Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder **gesperrt** sind — unterscheidet DNS- / TCP- / SNI- / Sperrseiten-Filterung<br>🕒 Eigener langsamer Takt (Standard 6 h), Leitungs-gated, **standardmäßig aus**<br>📅 Sperr-/Störungs-Timeline je Dienst im PDF-Bericht |
+| **Dienst-Erreichbarkeit** | 🚫 Erkennt, ob Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder **gesperrt** sind — unterscheidet DNS- / TCP- / SNI- / Sperrseiten-Filterung<br>🕒 Eigener langsamer Takt (Standard 6 h), Leitungs-gated, **standardmäßig aus**<br>📅 Sperr-/Störungs-Timeline je Dienst im PDF-Bericht<br>📋 Die Dienstliste kommt mit dem Programm und wächst mit jedem Update; deine Ein/Aus-Schalter bleiben erhalten |
 | **Visualisierung** | 📊 Live-Charts mit Chart.js<br>📋 Mess-Tabelle pro Messzyklus (aufklappbar)<br>🌡️ Heatmap pro Stunde (aus den verdichteten Stundenwerten)<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
 | **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate; Zeiträume über 7 Tage werden aus den Stundenwerten gerechnet und sind auch bei Jahren an Daten in Sekunden fertig)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen (in langen Berichten: schlechteste Stunden)<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export: Zeitraum gefiltert, alle Rohdaten als ZIP (gestreamt), Stundenwerte als CSV |
 | **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
 | **Datensicherheit** | 🛟 Twin-Datenbank (gespiegelte Schreibvorgänge)<br>🩺 Selbstheilung: Trifft ein Lesezugriff auf eine defekte Seite, weicht er auf den Zwilling aus und merkt einen Neuaufbau vor; der Neuaufbau vereinigt beide Dateien in eine frische, kompakte Datenbank (automatisch beim nächsten Start oder auf Wunsch per `dbrebuild.bat` / `dbrebuild.sh`)<br>⚡ Eine Transaktion pro Messrunde, laufende H2-Hintergrund-Kompaktierung<br>🛑 Geordneter Stopp (`signalreport.jar stop`, vom Windows-Dienst genutzt) schließt beide Datenbanken sauber |
 | **Daten-Aufbereitung** | 🗜️ Stundenverdichtung: Anzahl, Min / Durchschnitt / Median / 95. Perzentil / Max und Jitter je Stunde, Typ und Ziel (`measurement_hourly`)<br>🧹 Aufbewahrung: unauffällige Rohmessungen, die älter als 90 Tage sind (einstellbar, 0 = nie), werden entfernt; fehlgeschlagene Messungen, das jeweilige Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben immer erhalten<br>🕒 Aufwendige Schritte nur im Zeitfenster (Standard 03:00–05:00 oder im Maintenance-Fenster); der leichte Stundenschritt läuft laufend; „Jetzt ausführen"-Knopf mit Fortschritt und Status in den Einstellungen<br>🧵 Läuft auf eigenen Datenbankverbindungen mit kurzen Pausen, Messungen und Web-Oberfläche warten nie dahinter |
 | **Mehrsprachigkeit** | 🌐 9 Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Gilt für Web-UI, PDF-Berichte und CSV-Exporte<br>🎛️ Sprachwahl im Setup-Wizard und in den Einstellungen<br>📂 Erweiterbar ohne Neukompilieren: eigene Sprachdatei in `./lang/` ablegen |
-| **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark (Server weltweit)<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
+| **Konfiguration** | ⚙️ Dynamische Messziele (Ping/DNS/HTTP)<br>🌍 DNS-Benchmark: mitgelieferte Liste öffentlicher Resolver weltweit, mit jedem Update aktualisiert; mitgelieferte Server lassen sich abwählen<br>🧪 Eigene DNS-Server (z. B. Router oder Provider), wahlweise im großen Lauf oder einzeln mit „Nur eigene testen"<br>👤 Benutzer-Info (Provider/Kundennummer für Berichte) |
 
 ---
 
@@ -193,7 +193,7 @@ signalreport/
 │   ├── RebuildCommand.java               # "signalreport.jar rebuild-db": baut die Datenbank aus Primary + Shadow neu auf
 │   ├── ServiceReachabilityScheduler.java # Langsamer Dienst-Erreichbarkeits-Lauf + Leitungs-Gate
 │   ├── DataPrepScheduler.java            # Daten-Aufbereitung im Hintergrund: Stundenverdichtung, Rückstand + Aufbewahrung im Zeitfenster
-│   ├── config/                           # Schlankes Config + eine Datei je Bereich (Measurement, Gateway, ServiceReachability, DataPrep, …)
+│   ├── config/                           # Schlankes Config + eine Datei je Bereich (Measurement, Gateway, ServiceReachability, DataPrep, DnsBenchmark, …), BuiltinCatalog
 │   ├── measurement/                      # Measurer-Interface + Ping/Dns/Http, Measurement, DnsBenchmark
 │   ├── network/                          # GatewayDiscovery (Traceroute), ServiceReachabilityProbe, NetworkInfo, HostIdentifier
 │   ├── storage/                          # H2MeasurementRepository (Twin-DB, Shadow-Fallback), RollupService (Stundenwerte + Aufbewahrung), DatabaseRebuilder + DTOs
@@ -203,9 +203,10 @@ signalreport/
 │   │   └── api/                          #   12 Routen-Registrare (Measurement, Reliability, ServiceReachability, Settings, DataPrep, System, …)
 │   ├── i18n/                             # I18n (9 Sprachen, erweiterbar)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 29 Testklassen, 210 Tests (spiegeln die Pakete oben)
+├── src/test/java/at/mafue/signalreport/  # 32 Testklassen, 230 Tests (spiegeln die Pakete oben)
 ├── src/main/resources/web/               # Statische Assets: app.css, app.js, Logos, Favicons
 ├── src/main/resources/lang/              # Sprachdateien (de, en, fr, it, es, pt, tr, pl, uk)
+├── src/main/resources/catalog/           # Mitgelieferte Listen: DNS-Server und Dienste (mit jedem Update aktualisiert)
 ├── src/main/resources/fonts/             # DejaVu-Schriften für PDF (Unicode/Kyrillisch)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)

@@ -223,6 +223,32 @@ Aufbewahrungstage, Status, „Jetzt ausführen" mit 5 Minuten Abkühlphase;
 `GET /api/dataprep/status`, `POST /api/dataprep/run-now`). `DatabaseRebuilder` übernimmt
 `measurement_hourly` und `rollup_state` in die neu aufgebaute Datenbank.
 
+## Mitgelieferte Listen und eigene Einstellungen
+
+Zwei Listen gehören zum Programm und nicht zur Konfiguration einer Installation: die
+DNS-Server des Benchmarks und die Dienste der Erreichbarkeitsprüfung. Seit 2.3.0 liegen sie
+als JSON-Dateien im Programm (`/catalog/dns-servers.json`, `/catalog/services.json`, gelesen
+von `BuiltinCatalog`) und werden nie in `config.json` geschrieben. Jedes Update bringt damit
+neue, korrigierte und gestrichene Einträge automatisch mit. In `config.json` steht nur, was
+der Nutzer davon abweichend festlegt:
+
+- **DNS-Benchmark** (`dnsBenchmark`): eigene DNS-Server (Name, IP-Adresse, Notiz, Schalter
+  „im Benchmark") und die abgewählten mitgelieferten Server. Ein voller Lauf prüft die
+  mitgelieferten Server ohne die abgewählten und die eingeschalteten eigenen; „Nur eigene
+  testen" prüft alle eigenen. Angenommen werden nur IP-Adressen, keine Hostnamen. Die Prüfung
+  löst nie per DNS auf: IPv4 muss einem strengen Muster entsprechen, IPv6 wird in eckigen
+  Klammern geparst, und `InetAddress.getAllByName` behandelt beides laut JDK-Quelltext nur
+  als Literal.
+- **Dienst-Erreichbarkeit** (`serviceReachability.serviceOverrides`): nur die Schalter, die
+  vom mitgelieferten Standard abweichen. Neue Dienste eines Updates erscheinen mit ihrem
+  Standard-Schalter.
+
+Bis 2.2.1 wurden beide Listen beim ersten Start komplett in `config.json` geschrieben;
+Ergänzungen im Code erreichten bestehende Installationen deshalb nie. Beim Laden einer
+solchen Datei überführt `Config.migrateLegacyLists()` sie einmalig: DNS-Einträge, die nicht
+mitgeliefert sind, werden eigene Server, abweichende Dienst-Schalter werden gemerkte
+Abweichungen, und `config.json` wird im neuen Format geschrieben. Es geht nichts verloren.
+
 ## Internationalisierung (i18n)
 
 Die gesamte Präsentationsschicht – Web-Oberfläche, Login- und Setup-Seite,

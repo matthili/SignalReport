@@ -43,6 +43,19 @@ public class ServiceTarget
         this.enabled = enabled;
     }
 
+    /** Kopie (die mitgelieferte Liste wird nie direkt herausgegeben). */
+    public ServiceTarget(ServiceTarget other)
+    {
+        this.id = other.id;
+        this.displayName = other.displayName;
+        this.domain = other.domain;
+        this.port = other.port;
+        this.kind = other.kind;
+        this.expectedOwner = other.expectedOwner;
+        this.contentFingerprint = other.contentFingerprint;
+        this.enabled = other.enabled;
+    }
+
     public String getId()
     {
         return id;

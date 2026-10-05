@@ -213,6 +213,30 @@ retention days, status, "Run now" with a 5-minute cooldown; `GET /api/dataprep/s
 `POST /api/dataprep/run-now`). `DatabaseRebuilder` carries `measurement_hourly` and
 `rollup_state` over into the rebuilt database.
 
+## Built-in lists and user settings
+
+Two lists belong to the program, not to the configuration of an installation: the DNS
+servers of the benchmark and the services of the reachability check. Since 2.3.0 they live
+as JSON files inside the program (`/catalog/dns-servers.json`, `/catalog/services.json`,
+read by `BuiltinCatalog`) and are never written to `config.json`. Every update therefore
+brings new, corrected and removed entries automatically. `config.json` only holds what the
+user sets differently:
+
+- **DNS benchmark** (`dnsBenchmark`): own DNS servers (name, IP address, note, "in benchmark"
+  switch) and the built-in servers the user unchecked. A full run tests the built-in servers
+  minus the unchecked ones plus the switched-on own servers; "Test own only" tests all own
+  servers. Only IP addresses are accepted, no host names. The check never resolves via DNS:
+  IPv4 must match a strict pattern, IPv6 is parsed in square brackets, and according to the
+  JDK source `InetAddress.getAllByName` treats both as literals only.
+- **Service reachability** (`serviceReachability.serviceOverrides`): only the switches that
+  differ from the built-in default. New services of an update appear with their default.
+
+Up to 2.2.1 both lists were written completely into `config.json` on the first start, so
+additions in the code never reached existing installations. When such a file is loaded,
+`Config.migrateLegacyLists()` converts it once: DNS entries that are not built in become own
+servers, service switches that differ from the default become remembered deviations, and
+`config.json` is rewritten in the new format. Nothing is lost.
+
 ## Internationalisation (i18n)
 
 The entire presentation layer – web interface, login and setup pages, PDF

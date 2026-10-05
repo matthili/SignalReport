@@ -18,14 +18,17 @@ SignalReport/
 │   │   │   ├── GatewayConfig.java        # Gateway chain (near/far, manual IP, options)
 │   │   │   ├── DatabaseConfig.java       # Twin-database settings
 │   │   │   ├── WebserverConfig.java      # Web server settings (port, …)
-│   │   │   ├── DnsServer.java            # DNS server entry (benchmark)
+│   │   │   ├── DnsServer.java            # DNS server entry for a benchmark run (built-in or own)
+│   │   │   ├── BuiltinCatalog.java       # Built-in lists from /catalog/*.json (DNS servers, services), never written to config.json
+│   │   │   ├── DnsBenchmarkConfig.java   # User part of the DNS benchmark: own servers, unchecked built-ins, address check without DNS
+│   │   │   ├── CustomDnsServer.java      # One own DNS server (name, IP address, note, "in benchmark" switch)
 │   │   │   ├── MaintenanceWindow.java    # Scheduled maintenance window
 │   │   │   ├── UserInfo.java             # User/account data
 │   │   │   ├── AuthConfig.java           # Authentication settings
 │   │   │   ├── PushConfig.java           # Push notification settings
 │   │   │   ├── SetupConfig.java          # Setup-wizard state
 │   │   │   ├── ThemeConfig.java          # Theme (dark mode)
-│   │   │   ├── ServiceReachabilityConfig.java  # Service-reachability settings (enabled, interval, service list)
+│   │   │   ├── ServiceReachabilityConfig.java  # Service-reachability settings (enabled, interval, switches that differ from the built-in list)
 │   │   │   ├── ServiceTarget.java        # One monitored service (domain, kind, enabled)
 │   │   │   └── DataPrepConfig.java       # Data-preparation settings (time window, maintenance-window option, retention days)
 │   │   ├── measurement/                  # Measurement engine (strategy pattern)
@@ -85,18 +88,19 @@ SignalReport/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (29 classes, 210 tests + 4 opt-in smoke)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (32 classes, 230 tests + 4 opt-in smoke)
 │   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, once-per-day decision, full run + progress, manual run cooldown, non-blocking while a run is active)
-│   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8), DataPrepConfigTest (10, window incl. midnight, maintenance option, retention clamp, JSON)
+│   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (11, catalog defaults, switches as deviations, migration), DataPrepConfigTest (10, window incl. midnight, maintenance option, retention clamp, JSON), BuiltinCatalogTest (4, built-in lists valid and unique), DnsBenchmarkConfigTest (8, address check without DNS, run composition, validation, migration)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, any response counts as reachable, refused connection fails, failure reasons)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
 │   │   ├── storage/       # H2MeasurementRepositoryTest (13, incl. side channel), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker/hourly values), RollupServiceTest (12, hourly statistics, watermark, progress, repeatability, retention rules)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 months from hourly values)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin), api/DnsRoutesTest (5, catalog, own servers, validation, own-only run without network)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker
 │       ├── lang/                         # Language files (de, en, fr, it, es, pt, tr, pl, uk)
+│       ├── catalog/                      # Built-in lists: dns-servers.json, services.json (updated with every release)
 │       └── fonts/                        # DejaVu fonts for the PDF (Unicode/Cyrillic)
 ├── docs/
 │   ├── diagrams/                         # PlantUML diagrams (.puml + .png)

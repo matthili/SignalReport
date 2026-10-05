@@ -826,7 +826,7 @@ public class PdfReportGenerator
             }
 
         List<ServiceTarget> active = new ArrayList<>();
-        for (ServiceTarget t : cfg.getServices())
+        for (ServiceTarget t : cfg.effectiveServices())
             {
             if (t.isEnabled()) active.add(t);
             }

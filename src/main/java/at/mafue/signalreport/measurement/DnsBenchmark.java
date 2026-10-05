@@ -89,7 +89,8 @@ public class DnsBenchmark
                     server.getProvider(),
                     hostname,
                     latency,
-                    success
+                    success,
+                    server.isCustom()
             );
             } catch (Exception e)
             {
@@ -103,7 +104,8 @@ public class DnsBenchmark
                     server.getProvider(),
                     hostname,
                     latency,
-                    false
+                    false,
+                    server.isCustom()
             );
             }
     }
@@ -117,9 +119,16 @@ public class DnsBenchmark
         private final String hostname;
         private final double latencyMs;
         private final boolean success;
+        private final boolean custom;
 
         public DnsResult(String serverName, String serverAddress, String region,
                          String provider, String hostname, double latencyMs, boolean success)
+        {
+            this(serverName, serverAddress, region, provider, hostname, latencyMs, success, false);
+        }
+
+        public DnsResult(String serverName, String serverAddress, String region,
+                         String provider, String hostname, double latencyMs, boolean success, boolean custom)
         {
             this.serverName = serverName;
             this.serverAddress = serverAddress;
@@ -128,6 +137,7 @@ public class DnsBenchmark
             this.hostname = hostname;
             this.latencyMs = latencyMs;
             this.success = success;
+            this.custom = custom;
         }
 
         // Getter
@@ -164,6 +174,12 @@ public class DnsBenchmark
         public boolean isSuccess()
         {
             return success;
+        }
+
+        /** true = eigener Server des Nutzers (in der Oberflaeche markiert). */
+        public boolean isCustom()
+        {
+            return custom;
         }
     }
 }

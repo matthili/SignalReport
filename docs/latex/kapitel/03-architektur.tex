@@ -274,6 +274,32 @@ Maintenance-Fenster, Aufbewahrungstage, Status, \enquote{Jetzt ausführen} mit f
 Abkühlphase). \texttt{DatabaseRebuilder} übernimmt \texttt{measurement\_hourly} und
 \texttt{rollup\_state} in die neu aufgebaute Datenbank.
 
+\subsection{Mitgelieferte Listen und eigene Einstellungen}
+\label{subsec:catalog}
+
+Zwei Listen gehören zum Programm und nicht zur Konfiguration einer Installation: die
+DNS-Server des Benchmarks und die Dienste der Erreichbarkeitsprüfung. Sie liegen als
+JSON-Dateien im Programm (\texttt{BuiltinCatalog}) und werden nie in \texttt{config.json}
+geschrieben. Jedes Update bringt damit neue, korrigierte und gestrichene Einträge automatisch
+mit. In \texttt{config.json} steht nur, was der Nutzer davon abweichend festlegt:
+
+\begin{itemize}
+  \item \textbf{DNS-Benchmark} (\texttt{dnsBenchmark}): eigene DNS-Server mit Name, IP-Adresse,
+    Notiz und dem Schalter \enquote{im Benchmark} sowie die abgewählten mitgelieferten Server.
+    Ein voller Lauf prüft die mitgelieferten Server ohne die abgewählten und die eingeschalteten
+    eigenen; \enquote{Nur eigene testen} prüft alle eigenen. Angenommen werden nur IP-Adressen,
+    keine Hostnamen. Die Prüfung löst nie per DNS auf: IPv4 muss einem strengen Muster
+    entsprechen, IPv6 wird in eckigen Klammern geparst, und \texttt{InetAddress.getAllByName}
+    behandelt beides laut JDK-Quelltext nur als Literal.
+  \item \textbf{Dienst-Erreichbarkeit} (\texttt{serviceReachability.serviceOverrides}): nur die
+    Schalter, die vom mitgelieferten Standard abweichen. Neue Dienste eines Updates erscheinen
+    mit ihrem Standard-Schalter.
+\end{itemize}
+
+Ältere \texttt{config.json}-Dateien mit den kompletten Listen werden beim ersten Laden
+überführt: DNS-Einträge, die nicht mitgeliefert sind, werden eigene Server; Dienst-Schalter,
+die vom Standard abweichen, werden gemerkte Abweichungen. Es geht nichts verloren.
+
 \subsection{Internationalisierung (i18n)}
 \label{subsec:i18n}
 

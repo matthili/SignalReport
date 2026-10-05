@@ -18,14 +18,17 @@ SignalReport/
 │   │   │   ├── GatewayConfig.java        # Gateway-Kette (nah/fern, manuelle IP, Optionen)
 │   │   │   ├── DatabaseConfig.java       # Twin-Datenbank-Einstellungen
 │   │   │   ├── WebserverConfig.java      # Webserver-Einstellungen (Port, …)
-│   │   │   ├── DnsServer.java            # DNS-Server-Eintrag (Benchmark)
+│   │   │   ├── DnsServer.java            # DNS-Server-Eintrag für einen Benchmark-Lauf (mitgeliefert oder eigen)
+│   │   │   ├── BuiltinCatalog.java       # Mitgelieferte Listen aus /catalog/*.json (DNS-Server, Dienste), nie in config.json
+│   │   │   ├── DnsBenchmarkConfig.java   # Nutzer-Teil des DNS-Benchmarks: eigene Server, abgewählte mitgelieferte, Adressprüfung ohne DNS
+│   │   │   ├── CustomDnsServer.java      # Ein eigener DNS-Server (Name, IP-Adresse, Notiz, Schalter „im Benchmark“)
 │   │   │   ├── MaintenanceWindow.java    # Geplantes Wartungsfenster
 │   │   │   ├── UserInfo.java             # Benutzer-/Kontodaten
 │   │   │   ├── AuthConfig.java           # Authentifizierungs-Einstellungen
 │   │   │   ├── PushConfig.java           # Push-Benachrichtigungs-Einstellungen
 │   │   │   ├── SetupConfig.java          # Zustand des Setup-Wizards
 │   │   │   ├── ThemeConfig.java          # Design (Dark Mode)
-│   │   │   ├── ServiceReachabilityConfig.java  # Dienst-Erreichbarkeits-Einstellungen (aktiv, Intervall, Dienstliste)
+│   │   │   ├── ServiceReachabilityConfig.java  # Dienst-Erreichbarkeits-Einstellungen (aktiv, Intervall, vom Standard abweichende Schalter)
 │   │   │   ├── ServiceTarget.java        # Ein überwachter Dienst (Domain, Art, aktiv)
 │   │   │   └── DataPrepConfig.java       # Einstellungen der Daten-Aufbereitung (Zeitfenster, Option Maintenance-Fenster, Aufbewahrungstage)
 │   │   ├── measurement/                  # Mess-Engine (Strategy-Pattern)
@@ -85,18 +88,19 @@ SignalReport/
 │   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
-│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (29 Klassen, 210 Tests + 4 opt-in Smoke)
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (32 Klassen, 230 Tests + 4 opt-in Smoke)
 │   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, Einmal-pro-Tag-Entscheidung, voller Lauf + Fortschritt, Abkühlphase des manuellen Starts, keine Blockade während eines Laufs)
-│   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (8), DataPrepConfigTest (10, Fenster inkl. Mitternacht, Maintenance-Option, Begrenzung der Aufbewahrung, JSON)
+│   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (11, Standard aus der Liste, Schalter als Abweichung, Übernahme), DataPrepConfigTest (10, Fenster inkl. Mitternacht, Maintenance-Option, Begrenzung der Aufbewahrung, JSON), BuiltinCatalogTest (4, mitgelieferte Listen gültig und eindeutig), DnsBenchmarkConfigTest (8, Adressprüfung ohne DNS, Zusammenstellung, Prüfung, Übernahme)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, jede Antwort zählt als erreichbar, verweigerte Verbindung schlägt fehl, Fehlergründe)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (Netz, opt-in)
 │   │   ├── storage/       # H2MeasurementRepositoryTest (13, inkl. Nebenkanal), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, Vereinigung/Fallback/Tausch/Marker/Stundenwerte), RollupServiceTest (12, Stundenstatistik, Wasserstandsmarke, Fortschritt, Wiederholbarkeit, Aufbewahrungsregeln)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 Monate aus Stundenwerten)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, gestreamtes CSV, ZIP, Stunden-CSV gegen echten Javalin)
+│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, gestreamtes CSV, ZIP, Stunden-CSV gegen echten Javalin), api/DnsRoutesTest (5, Katalog, eigene Server, Prüfung, Nur-eigene-Lauf ohne Netz)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Statische Dateien: app.css, app.js, Logos, Favicons, Service Worker
 │       ├── lang/                         # Sprachdateien (de, en, fr, it, es, pt, tr, pl, uk)
+│       ├── catalog/                      # Mitgelieferte Listen: dns-servers.json, services.json (mit jedem Update aktualisiert)
 │       └── fonts/                        # DejaVu-Schriften für PDF (Unicode/Kyrillisch)
 ├── docs/
 │   ├── diagrams/                         # PlantUML-Diagramme (.puml + .png)

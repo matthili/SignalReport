@@ -211,7 +211,7 @@ public class Config {
     private SetupConfig setup;
     private AuthConfig auth;
     private ThemeConfig theme;  // Dark Mode
-    private List<DnsServer> dnsServers;
+    private DnsBenchmarkConfig dnsBenchmark;  // nur eigener Teil (2.3.0)
 
     public static String hashPassword(String password) {
         // SHA-256 Hashing -- zentral, nicht dupliziert
@@ -221,6 +221,17 @@ public class Config {
 
 Die Persistenz erfolgt über Jackson JSON-Serialisierung in \texttt{config.json}.
 Änderungen über die Web-UI werden sofort gespeichert.
+
+\paragraph{Mitgelieferte Listen.} Die DNS-Server des Benchmarks und die Dienste der
+Erreichbarkeitsprüfung liegen seit Version 2.3.0 als JSON-Dateien im Programm
+(\texttt{/catalog/dns-servers.json}, \texttt{/catalog/services.json}, gelesen von
+\texttt{BuiltinCatalog}) und nicht mehr in \texttt{config.json}. Dort steht nur der eigene Teil:
+eigene DNS-Server, abgewählte mitgelieferte Server und die Dienst-Schalter, die vom Standard
+abweichen (Abschnitt \ref{subsec:catalog}). Bis 2.2.1 wurden beide Listen beim ersten Start
+komplett in \texttt{config.json} geschrieben; Ergänzungen im Code erreichten bestehende
+Installationen deshalb nie. Beim ersten Laden einer solchen Datei überführt
+\texttt{Config.migrateLegacyLists()} die alten Listen und schreibt \texttt{config.json} im
+neuen Format.
 
 \subsection{Datenbank-Schema}
 

@@ -1,5 +1,6 @@
 package at.mafue.signalreport.web.api;
 
+import at.mafue.signalreport.config.BuiltinCatalog;
 import at.mafue.signalreport.config.Config;
 import at.mafue.signalreport.config.ServiceReachabilityConfig;
 import at.mafue.signalreport.config.ServiceTarget;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.LongSupplier;
 
 /**
@@ -42,7 +44,7 @@ public class ServiceReachabilityRoutes
             ServiceReachabilityConfig cfg = Config.getInstance().getServiceReachability();
 
             List<Map<String, Object>> services = new ArrayList<>();
-            for (ServiceTarget t : cfg.getServices())
+            for (ServiceTarget t : cfg.effectiveServices())
                 {
                 if (!t.isEnabled())
                     {
@@ -116,15 +118,17 @@ public class ServiceReachabilityRoutes
         try
             {
             ServiceReachabilityConfig cfg = Config.getInstance().getServiceReachability();
+            Set<String> builtinIds = BuiltinCatalog.servicesById().keySet();
             List<Map<String, Object>> services = new ArrayList<>();
-            for (ServiceTarget t : cfg.getServices())
+            for (ServiceTarget t : cfg.effectiveServices())
                 {
                 services.add(Map.of(
                         "id", t.getId(),
                         "displayName", t.getDisplayName(),
                         "domain", t.getDomain(),
                         "kind", t.getKind().name(),
-                        "enabled", t.isEnabled()
+                        "enabled", t.isEnabled(),
+                        "builtin", builtinIds.contains(t.getId())
                 ));
                 }
             ctx.json(Map.of(
@@ -165,7 +169,8 @@ public class ServiceReachabilityRoutes
                 cfg.setUseControlSni(Boolean.parseBoolean(body.get("useControlSni").toString()));
                 }
 
-            // Pro-Dienst: nur das enabled-Flag anhand der id uebernehmen (Domain/Kind bleiben).
+            // Pro-Dienst-Schalter anhand der id: bei mitgelieferten Diensten wird nur die Abweichung
+            // vom Standard gemerkt, damit kuenftige Aenderungen der Liste ankommen.
             if (body.get("services") instanceof List<?> incoming)
                 {
                 for (Object o : incoming)
@@ -176,13 +181,7 @@ public class ServiceReachabilityRoutes
                         }
                     String id = sm.get("id").toString();
                     boolean enabled = sm.get("enabled") != null && Boolean.parseBoolean(sm.get("enabled").toString());
-                    for (ServiceTarget t : cfg.getServices())
-                        {
-                        if (t.getId().equals(id))
-                            {
-                            t.setEnabled(enabled);
-                            }
-                        }
+                    cfg.applyServiceSwitch(id, enabled);
                     }
                 }
 

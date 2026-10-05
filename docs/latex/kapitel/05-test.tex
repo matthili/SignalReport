@@ -28,7 +28,9 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{GatewayDiscoveryTest} (15 Tests): Traceroute-Parsing, RFC-1918-Klassifizierung, Gateway-Kette (nah/fern), Erkennung virtueller Gateways (Docker-Bridge, VM-NAT) und Überspringen der Docker-Bridge
     \item \textbf{ConnectivityAssessmentTest} (8 Tests): Schuld-Verdikt (Router / Internet-Gateway / Internet) auf Basis des Paketverlusts je Segment
     \item \textbf{ReliabilityReportTest} (13 Tests): lückenbewusste Verfügbarkeit/Abdeckung/MTBF/MTTR, Aggregation aufeinanderfolgender Fehlmessungen zu einem Ausfall, Ausschluss via \texttt{excluded}-Spalte, Auswertung aus Stundenwerten (\texttt{computeFromAggregates}) deckungsgleich mit der Rohdaten-Rechnung
-    \item \textbf{ServiceReachabilityConfigTest} (8 Tests): Defaults (deaktiviert, 6-Stunden-Takt), Intervall-Grenzen, Pro-Dienst-Schalter, JSON-Round-Trip
+    \item \textbf{ServiceReachabilityConfigTest} (11 Tests): Defaults (deaktiviert, 6-Stunden-Takt), Dienstliste aus der mitgelieferten Liste, Intervall-Grenzen, Pro-Dienst-Schalter als Abweichung vom Standard, Übernahme alter Listen, eigene Dienste, JSON-Round-Trip ohne komplette Liste
+    \item \textbf{BuiltinCatalogTest} (4 Tests): mitgelieferte DNS- und Dienstliste vollständig lesbar, nur gültige IP-Adressen ohne Dubletten, eindeutige Dienst-ids, Herausgabe als Kopie
+    \item \textbf{DnsBenchmarkConfigTest} (8 Tests): Adressprüfung ohne DNS-Auflösung (IPv4, IPv6, Hostnamen, Zonen, Sonderadressen), Zusammenstellung für vollen Lauf und \enquote{Nur eigene testen}, Prüfung neuer Einträge mit Altbestand, Übernahme alter \texttt{config.json}-Dateien
     \item \textbf{ServiceReachabilityAssessmentTest} (15 Tests): Verdikt-Klassifizierung (erreichbar / Dienst-Störung / DNS-, TCP-, SNI-Sperre / Sperrseite) aus synthetischen Beobachtungen
     \item \textbf{ServiceReachabilityReportTest} (4 Tests): Verdichtung der Prüfungen zu Episoden (die Sperr-/Störungs-Timeline)
     \item \textbf{ServiceReachabilitySchedulerTest} (5 Tests): Leitungs-Gate-Entscheidung (nur erfolgreiche PING-/HTTP-Messungen zählen als Internet-Beleg)
@@ -42,6 +44,7 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{DataPrepSchedulerTest} (5 Tests): Entscheidung \enquote{voller Lauf einmal pro Tag im Fenster}, Obergrenze außerhalb des Fensters, voller Lauf gegen echte H2-Datei inkl.\ Status und Fortschritt, manueller Start mit Abkühlphase, sofortige Abweisung eines zweiten Starts während ein Lauf aktiv ist (keine blockierende Sperre)
     \item \textbf{RollupServiceTest} (12 Tests): Stundenstatistik ohne DB (Min/Ø/Median/P95/Max/Jitter; Fehlschläge und ausgenommene Messungen), Verdichtung nur abgeschlossener Stunden, Wasserstandsmarke und Stundenlimit, ausstehende Stunden und Fortschrittsmeldung, Wiederholbarkeit (\texttt{MERGE}), Heatmap aus Stundenwerten plus Rohrest, Aufbewahrungsregel (Funde, Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben; nur verdichtete Stunden; Tageslimit pro Lauf)
     \item \textbf{ExportRoutesTest} (7 Tests): gestreamter CSV-Export, Typfilter, Parameterfehler, \enquote{alle Daten} als ZIP mit genau einer CSV-Datei, Stundenwerte-CSV (gegen echten Javalin-Server), CSV-Escaping und Zeilenformat
+    \item \textbf{DnsRoutesTest} (5 Tests): DNS-Endpunkte gegen echten Javalin-Server mit eigener Konfiguration -- Katalog, Speichern eigener Server und abgewählter mitgelieferter, lesbare Ablehnung eines Hostnamens, fehlerhafter Anfrage-Körper, \enquote{Nur eigene testen} ohne eigene Server (ohne Netzverkehr)
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2-Datenbankdateien unter \texttt{data/test-*} für Integrationstests) und sind in wenigen Sekunden durchführbar.
@@ -74,15 +77,15 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 \textbf{Testkategorie} & \textbf{Anzahl} & \textbf{Erfolgsquote} \\
 \hline
-Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, DataPrepConfig, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand, DataPrepScheduler-Entscheidung) & 150 & 100\% \\
+Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, DataPrepConfig, BuiltinCatalog, DnsBenchmarkConfig, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand, DataPrepScheduler-Entscheidung) & 165 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, HttpMeasurer, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, StopCommand) & 60 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, HttpMeasurer, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, DnsRoutes, StopCommand) & 65 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
 Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung 24\,h und 12 Monate) & 4 & -- \\
 \hline
-\textbf{Gesamt} & \textbf{210 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{230 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}

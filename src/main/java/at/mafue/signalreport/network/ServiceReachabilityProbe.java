@@ -96,7 +96,7 @@ public class ServiceReachabilityProbe
     public List<ServiceReachabilityResult> probeAll(ServiceReachabilityConfig cfg)
     {
         List<ServiceTarget> active = new ArrayList<>();
-        for (ServiceTarget t : cfg.getServices())
+        for (ServiceTarget t : cfg.effectiveServices())
             {
             if (t.isEnabled())
                 {

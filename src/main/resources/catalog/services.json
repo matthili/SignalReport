@@ -1,0 +1,15 @@
+[
+  { "id": "facebook", "displayName": "Facebook", "domain": "facebook.com", "kind": "WEB", "enabled": true },
+  { "id": "instagram", "displayName": "Instagram", "domain": "instagram.com", "kind": "WEB", "enabled": true },
+  { "id": "x", "displayName": "X (Twitter)", "domain": "x.com", "kind": "WEB", "enabled": true },
+  { "id": "youtube", "displayName": "YouTube", "domain": "youtube.com", "kind": "WEB", "enabled": true },
+  { "id": "wikipedia", "displayName": "Wikipedia", "domain": "wikipedia.org", "kind": "WEB", "enabled": true },
+  { "id": "tiktok", "displayName": "TikTok", "domain": "tiktok.com", "kind": "WEB", "enabled": false },
+  { "id": "reddit", "displayName": "Reddit", "domain": "reddit.com", "kind": "WEB", "enabled": false },
+  { "id": "bluesky", "displayName": "Bluesky", "domain": "bsky.app", "kind": "WEB", "enabled": false },
+  { "id": "mastodon", "displayName": "Mastodon (mastodon.social)", "domain": "mastodon.social", "kind": "WEB", "enabled": false },
+  { "id": "whatsapp", "displayName": "WhatsApp", "domain": "web.whatsapp.com", "kind": "MESSENGER", "enabled": true },
+  { "id": "telegram", "displayName": "Telegram", "domain": "web.telegram.org", "kind": "MESSENGER", "enabled": false },
+  { "id": "signal", "displayName": "Signal", "domain": "signal.org", "kind": "MESSENGER", "enabled": false },
+  { "id": "control-example", "displayName": "Referenz (example.com)", "domain": "example.com", "kind": "CONTROL", "enabled": true }
+]

@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -114,12 +115,17 @@ class ConfigTest
     @Test
     void testDnsServers()
     {
-        assertNotNull(config.getDnsServers());
-        assertFalse(config.getDnsServers().isEmpty());
-        assertEquals("Cloudflare", config.getDnsServers().get(0).getName());
-        assertEquals("1.1.1.1", config.getDnsServers().get(0).getAddress());
-        assertEquals("Nordamerika", config.getDnsServers().get(0).getRegion());
-        assertEquals("Cloudflare", config.getDnsServers().get(0).getProvider());
+        // Die Testdatei hat noch das alte Format (komplette DNS-Liste, bis 2.2.1) mit einem Server,
+        // der heute mitgeliefert wird: Er wird beim Laden erkannt und nicht als eigener Server
+        // uebernommen; der Benchmark nutzt die mitgelieferte Liste.
+        assertNotNull(config.getDnsBenchmark());
+        assertTrue(config.getDnsBenchmark().getCustomServers().isEmpty());
+        List<DnsServer> servers = config.getDnsBenchmark().serversFor(DnsBenchmarkConfig.Scope.ALL);
+        assertEquals(BuiltinCatalog.dnsServers().size(), servers.size());
+        DnsServer cloudflare = servers.stream().filter(s -> "1.1.1.1".equals(s.getAddress())).findFirst().orElseThrow();
+        assertEquals("Cloudflare Primary", cloudflare.getName());
+        assertEquals("Cloudflare", cloudflare.getProvider());
+        assertFalse(cloudflare.isCustom());
     }
 
     @Test

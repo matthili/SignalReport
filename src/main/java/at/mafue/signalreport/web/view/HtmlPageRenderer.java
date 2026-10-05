@@ -147,7 +147,8 @@ public class HtmlPageRenderer
                         <p>{{dns.description}}</p>
 
                         <div class="button-group">
-                            <button class="btn btn-success" onclick="runDnsBenchmark()">🚀 {{dns.runBenchmark}}</button>
+                            <button class="btn btn-success" onclick="runDnsBenchmark('all')">🚀 {{dns.runBenchmark}}</button>
+                            <button class="btn btn-secondary" onclick="runDnsBenchmark('custom')">🧪 {{dns.runCustom}}</button>
                             <select id="dnsHostname" style="padding: 10px; border-radius: 5px;">
                                 <option value="google.com">google.com</option>
                                 <option value="example.com">example.com</option>
@@ -158,6 +159,26 @@ public class HtmlPageRenderer
 
                         <div id="dnsResults" class="dns-grid"></div>
                         <p id="dnsLoading" style="text-align:center; margin-top:20px;">{{dns.clickToRun}}</p>
+
+                        <div class="dns-manage">
+                            <h3>🧪 {{dns.custom.title}}</h3>
+                            <p class="dns-hint">{{dns.custom.description}}</p>
+                            <div class="dns-custom-form">
+                                <label>{{dns.custom.name}}<input type="text" id="dns-custom-name" maxlength="80"></label>
+                                <label>{{dns.custom.address}}<input type="text" id="dns-custom-address" maxlength="45" placeholder="192.168.1.1"></label>
+                                <label>{{dns.custom.note}}<input type="text" id="dns-custom-note" maxlength="120"></label>
+                                <button type="button" class="btn btn-secondary" onclick="addCustomDnsServer()">➕ {{dns.custom.add}}</button>
+                            </div>
+                            <p id="dns-custom-status" class="dns-status"></p>
+                            <div id="dns-custom-list"></div>
+                        </div>
+
+                        <details class="dns-manage">
+                            <summary>📋 {{dns.builtin.title}} <span id="dns-builtin-count"></span></summary>
+                            <p class="dns-hint">{{dns.builtin.description}}</p>
+                            <button type="button" class="btn btn-secondary" onclick="selectAllBuiltinDns()">✅ {{dns.builtin.selectAll}}</button>
+                            <div id="dns-builtin-list" class="dns-builtin-grid"></div>
+                        </details>
                     </div>
 
                     <div id="hosts" class="tab-content">
