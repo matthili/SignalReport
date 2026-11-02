@@ -12,7 +12,7 @@ Die Teststrategie umfasste:
 \end{itemize}
 
 \subsection{JUnit-Testabdeckung}
-SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufenden Tests -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 168 Tests (zuzüglich zweier netz- bzw.\ PDF-gebundener Smoke-Klassen, die per Umgebungsvariable aktivierbar sind) decken folgende Bereiche ab:
+SignalReport wurde mit JUnit 5 umfassend getestet. Die 32 Testklassen mit laufenden Tests -- in Paketen, die die Quellstruktur spiegeln (\texttt{config}, \texttt{measurement}, \texttt{network}, \texttt{storage}, \texttt{report}, \texttt{web}, \texttt{i18n}) -- mit insgesamt 245 Tests (zuzüglich zweier netz- bzw.\ PDF-gebundener Smoke-Klassen, die per Umgebungsvariable aktivierbar sind) decken folgende Bereiche ab:
 
 \begin{itemize}
     \item \textbf{MeasurementTest} (5 Tests): Grundlegende Objekt-Erstellung und Validierung
@@ -45,6 +45,8 @@ SignalReport wurde mit JUnit 5 umfassend getestet. Die 22 Testklassen mit laufen
     \item \textbf{RollupServiceTest} (12 Tests): Stundenstatistik ohne DB (Min/Ø/Median/P95/Max/Jitter; Fehlschläge und ausgenommene Messungen), Verdichtung nur abgeschlossener Stunden, Wasserstandsmarke und Stundenlimit, ausstehende Stunden und Fortschrittsmeldung, Wiederholbarkeit (\texttt{MERGE}), Heatmap aus Stundenwerten plus Rohrest, Aufbewahrungsregel (Funde, Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben; nur verdichtete Stunden; Tageslimit pro Lauf)
     \item \textbf{ExportRoutesTest} (7 Tests): gestreamter CSV-Export, Typfilter, Parameterfehler, \enquote{alle Daten} als ZIP mit genau einer CSV-Datei, Stundenwerte-CSV (gegen echten Javalin-Server), CSV-Escaping und Zeilenformat
     \item \textbf{DnsRoutesTest} (5 Tests): DNS-Endpunkte gegen echten Javalin-Server mit eigener Konfiguration -- Katalog, Speichern eigener Server und abgewählter mitgelieferter, lesbare Ablehnung eines Hostnamens, fehlerhafter Anfrage-Körper, \enquote{Nur eigene testen} ohne eigene Server (ohne Netzverkehr)
+    \item \textbf{AccessControlTest} (10 Tests): Rollenprüfung gegen echten Javalin-Server -- eine User-Session erhält auf jedem Admin-Endpunkt 403 mit übersetzter Meldung (der Handler läuft nicht), eine Admin-Session 200, ohne Authentifizierung ist alles erlaubt, ohne Session gibt es 401; die Rolle stammt aus dem echten Challenge-Response-Login; ein Schrägstrich am Ende und der Header \texttt{X-HTTP-Method-Override} umgehen die Prüfung nicht; ohne gemerkte Rolle gilt niemand als Admin; jede schreibende Route des \texttt{WebServer} ist entweder Admin-only oder ausdrücklich freigegeben
+    \item \textbf{SetupRoutesTest} (5 Tests): Einrichtung nur einmal -- ein erneuter Abschluss wird unabhängig vom Inhalt mit 403 abgelehnt und ändert keine Passwörter, vor dem Abschluss prüft der Endpunkt wie bisher, \texttt{/setup} leitet danach zur Hauptseite um, ohne die Sprache umzustellen (gegen echten Javalin-Server)
 \end{itemize}
 
 Alle Tests laufen ohne externe Abhängigkeiten (H2-Datenbankdateien unter \texttt{data/test-*} für Integrationstests) und sind in wenigen Sekunden durchführbar.
@@ -79,13 +81,13 @@ void testP95CalculationWithSortedLatencies() {
 \hline
 Unit-Tests (Measurement, HostIdentifier, Config, Measurer, MaintenanceWindow, DataPrepConfig, BuiltinCatalog, DnsBenchmarkConfig, SessionManager, I18n, GatewayDiscovery, ConnectivityAssessment, ReliabilityReport, ServiceReachabilityConfig, ServiceReachabilityAssessment, ServiceReachabilityReport, ServiceReachabilityScheduler, RebuildCommand, DataPrepScheduler-Entscheidung) & 165 & 100\% \\
 \hline
-Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, HttpMeasurer, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, DnsRoutes, StopCommand) & 65 & 100\% \\
+Integrationstests (Statistics, H2MeasurementRepository, ServiceCheckRepository, DatabaseRebuilder, RollupService, DataPrepScheduler, HttpMeasurer, ServiceReachabilityRoutes, SystemRoutes, ExportRoutes, DnsRoutes, StopCommand, AccessControl, SetupRoutes) & 80 & 100\% \\
 \hline
 E2E-Tests (manuell: Web-UI, PDF-Export, CSV-Export) & 5 & 100\% \\
 \hline
 Smoke-Tests (opt-in: Netz-Probe, PDF-Erzeugung 24\,h und 12 Monate) & 4 & -- \\
 \hline
-\textbf{Gesamt} & \textbf{230 + 5} & \textbf{100\%} \\
+\textbf{Gesamt} & \textbf{245 + 5} & \textbf{100\%} \\
 \hline
 \end{tabular}
 \caption{Testergebnisse}
@@ -110,5 +112,5 @@ SignalReport verwendet eine gezielte Test-Strategie:
     \item \textbf{Kernfunktionalität priorisiert}: Tests fokussieren auf kritische Geschäftslogik (Statistik-Berechnung, IP-Tracking, Measurer-Polymorphie), nicht auf Debug-Hilfen wie \texttt{toString()}
     \item \textbf{Realistische Szenarien}: Tests simulieren echte Nutzung (z. B. IP-Wechsel mit korrekter Zeitreihen-Sortierung, Wartungsfenster über Mitternacht)
     \item \textbf{Wartbarkeit}: Tests vermeiden fragile Assertions (z. B. exakte String-Formate) zugunsten stabiler, aussagekräftiger Prüfungen
-    \item \textbf{100\% Bestehensquote}: Alle 168 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
+    \item \textbf{100\% Bestehensquote}: Alle 245 automatisierten Tests laufen reproduzierbar grün -- nachweisbare Qualität für die Prüfung
 \end{itemize}

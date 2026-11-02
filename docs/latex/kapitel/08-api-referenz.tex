@@ -26,7 +26,11 @@ curl -X POST http://localhost:4567/api/auth/login \
 curl -b "SR_SESSION=abc123..." http://localhost:4567/api/measurements
 \end{lstlisting}
 
-Schreibende Endpunkte (POST) erfordern Admin-Rechte (Admin-Session).
+Bei aktivierter Authentifizierung dürfen die mit \textbf{(nur Admin)} markierten Endpunkte
+nur mit einer Admin-Session aufgerufen werden; eine User-Session erhält 403 mit einer
+übersetzten Meldung (Abschnitt \ref{subsec:rollen}). Lesende Endpunkte, Berichte, Exporte,
+DNS-Benchmark, \enquote{Jetzt prüfen} und das Theme stehen auch User-Sessions offen. Ohne
+Authentifizierung ist alles erlaubt.
 
 \subsection{Messdaten}
 
@@ -81,7 +85,7 @@ GET & \texttt{/api/connectivity} & Störungs-Lokalisierung: vergleicht nahen/fer
 GET & \texttt{/api/reliability} & Lückenbewusste Kennzahlen.
   Parameter: \texttt{hours}. Liefert Verfügbarkeit, Abdeckung, MTBF, MTTR und die aggregierte Ausfallliste \\
 \hline
-POST & \texttt{/api/outages/exclude} & Ausfallfenster aus der Wertung nehmen bzw.\ wieder aufnehmen.
+POST & \texttt{/api/outages/exclude} & \textbf{(nur Admin)} Ausfallfenster aus der Wertung nehmen bzw.\ wieder aufnehmen.
   Body: \texttt{\{fromEpoch, toEpoch, excluded\}} (setzt die DB-Spalte \texttt{excluded}) \\
 \hline
 \end{tabular}
@@ -107,7 +111,7 @@ GET & \texttt{/api/services/history} & Episoden (Zustandswechsel) eines Dienstes
 \hline
 GET & \texttt{/api/services/settings} & Einstellungen abrufen: Hauptschalter, Intervall, Kontroll-SNI, vollständige Dienstliste \\
 \hline
-POST & \texttt{/api/services/settings} & Einstellungen speichern.
+POST & \texttt{/api/services/settings} & \textbf{(nur Admin)} Einstellungen speichern.
   Body: \texttt{\{enabled, intervalMinutes, useControlSni, services:[\{id, enabled\}]\}} \\
 \hline
 POST & \texttt{/api/services/check-now} & Sofortige Prüfung auslösen.
@@ -157,7 +161,7 @@ GET & \texttt{/api/dataprep/status} & Konfiguration und Zustand der Daten-Aufber
   letzter Lauf (Beginn/Ende), verdichtete Stunden, gelöschte Rohzeilen, letzter Fehler,
   Stand der Stundenwerte, Anzahl Roh- und Stundenzeilen, ausstehende Stunden \\
 \hline
-POST & \texttt{/api/dataprep/run-now} & Startet den vollen Lauf (Rückstand verdichten,
+POST & \texttt{/api/dataprep/run-now} & \textbf{(nur Admin)} Startet den vollen Lauf (Rückstand verdichten,
   Aufbewahrung anwenden) sofort im Hintergrund.
   Antwort: \texttt{\{started, cooldownRemainingSeconds\}}; Abkühlphase 5 Minuten \\
 \hline
@@ -184,7 +188,7 @@ GET & \texttt{/api/dns/servers} & Server eines vollen Benchmarks: mitgelieferte 
 GET & \texttt{/api/dns/catalog} & Mitgelieferte Liste mit Abwahl-Status, eigene Server,
   Obergrenze für eigene Server \\
 \hline
-POST & \texttt{/api/dns/settings} & Eigene Server und abgewählte mitgelieferte speichern.
+POST & \texttt{/api/dns/settings} & \textbf{(nur Admin)} Eigene Server und abgewählte mitgelieferte speichern.
   Body: \texttt{customServers} (Name, IP-Adresse, Notiz, \texttt{enabled}),
   \texttt{hiddenBuiltins} (Adressen). Ungültige Einträge (Hostname, Dublette, bereits
   mitgeliefert, mehr als 50): 400 mit lesbarer Meldung \\
@@ -245,11 +249,11 @@ persistiert. Änderungen werden sofort wirksam, ohne Neustart.
 GET & \texttt{/api/config/current} & Aktuelle Konfiguration abrufen
   (Messziele, Intervall, Maintenance, Benutzer-Info, Gateway-Objekt inkl.\ \texttt{virtualSuspected}, Sprache) \\
 \hline
-POST & \texttt{/api/config/update} & Konfiguration aktualisieren.
+POST & \texttt{/api/config/update} & \textbf{(nur Admin)} Konfiguration aktualisieren.
   Body: JSON mit ping, dns, http, intervalSeconds, maintenance, userInfo sowie \texttt{gateway}
   (nearManual, near, nearPersistent, farManual, far, farPersistent, farPingEnabled) \\
 \hline
-POST & \texttt{/api/config/language} & UI-Sprache umstellen. Body: \texttt{\{language\}} (ISO-Code) \\
+POST & \texttt{/api/config/language} & \textbf{(nur Admin)} UI-Sprache umstellen. Body: \texttt{\{language\}} (ISO-Code) \\
 \hline
 GET & \texttt{/api/theme/settings} & Theme-Einstellungen abrufen \\
 \hline
@@ -287,7 +291,8 @@ GET & \texttt{/api/auth/status} & Auth-Status abfragen (aktiviert/deaktiviert) \
 GET & \texttt{/api/setup/status} & Status der Ersteinrichtung abfragen (abgeschlossen: ja/nein) \\
 \hline
 POST & \texttt{/api/setup/complete} & Ersteinrichtung abschließen.
-  Body: \texttt{\{adminPasswordHash, enableAuth, userPasswordHash\}} \\
+  Body: \texttt{\{adminPasswordHash, enableAuth, userPasswordHash\}}.
+  Nur bis zum Abschluss der Einrichtung, danach 403 \\
 \hline
 POST & \texttt{/api/auth/enable} & Auth aktivieren (Challenge-Response + User-Passwort-Hash) \\
 \hline
@@ -315,7 +320,7 @@ Messungen fehlschlagen.
 \hline
 GET & \texttt{/api/push/settings} & Push-Einstellungen abrufen \\
 \hline
-POST & \texttt{/api/push/settings} & Push-Einstellungen ändern
+POST & \texttt{/api/push/settings} & \textbf{(nur Admin)} Push-Einstellungen ändern
   (Schwellwert, Anzahl) \\
 \hline
 \end{tabular}
@@ -333,7 +338,9 @@ POST & \texttt{/api/push/settings} & Push-Einstellungen ändern
 200 & Erfolgreiche Anfrage \\
 302 & Weiterleitung (z.\,B.\ zum Setup) \\
 401 & Authentifizierung erforderlich oder fehlgeschlagen \\
-403 & Keine Berechtigung (z.\,B.\ User versucht Admin-Aktion) \\
+403 & Keine Berechtigung: User-Session ruft einen Admin-Endpunkt auf, Einrichtung bereits
+  abgeschlossen (\texttt{/api/setup/complete}) oder falsches Admin-Passwort bei den
+  Auth-Aktionen \\
 500 & Interner Serverfehler (Details im Response-Body) \\
 \hline
 \end{tabular}

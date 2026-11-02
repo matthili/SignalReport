@@ -183,11 +183,12 @@ function renderOutageDetails() {
     const panel = document.getElementById('outage-details');
     const list = window._outages || [];
     if (list.length === 0) { panel.innerHTML = '<em>' + I18N['outages.none'] + '</em>'; return; }
+    // Aus der Wertung nehmen darf nur der Admin: fuer User keine Knopf-Spalte
     let html = '<table style="margin-top:0;"><thead><tr>'
         + '<th>' + I18N['outages.start'] + '</th>'
         + '<th>' + I18N['outages.end'] + '</th>'
         + '<th>' + I18N['outages.duration'] + '</th>'
-        + '<th></th></tr></thead><tbody>';
+        + (IS_ADMIN ? '<th></th>' : '') + '</tr></thead><tbody>';
     list.forEach(o => {
         const start = new Date(o.fromEpoch * 1000).toLocaleString(LOCALE);
         const end = new Date(o.toEpoch * 1000).toLocaleString(LOCALE);
@@ -195,10 +196,13 @@ function renderOutageDetails() {
         const btnLabel = o.excluded ? I18N['outages.include'] : I18N['outages.exclude'];
         const badge = o.excluded ? ' <span style="color:var(--color-text-secondary);">(' + I18N['outages.excludedBadge'] + ')</span>' : '';
         html += '<tr' + rowStyle + '><td>' + start + '</td><td>' + end + '</td>'
-            + '<td>' + fmtDuration(o.durationSeconds) + badge + '</td>'
-            + '<td><button onclick="excludeOutage(' + o.fromEpoch + ',' + o.toEpoch + ',' + (!o.excluded) + ')" '
-            + 'style="padding:4px 10px; border:1px solid var(--color-border); border-radius:4px; cursor:pointer; background:var(--bg-card); color:var(--color-text);">'
-            + btnLabel + '</button></td></tr>';
+            + '<td>' + fmtDuration(o.durationSeconds) + badge + '</td>';
+        if (IS_ADMIN) {
+            html += '<td><button onclick="excludeOutage(' + o.fromEpoch + ',' + o.toEpoch + ',' + (!o.excluded) + ')" '
+                + 'style="padding:4px 10px; border:1px solid var(--color-border); border-radius:4px; cursor:pointer; background:var(--bg-card); color:var(--color-text);">'
+                + btnLabel + '</button></td>';
+        }
+        html += '</tr>';
     });
     html += '</tbody></table>';
     panel.innerHTML = html;
@@ -210,8 +214,20 @@ function excludeOutage(fromEpoch, toEpoch, excluded) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromEpoch: fromEpoch, toEpoch: toEpoch, excluded: excluded })
     })
+    .then(checkResponse)
     .then(() => loadReliability())
-    .catch(error => console.error('Ausschluss-Fehler:', error));
+    .catch(error => alert('❌ ' + error.message));
+}
+
+// Antwort pruefen: bei Fehler (z. B. 403 "nur Admin") die Meldung des Servers weiterreichen
+// (Klartext oder das Feld "error" einer JSON-Fehlerantwort)
+async function checkResponse(response) {
+    if (!response.ok) {
+        let text = await response.text();
+        try { text = JSON.parse(text).error || text; } catch (e) { /* Klartext */ }
+        throw new Error(text || ('HTTP ' + response.status));
+    }
+    return response;
 }
 
 // Dienst-Erreichbarkeit: Verdikt -> UI-Zustand (Farbe/Icon)
@@ -642,10 +658,15 @@ function saveDnsSettings(customServers, hiddenBuiltins) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customServers: customServers, hiddenBuiltins: hiddenBuiltins })
     })
-    .then(response => response.json().then(data => ({ ok: response.ok, data: data })))
+    .then(response => response.text().then(text => {
+        // Fehler kommen als JSON ({error}) oder als Klartext (z. B. 403 "nur Admin")
+        let data = null;
+        try { data = JSON.parse(text); } catch (e) { /* Klartext */ }
+        return { ok: response.ok, data: data, text: text };
+    }))
     .then(res => {
         if (!res.ok) {
-            showDnsStatus('❌ ' + (res.data.error || I18N['common.error']), true);
+            showDnsStatus('❌ ' + ((res.data && res.data.error) || res.text || I18N['common.error']), true);
             renderDnsCatalog();   // Anzeige auf den gespeicherten Stand zuruecksetzen
             return false;
         }
@@ -950,8 +971,12 @@ function changeLanguage(language) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language: language })
     })
+    .then(checkResponse)
     .then(() => location.reload())
-    .catch(error => console.error('Sprach-Wechsel-Fehler:', error));
+    .catch(error => {
+        alert('❌ ' + error.message);
+        document.getElementById('config-language').value = LOCALE;
+    });
 }
 
 // Maintenance-Checkbox Toggle
@@ -1003,6 +1028,7 @@ function runDataPrepNow() {
     const out = document.getElementById('dataprep-run-result');
     btn.disabled = true;
     fetch('/api/dataprep/run-now', { method: 'POST' })
+        .then(checkResponse)
         .then(response => response.json())
         .then(res => {
             out.textContent = res.started
@@ -1133,14 +1159,14 @@ function saveConfig() {
         services: Array.from(document.querySelectorAll('.reach-svc')).map(cb => ({ id: cb.dataset.id, enabled: cb.checked }))
     };
 
-    // Zuerst Haupt-Konfiguration speichern
+    // Zuerst Haupt-Konfiguration speichern (ein Fehler, z. B. 403 fuer User, bricht die Kette ab)
     fetch('/api/config/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
     })
-    .then(response => response.text())
-    .then(message => {
+    .then(checkResponse)
+    .then(() => {
         // Dann Push-Konfiguration speichern
         return fetch('/api/push/settings', {
             method: 'POST',
@@ -1148,8 +1174,8 @@ function saveConfig() {
             body: JSON.stringify(pushConfig)
         });
     })
-    .then(response => response.text())
-    .then(message => {
+    .then(checkResponse)
+    .then(() => {
         // Dann Dienst-Erreichbarkeits-Einstellungen speichern
         return fetch('/api/services/settings', {
             method: 'POST',
@@ -1157,8 +1183,8 @@ function saveConfig() {
             body: JSON.stringify(reachConfig)
         });
     })
-    .then(response => response.text())
-    .then(message => {
+    .then(checkResponse)
+    .then(() => {
         statusDiv.style.background = '#778899';
         statusDiv.textContent = '✅ ' + I18N['settings.saved'];
         setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);

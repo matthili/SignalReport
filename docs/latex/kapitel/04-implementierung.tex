@@ -89,18 +89,23 @@ Verantwortlichkeiten zu wahren, wurde das HTML-Rendering in eigenständige Klass
 ausgelagert:
 
 \begin{description}
-  \item[WebServer] (ca.\ 140 Zeilen) -- Orchestrator: richtet Javalin ein, installiert zwei
-    \texttt{before}-Filter (Setup- und Auth-Gating) und delegiert die Routen an die neun
+  \item[WebServer] (ca.\ 130 Zeilen) -- Orchestrator: richtet Javalin ein, installiert den
+    \texttt{before}-Filter für das Setup-Gating, überlässt Anmeldepflicht und Admin-Prüfung
+    der Klasse \texttt{AccessControl} und delegiert die Routen an die zwölf
     Registrar-Klassen im Paket \texttt{web.api} (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
     \texttt{ReliabilityRoutes}, \dots), die je eine statische \texttt{register(app, \dots)}-Methode
     bereitstellen.
-  \item[web.view-Renderer] -- \texttt{HtmlPageRenderer} (ca.\ 490 Zeilen) generiert die
+  \item[AccessControl] (ca.\ 140 Zeilen) -- Anmeldepflicht per Session-Cookie und die Liste
+    der Admin-only-Endpunkte mit je einem \texttt{before}-Filter am Pfad der Route; eine
+    User-Session erhält dort 403 (siehe Abschnitt \ref{subsec:rollen}).
+  \item[web.view-Renderer] -- \texttt{HtmlPageRenderer} (ca.\ 590 Zeilen) generiert die
     Hauptseite, \texttt{SetupPageRenderer} den Setup-Assistenten und \texttt{LoginPageRenderer}
     die Login-Seite. Das umfangreiche CSS und JavaScript wurde aus dem \texttt{HtmlPageRenderer}
     in statische Ressourcen (\texttt{app.css}, \texttt{app.js}) ausgelagert; im Renderer
     verbleiben die HTML-Struktur mit \texttt{\{\{key\}\}}-Platzhaltern und ein kleines
     Inline-Skript mit den server-injizierten Globals (\texttt{I18N}, \texttt{LOCALE},
-    \texttt{GW\_LABELS}).
+    \texttt{GW\_LABELS}, \texttt{IS\_ADMIN}). Die Hauptseite wird mit der Rolle der Session
+    gerendert: Für User sind die Einstellungen gesperrt und Admin-Knöpfe ausgeblendet.
   \item[SessionManager] (ca.\ 140 Zeilen) -- Verwaltet Nonces (Single-Use, 60\,s TTL),
     Sessions (24\,h Timeout) und verifiziert Challenge-Responses.
 \end{description}
@@ -169,7 +174,9 @@ Die kryptografischen Operationen im Browser werden über die Web Crypto API
 in der Netzwerkkommunikation enthalten.
 
 Die Session-Verwaltung erfolgt über die Klasse \texttt{SessionManager}, die
-Nonces und Sessions in \texttt{ConcurrentHashMap}-Instanzen verwaltet.
+Nonces und Sessions in \texttt{ConcurrentHashMap}-Instanzen verwaltet. Jede Session trägt
+die Rolle aus dem Login (\texttt{admin} oder \texttt{user}); welche Endpunkte nur der Admin
+aufrufen darf, entscheidet \texttt{AccessControl} (Abschnitt \ref{subsec:rollen}).
 
 \subsection{PDF-Export}
 

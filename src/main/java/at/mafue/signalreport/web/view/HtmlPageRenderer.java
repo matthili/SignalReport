@@ -8,10 +8,16 @@ import at.mafue.signalreport.network.GatewayDiscovery;
 
 public class HtmlPageRenderer
 {
-    public String render()
+    /**
+     * @param admin false fuer eine User-Session: Einstellungen nur lesbar (gesperrtes fieldset),
+     *              Admin-Knoepfe ausgeblendet (CSS-Klasse role-user), Hinweis eingeblendet.
+     *              Die eigentliche Pruefung macht der Server (AccessControl).
+     */
+    public String render(boolean admin)
     {
         boolean darkMode = Config.getInstance().getTheme().isDarkMode();
-        String bodyClass = darkMode ? " class=\"dark-mode\"" : "";
+        String classes = ((darkMode ? "dark-mode " : "") + (admin ? "" : "role-user")).trim();
+        String bodyClass = classes.isEmpty() ? "" : " class=\"" + classes + "\"";
         String html = """
                 <!DOCTYPE html>
                 <html lang="__LOCALE__">
@@ -160,14 +166,16 @@ public class HtmlPageRenderer
                         <div id="dnsResults" class="dns-grid"></div>
                         <p id="dnsLoading" style="text-align:center; margin-top:20px;">{{dns.clickToRun}}</p>
 
+                        <fieldset class="settings-form"__SETTINGS_DISABLED__>
                         <div class="dns-manage">
                             <h3>🧪 {{dns.custom.title}}</h3>
                             <p class="dns-hint">{{dns.custom.description}}</p>
+                            <div class="role-hint user-only">🔒 {{role.settingsReadOnly}}</div>
                             <div class="dns-custom-form">
                                 <label>{{dns.custom.name}}<input type="text" id="dns-custom-name" maxlength="80"></label>
                                 <label>{{dns.custom.address}}<input type="text" id="dns-custom-address" maxlength="45" placeholder="192.168.1.1"></label>
                                 <label>{{dns.custom.note}}<input type="text" id="dns-custom-note" maxlength="120"></label>
-                                <button type="button" class="btn btn-secondary" onclick="addCustomDnsServer()">➕ {{dns.custom.add}}</button>
+                                <button type="button" class="btn btn-secondary admin-only" onclick="addCustomDnsServer()">➕ {{dns.custom.add}}</button>
                             </div>
                             <p id="dns-custom-status" class="dns-status"></p>
                             <div id="dns-custom-list"></div>
@@ -176,9 +184,10 @@ public class HtmlPageRenderer
                         <details class="dns-manage">
                             <summary>📋 {{dns.builtin.title}} <span id="dns-builtin-count"></span></summary>
                             <p class="dns-hint">{{dns.builtin.description}}</p>
-                            <button type="button" class="btn btn-secondary" onclick="selectAllBuiltinDns()">✅ {{dns.builtin.selectAll}}</button>
+                            <button type="button" class="btn btn-secondary admin-only" onclick="selectAllBuiltinDns()">✅ {{dns.builtin.selectAll}}</button>
                             <div id="dns-builtin-list" class="dns-builtin-grid"></div>
                         </details>
+                        </fieldset>
                     </div>
 
                     <div id="hosts" class="tab-content">
@@ -257,8 +266,9 @@ public class HtmlPageRenderer
                             <h3>{{security.auth}}</h3>
 
                             <div id="auth-status" style="margin-bottom:20px; padding:15px; border-radius:8px;"></div>
+                            <div class="role-hint user-only">🔒 {{role.securityAdminOnly}}</div>
 
-                            <div id="auth-enable-section" style="display:none;">
+                            <div id="auth-enable-section" class="admin-only" style="display:none;">
                                 <h4>🔐 {{security.enableTitle}}</h4>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                     <div>
@@ -273,7 +283,7 @@ public class HtmlPageRenderer
                                 <button onclick="enableAuth()" style="margin-top:20px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold;">🔐 {{security.enable}}</button>
                             </div>
 
-                            <div id="auth-disable-section" style="display:none;">
+                            <div id="auth-disable-section" class="admin-only" style="display:none;">
                                 <h4>🔓 {{security.disableTitle}}</h4>
                                 <div style="margin-top:15px;">
                                     <label style="display:block; margin-bottom:5px; font-weight:bold;">{{security.adminPasswordConfirm}}</label>
@@ -282,7 +292,7 @@ public class HtmlPageRenderer
                                 <button onclick="disableAuth()" style="margin-top:15px; padding:10px 20px; background:#dc3545; color:white; border:none; border-radius:5px; font-weight:bold;">🔓 {{security.disable}}</button>
                             </div>
 
-                            <div style="margin-top:30px; padding-top:20px; border-top:2px solid #e9ecef;">
+                            <div class="admin-only" style="margin-top:30px; padding-top:20px; border-top:2px solid #e9ecef;">
                                 <h4>🔐 {{security.changeAdminTitle}}</h4>
                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
                                     <div>
@@ -302,7 +312,9 @@ public class HtmlPageRenderer
                     <div id="settings" class="tab-content">
                         <h2>⚙️ {{settings.title}}</h2>
                         <p>{{settings.description}}</p>
+                        <div class="role-hint user-only">🔒 {{role.settingsReadOnly}}</div>
 
+                        <fieldset id="settings-form" class="settings-form"__SETTINGS_DISABLED__>
                         <div style="background:var(--bg-card); padding:20px; border-radius:8px; margin:20px 0;">
                             <h3>📍 {{settings.targetsTitle}}</h3>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:15px;">
@@ -478,7 +490,7 @@ public class HtmlPageRenderer
                                     </div>
                                 </div>
                                 <div style="margin-top:15px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                                    <button type="button" id="dataprep-run-now" class="btn btn-secondary" style="padding:6px 12px;" onclick="runDataPrepNow()">▶️ {{dataprep.runNow}}</button>
+                                    <button type="button" id="dataprep-run-now" class="btn btn-secondary admin-only" style="padding:6px 12px;" onclick="runDataPrepNow()">▶️ {{dataprep.runNow}}</button>
                                     <span id="dataprep-run-result" style="font-size:0.9em;"></span>
                                 </div>
                                 <div id="dataprep-status" style="margin-top:12px; font-size:0.9em; color:var(--color-text-secondary);"></div>
@@ -547,8 +559,9 @@ public class HtmlPageRenderer
                                 __LANG_OPTIONS__
                             </select>
                         </div>
+                        </fieldset>
 
-                        <button onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                        <button class="admin-only" onclick="saveConfig()" style="margin-top:20px; padding:12px 24px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
                             💾 {{settings.save}}
                         </button>
                         <div id="config-status" style="margin-top:10px; padding:10px; border-radius:4px; display:none;"></div>
@@ -561,10 +574,11 @@ public class HtmlPageRenderer
                     """;
         html += """
                     <script>
-                        // Uebersetzungen, Locale und Gateway-Labels (vom Server eingebettet)
+                        // Uebersetzungen, Locale, Gateway-Labels und Rolle (vom Server eingebettet)
                         const I18N = __I18N_JSON__;
                         const LOCALE = '__LOCALE__';
                         const GW_LABELS = __GW_LABELS_JSON__;
+                        const IS_ADMIN = __IS_ADMIN__;
                     </script>
                     <script src="/app.js"></script>
                 </body>
@@ -574,7 +588,9 @@ public class HtmlPageRenderer
         html = html.replace("__I18N_JSON__", I18n.activeAsJson())
                 .replace("__LANG_OPTIONS__", I18n.languageOptionsHtml())
                 .replace("__LOCALE__", I18n.current())
-                .replace("__GW_LABELS_JSON__", gatewayLabelsJson());
+                .replace("__GW_LABELS_JSON__", gatewayLabelsJson())
+                .replace("__IS_ADMIN__", String.valueOf(admin))
+                .replace("__SETTINGS_DISABLED__", admin ? "" : " disabled");
         return I18n.resolve(html);
     }
 

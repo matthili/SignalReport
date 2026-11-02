@@ -28,7 +28,8 @@
 │  │   └── PdfReportGenerator (OpenPDF,       │
 │  │         DejaVu font embedded)            │
 │  ├── web/ WebServer (orchestrator)          │
-│  │   ├── setup/auth gating filters          │
+│  │   ├── setup gating filter                │
+│  │   ├── AccessControl (login + admin only) │
 │  │   ├── api/ (12 route registrars)         │
 │  │   ├── view/ (Html/Setup/Login renderer)  │
 │  │   └── SessionManager                     │
@@ -68,12 +69,14 @@ assessment and the PDF generator), `web`
 and `notification`. `SignalReportApp` is the entry point and runs the continuous
 measurement loop.
 
-The `web.WebServer` acts as an orchestrator: it sets up Javalin, installs two
-`before` filters (setup gating and authentication gating) and then calls the
-static `register(app, …deps)` method of each of the ten route registrars in
-`web.api` (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
-`ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`, `SetupRoutes`,
-`AuthRoutes`, `ServiceReachabilityRoutes`).
+The `web.WebServer` acts as an orchestrator: it sets up Javalin, installs the
+setup-gating `before` filter, lets `web.AccessControl` install the login
+requirement and the admin check (see *Roles and admin rights* below) and then
+calls the static `register(app, …deps)` method of each of the twelve route
+registrars in `web.api` (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
+`ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`,
+`ServiceReachabilityRoutes`, `SetupRoutes`, `AuthRoutes`, `SystemRoutes`,
+`DataPrepRoutes`).
 
 ## Authentication
 
@@ -84,6 +87,48 @@ Authentication uses a challenge-response scheme with SHA-256. Passwords are
 2. The client computes `SHA-256(SHA-256(password) + nonce)` via the Web Crypto API
 3. The server verifies the response against the stored password hash
 4. On success a session token (cookie `SR_SESSION`) is created
+
+### Roles and admin rights
+
+Login knows two roles, `admin` and `user`. `web.AccessControl` enforces them on
+the server; with authentication disabled everything stays allowed.
+
+- **Login requirement**: without a valid session `/api/…` answers 401 and pages
+  redirect to `/login` (login, setup, authentication endpoints, the loopback-only
+  stop endpoint and static assets are exempt).
+- **Admin only** (`AccessControl.ADMIN_ONLY`, a user session gets **403** with a
+  translated message): `POST /api/config/update` (measurement targets, interval,
+  maintenance window, gateways, customer data, data preparation incl. retention),
+  `POST /api/config/language`, `POST /api/push/settings`,
+  `POST /api/services/settings`, `POST /api/dns/settings` (own DNS servers, deselected
+  built-in ones), `POST /api/outages/exclude`, `POST /api/dataprep/run-now`.
+- **Allowed for users**: all reads, PDF report, CSV exports,
+  `POST /api/dns/benchmark` (also "own servers only"),
+  `POST /api/services/check-now` (cooldown) and `POST /api/theme/settings`
+  (dark mode).
+- **Protected by the admin password itself**: `POST /api/auth/enable`,
+  `/disable` and `/change-admin` verify the admin password per challenge-response,
+  independent of the session.
+
+The admin check hangs as a separate `before` filter on exactly the route's path.
+Javalin matches filter and route paths with the same logic (a trailing slash, for
+example, is ignored for both), and the HTTP method comes from `ctx.method()`,
+which also drives route selection (including `X-HTTP-Method-Override`), so a
+differently written request cannot slip past the check. A test enumerates every
+writing route the `WebServer` registers and fails if one is neither admin-only nor
+explicitly released for users.
+
+The main page is rendered per request with the session's role: for a user session
+the settings sit in a disabled `<fieldset>` (read-only), buttons for admin actions
+are hidden (`body.role-user .admin-only`) and a hint explains why; `app.js` reads
+the injected `IS_ADMIN` flag, e.g. to leave out the "exclude" buttons of the
+outage list.
+
+**Setup only once**: `/setup` and `POST /api/setup/complete` must be reachable
+without a login, so they only work until the setup is completed. Afterwards
+`/setup` redirects to `/` (without changing the language) and the endpoint answers
+403; before, anyone on the network could have reset the admin password. A
+forgotten admin password can be reset in `config.json`.
 
 ## Ping measurement
 
@@ -250,7 +295,8 @@ reports, CSV column headers and user-facing API messages – is multilingual
 - **PDF Unicode**: the free **DejaVu Sans** font is embedded (`IDENTITY_H`) so that Turkish, Polish and Cyrillic (Ukrainian) are rendered correctly too; the same font feeds the JFreeChart labels
 
 The language is stored globally per installation in `config.json` and can be
-changed in the setup wizard as well as in the settings tab.
+changed in the setup wizard as well as in the settings tab (with authentication
+enabled by the admin only).
 
 ## Static web assets
 
@@ -259,7 +305,7 @@ files under `src/main/resources/web/` (`app.css`, `app.js`), which Javalin serve
 via `staticFiles` mapped to `/web` (delivered as `/app.css` and `/app.js`). The
 renderer keeps only the HTML structure with `{{i18n}}` placeholders plus a small
 inline `<script>` carrying server-injected globals (`I18N`, `LOCALE`,
-`GW_LABELS`).
+`GW_LABELS`, `IS_ADMIN`).
 
 ---
 

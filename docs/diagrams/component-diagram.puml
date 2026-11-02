@@ -13,6 +13,7 @@ package "signalreport" {
 }
 package "web" {
   [WebServer] as Web
+  [AccessControl] as Access
   [web.api: 12 Registrare] as Api
   [web.view: Renderer] as View
   [SessionManager] as SessionMgr
@@ -57,6 +58,8 @@ DataPrep --> Rollup
 DataPrep --> Config
 Rollup --> Repo
 
+Web --> Access
+Access --> SessionMgr
 Web --> Api
 Web --> View
 Web --> SessionMgr
@@ -85,8 +88,9 @@ Repo --> PrimaryDB
 Repo --> ShadowDB
 
 note bottom of Web
-  Javalin (Port 4567): Setup + 2 before-Filter
-  (Setup-/Auth-Gating), register() der 12 web.api-Klassen,
+  Javalin (Port 4567): Setup-Gating-Filter, dann AccessControl
+  (Anmeldepflicht, Admin-only-Endpunkte -> User 403),
+  register() der 12 web.api-Klassen,
   statische Assets /app.css + /app.js, SHA-256-Auth.
 end note
 note bottom of GwDisc

@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-230%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version 2.3.0">
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-245%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.4.0-blue" alt="Version 2.4.0">
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ A professional, open-source monitoring tool for the continuous supervision of yo
 | **Service reachability** | 🚫 Detects whether services (Facebook, Instagram, X, YouTube, WhatsApp, …) are reachable or **blocked** — distinguishing DNS / TCP / SNI / block-page filtering<br>🕒 Separate slow schedule (default 6 h), line-gated, **off by default**<br>📅 Per-service block/outage timeline in the PDF report<br>📋 The service list ships with the program and grows with every update; your on/off switches are kept |
 | **Visualisation** | 📊 Live charts with Chart.js<br>📋 Per-cycle measurement table (collapsible)<br>🌡️ Hourly heatmap (fed from the condensed hourly values)<br>🖥️ Web interface (responsive)<br>🔔 Browser push on outages / high latency |
 | **Reports** | 📄 PDF export (24h / 7 days / 12 months; ranges beyond 7 days are built from the hourly values and finish in seconds even with years of data)<br>📈 3 charts (PING/DNS/HTTP) with target-change markers<br>🏆 Top 10 worst measurements (worst hours in long reports)<br>⚠️ Connection-outage analysis<br>📤 CSV export: time range filtered, all raw data as ZIP (streamed), hourly values as CSV |
-| **Security** | 🔐 Setup wizard (web-based, no CLI)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles with session management<br>🛡️ Password is never transmitted in plaintext |
+| **Security** | 🔐 Setup wizard (web-based, no CLI, runs only once)<br>🔑 Challenge-response authentication (SHA-256)<br>👥 Admin/user roles, enforced by the server: users read, download reports and exports, run the DNS benchmark and "Check now"; only the admin changes settings (HTTP 403 otherwise)<br>🛡️ Password is never transmitted in plaintext |
 | **Data safety** | 🛟 Twin database (mirrored writes)<br>🩺 Self-healing: a read that hits a corrupted page falls back to the twin and schedules a rebuild; the rebuild unites both files into a fresh, compact database (automatically at the next start, or on demand with `dbrebuild.bat` / `dbrebuild.sh`)<br>⚡ One transaction per measurement cycle, continuous H2 background compaction<br>🛑 Orderly stop (`signalreport.jar stop`, used by the Windows service) closes both databases cleanly |
 | **Data preparation** | 🗜️ Hourly condensation: count, min / average / median / 95th percentile / max and jitter per hour, type and target (`measurement_hourly`)<br>🧹 Retention: unremarkable raw measurements older than 90 days (configurable, 0 = never) are removed; failed measurements, the end of each outage, excluded measurements and maintenance markers are kept forever<br>🕒 Heavy steps only inside a time window (default 03:00–05:00, or the maintenance window); the light hourly step runs continuously; "Run now" button with progress and status in the settings<br>🧵 Runs on its own database connections with short pauses, so measurements and the web UI never wait behind it |
 | **Internationalisation** | 🌐 9 languages: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Applies to web UI, PDF reports and CSV exports<br>🎛️ Language choice in the setup wizard and in the settings<br>📂 Extensible without recompiling: drop your own language file into `./lang/` |
@@ -155,7 +155,7 @@ SignalReport is fully multilingual – web interface, PDF reports and CSV export
 
 🇩🇪 Deutsch · 🇬🇧 English · 🇫🇷 Français · 🇮🇹 Italiano · 🇪🇸 Español · 🇵🇹 Português · 🇹🇷 Türkçe · 🇵🇱 Polski · 🇺🇦 Українська
 
-- **Switching**: in the setup wizard (before setting the password) or any time in the *⚙️ Settings* tab
+- **Switching**: in the setup wizard (before setting the password) or any time in the *⚙️ Settings* tab (with authentication enabled: admin only, because the language applies to everyone)
 - **Default**: fresh installations adopt the system language (otherwise English); existing installations stay on German
 - **Add your own language** (without recompiling): place a `<code>.json` file (e.g. `nl.json`) modelled on [`de.json`](src/main/resources/lang/de.json) into a `lang/` folder next to `signalreport.jar` – it appears in the language dropdown automatically
 - **Unicode in the PDF**: the DejaVu font is embedded, so Turkish, Polish and Cyrillic script (Ukrainian) are rendered correctly too
@@ -198,12 +198,12 @@ signalreport/
 │   ├── network/                          # GatewayDiscovery (traceroute), ServiceReachabilityProbe, NetworkInfo, HostIdentifier
 │   ├── storage/                          # H2MeasurementRepository (twin DB, shadow fallback), RollupService (hourly values + retention), DatabaseRebuilder + DTOs
 │   ├── report/                           # ReliabilityReport, ConnectivityAssessment, ServiceReachabilityAssessment/Report, PdfReportGenerator
-│   ├── web/                              # WebServer (Javalin orchestrator), SessionManager
+│   ├── web/                              # WebServer (Javalin orchestrator), AccessControl (login + admin rights), SessionManager
 │   │   ├── view/                         #   HtmlPageRenderer, SetupPageRenderer, LoginPageRenderer
 │   │   └── api/                          #   12 route registrars (Measurement, Reliability, ServiceReachability, Settings, DataPrep, System, …)
 │   ├── i18n/                             # I18n (9 languages, extensible)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 32 test classes, 230 tests (mirror the packages above)
+├── src/test/java/at/mafue/signalreport/  # 34 test classes, 245 tests (mirror the packages above)
 ├── src/main/resources/web/               # Static assets: app.css, app.js, logos, favicons
 ├── src/main/resources/lang/              # Language files (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/catalog/           # Built-in lists: DNS servers and services (updated with every release)
@@ -244,7 +244,8 @@ signalreport/
 - **Challenge-response auth**: passwords are never transmitted in plaintext – SHA-256 with single-use nonces
 - **Session management**: 24h session timeout, secure cookie-based authentication
 - **Authentication**: for public IPs (e.g. a NAS with port forwarding) **make sure to enable it** (tab *🔐 Security*)
-- **Setup password**: the admin password is set on first start – never leave default values!
+- **Roles**: with authentication enabled, `user` may view everything, download PDF reports and CSV exports, run the DNS benchmark, use "Check now" and switch dark mode. Changing settings (measurement targets, interval, maintenance window, gateways, customer data, data preparation, service reachability, own DNS servers, push, language), excluding outages and starting the data preparation are reserved for `admin`; the server answers other sessions with HTTP 403, and the web interface shows these settings read-only. Enabling/disabling authentication and changing the admin password always require the admin password itself.
+- **Setup password**: the admin password is set on first start – never leave default values! The setup can only be completed once; afterwards `/setup` redirects to the dashboard and `POST /api/setup/complete` is rejected (403). A forgotten admin password can only be reset in `config.json`.
 - **Database**: all data stored locally in a crash-resistant twin database (primary + shadow). No cloud dependency, no external APIs (except ipify.org for the external IP)
 
 ---

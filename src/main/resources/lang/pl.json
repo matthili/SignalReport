@@ -112,6 +112,8 @@
   "security.enterUserPassword": "Wpisz hasło użytkownika (min. 6 znaków)!",
   "security.confirmDisable": "Interfejs webowy stanie się publiczny! Kontynuować?",
   "security.checkPasswords": "Sprawdź hasła (min. 6 znaków)!",
+  "role.settingsReadOnly": "Zalogowano jako użytkownik: ustawienia są tylko do odczytu. Zmieniać je może tylko administrator.",
+  "role.securityAdminOnly": "Zalogowano jako użytkownik: uwierzytelnianiem i hasłem administratora zarządza tylko administrator.",
 
   "settings.title": "Konfiguracja pomiarów",
   "settings.description": "Zmień cele pomiarów, interwał i okno serwisowe. Ustawienia są zapisywane natychmiast.",
@@ -252,6 +254,8 @@
   "api.pushSaved": "Ustawienia powiadomień zapisane",
   "api.themeSaved": "Motyw zapisany",
   "api.languageSaved": "Język zapisany",
+  "api.adminOnly": "Tę czynność może wykonać tylko administrator.",
+  "api.setupAlreadyDone": "Konfiguracja została już zakończona.",
 
   "gateway.near": "Router",
   "gateway.far": "Brama internetowa",

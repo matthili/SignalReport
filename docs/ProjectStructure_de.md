@@ -64,7 +64,8 @@ SignalReport/
 │   │   │   ├── ServiceReachabilityReport.java  # Episoden-Verdichtung (Zustandswechsel-Timeline)
 │   │   │   └── PdfReportGenerator.java   # PDF-Export (OpenPDF + JFreeChart)
 │   │   ├── web/                          # HTTP-Schicht (Javalin)
-│   │   │   ├── WebServer.java            # Orchestrator (Javalin-Setup, Gating-Filter, Routen-Registrierung)
+│   │   │   ├── WebServer.java            # Orchestrator (Javalin-Setup, Setup-Gating, Routen-Registrierung)
+│   │   │   ├── AccessControl.java        # Anmeldepflicht + Admin-only-Endpunkte (403 für User-Sessions)
 │   │   │   ├── SessionManager.java       # Challenge-Response Auth (SHA-256)
 │   │   │   ├── ErrorResponse.java        # JSON-Fehlerobjekt
 │   │   │   ├── view/                     # HTML-Renderer
@@ -72,14 +73,14 @@ SignalReport/
 │   │   │   │   ├── SetupPageRenderer.java    # HTML-Rendering Setup-Wizard
 │   │   │   │   └── LoginPageRenderer.java    # HTML-Rendering Login-Seite
 │   │   │   └── api/                      # Routen-Registrar-Klassen (static register(app, …deps))
-│   │   │       ├── PageRoutes.java       # Seiten-Routen (/, Login, Setup)
+│   │   │       ├── PageRoutes.java       # Seiten-Routen (/ mit der Rolle der Session, Login, Setup bis zum Abschluss)
 │   │   │       ├── MeasurementRoutes.java    # Live-Mess- + Statistik-Endpunkte
 │   │   │       ├── ReliabilityRoutes.java    # Connectivity + Zuverlässigkeit + Ausfall-Ausschluss
 │   │   │       ├── ExportRoutes.java     # PDF-/CSV-Export-Endpunkte (CSV gestreamt; alle Daten als ZIP; Stundenwerte-CSV)
 │   │   │       ├── HostRoutes.java       # Host-Info- + IP-Tracking-Endpunkte
 │   │   │       ├── DnsRoutes.java        # DNS-Benchmark-Endpunkte
 │   │   │       ├── SettingsRoutes.java   # Config-/Theme-/Push-Einstellungs-Endpunkte
-│   │   │       ├── SetupRoutes.java      # Setup-Wizard-Endpunkte
+│   │   │       ├── SetupRoutes.java      # Setup-Wizard-Endpunkte (Abschluss nur einmal, danach 403)
 │   │   │       ├── AuthRoutes.java       # Authentifizierungs-Endpunkte (Nonce/Login/Logout)
 │   │   │       ├── ServiceReachabilityRoutes.java  # Dienst-Status/-Verlauf/-Einstellungen + Jetzt-prüfen (Cooldown)
 │   │   │       ├── DataPrepRoutes.java   # Status der Daten-Aufbereitung + „Jetzt ausführen" (Cooldown)
@@ -88,14 +89,14 @@ SignalReport/
 │   │   │   └── I18n.java                 # Mehrsprachigkeit (9 Sprachen, erweiterbar)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser-Benachrichtigungen
-│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (32 Klassen, 230 Tests + 4 opt-in Smoke)
+│   ├── test/java/at/mafue/signalreport/  # JUnit-5-Suite, Pakete spiegeln src (34 Klassen, 245 Tests + 4 opt-in Smoke)
 │   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, Leitungs-Gate-Logik), StopCommandTest (3, Stopp-Kommando gegen echten Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, Einmal-pro-Tag-Entscheidung, voller Lauf + Fortschritt, Abkühlphase des manuellen Starts, keine Blockade während eines Laufs)
 │   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (11, Standard aus der Liste, Schalter als Abweichung, Übernahme), DataPrepConfigTest (10, Fenster inkl. Mitternacht, Maintenance-Option, Begrenzung der Aufbewahrung, JSON), BuiltinCatalogTest (4, mitgelieferte Listen gültig und eindeutig), DnsBenchmarkConfigTest (8, Adressprüfung ohne DNS, Zusammenstellung, Prüfung, Übernahme)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, jede Antwort zählt als erreichbar, verweigerte Verbindung schlägt fehl, Fehlergründe)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (Netz, opt-in)
 │   │   ├── storage/       # H2MeasurementRepositoryTest (13, inkl. Nebenkanal), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, Vereinigung/Fallback/Tausch/Marker/Stundenwerte), RollupServiceTest (12, Stundenstatistik, Wasserstandsmarke, Fortschritt, Wiederholbarkeit, Aufbewahrungsregeln)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 Monate aus Stundenwerten)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, gestreamtes CSV, ZIP, Stunden-CSV gegen echten Javalin), api/DnsRoutesTest (5, Katalog, eigene Server, Prüfung, Nur-eigene-Lauf ohne Netz)
+│   │   ├── web/           # SessionManagerTest (19), AccessControlTest (10, Rollen gegen echten Javalin: User 403 / Admin 200 / ohne Auth alles erlaubt, echter Login, Schrägstrich am Ende und Method-Override, jede schreibende Route eingeordnet), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, gestreamtes CSV, ZIP, Stunden-CSV gegen echten Javalin), api/DnsRoutesTest (5, Katalog, eigene Server, Prüfung, Nur-eigene-Lauf ohne Netz), api/SetupRoutesTest (5, Setup nur einmal)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Statische Dateien: app.css, app.js, Logos, Favicons, Service Worker

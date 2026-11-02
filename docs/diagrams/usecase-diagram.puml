@@ -28,13 +28,13 @@ rectangle "SignalReport" {
   usecase "Wartungsfenster konfigurieren" as UC16
   usecase "Störungs-Lokalisierung anzeigen" as UC17
   usecase "Verfügbarkeit & Zuverlässigkeit anzeigen" as UC18
-  usecase "Verbindungsausfälle anzeigen / aus Wertung nehmen" as UC19
+  usecase "Verbindungsausfälle anzeigen" as UC19
   usecase "Gateways konfigurieren\n(manuelle IP, nicht pingen)" as UC20
   usecase "Sprache umschalten (9 Sprachen)" as UC21
+  usecase "Ausfälle aus der Wertung nehmen" as UC22
 }
 
 Benutzer --> UC2
-Benutzer --> UC3
 Benutzer --> UC4
 Benutzer --> UC5
 Benutzer --> UC6
@@ -45,15 +45,19 @@ Benutzer --> UC10
 Benutzer --> UC11
 Benutzer --> UC12
 Benutzer --> UC15
-Benutzer --> UC16
 Benutzer --> UC17
 Benutzer --> UC18
 Benutzer --> UC19
-Benutzer --> UC20
-Benutzer --> UC21
 
+' Der Admin darf alles, was der Benutzer darf, und zusaetzlich die Einstellungen aendern
+Benutzer <|-- Administrator
 Administrator --> UC1
+Administrator --> UC3
 Administrator --> UC13
+Administrator --> UC16
+Administrator --> UC20
+Administrator --> UC21
+Administrator --> UC22
 
 System --> UC14
 
@@ -66,6 +70,15 @@ UC12 .> UC14 : <<extend>>
 UC3 .> UC16 : <<include>>
 UC3 .> UC20 : <<include>>
 UC17 .> UC14 : <<extend>>
+UC22 .> UC19 : <<extend>>
+
+note bottom of Administrator
+  **Rollen (bei aktivierter Authentifizierung)**
+  * Einstellungen, eigene DNS-Server, Sprache, Push,
+    Ausfall-Ausschluss und Daten-Aufbereitung nur als Admin;
+    eine User-Session erhält HTTP 403
+  * ohne Authentifizierung hat jeder Admin-Rechte
+end note
 
 note right of UC7
   **PDF-Bericht generieren**

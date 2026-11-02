@@ -364,6 +364,12 @@ package "web" {
     -Javalin app
     +void start(int port)
     +void stop()
+    ~void registerRoutes(Javalin target)
+  }
+  class AccessControl {
+    +{static} List<Endpoint> ADMIN_ONLY
+    +{static} void register(Javalin app, SessionManager sm)
+    +{static} boolean hasAdminRights(Context ctx)
   }
   class SessionManager {
     +String createSession(String role)
@@ -379,7 +385,7 @@ package "web" {
 ' ============================================================
 package "web.view" {
   class HtmlPageRenderer {
-    +String render()
+    +String render(boolean admin)
   }
   class SetupPageRenderer {
     +String render()
@@ -458,6 +464,9 @@ Config --> MaintenanceWindow
 
 ' --- Web ---
 WebServer --> SessionManager
+WebServer --> AccessControl
+AccessControl --> SessionManager
+PageRoutes ..> AccessControl
 WebServer --> HtmlPageRenderer
 WebServer --> SetupPageRenderer
 WebServer --> LoginPageRenderer
@@ -566,9 +575,10 @@ note right of ReliabilityReport
 end note
 
 note bottom of WebServer
-  Javalin-Orchestrator: Setup + 2 before-Filter
-  (Setup-/Auth-Gating), delegiert die Routen an die
-  12 Registrare im Paket web.api. Statische Assets
-  (app.css/app.js) aus /web. Challenge-Response (SHA-256).
+  Javalin-Orchestrator: Setup-Gating-Filter, dann
+  AccessControl (Anmeldepflicht + Admin-Pruefung),
+  delegiert die Routen an die 12 Registrare im Paket
+  web.api. Statische Assets (app.css/app.js) aus /web.
+  Challenge-Response (SHA-256).
 end note
 @enduml

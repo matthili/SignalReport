@@ -111,7 +111,9 @@ und seither aktiv weiterentwickelt.\\[0.3em]
 \input{kapitel/08-api-referenz}
 
 % Anhang A: UML-Diagramme
-\newpage
+% \clearpage statt \newpage: setzt alle noch wartenden Tabellen der API-Referenz vor den
+% Anhang, sonst landen sie auf derselben Seite wie ein [H]-Diagramm, das dann ueberlaeuft
+\clearpage
 \input{kapitel/anhang-a}
 
 % Literaturverzeichnis

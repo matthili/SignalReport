@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21+-007396?logo=java" alt="Java 21+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-230%20passing-brightgreen" alt="JUnit Tests"></a>
-  <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version 2.3.0">
+  <a href="https://junit.org/"><img src="https://img.shields.io/badge/Tests-245%20passing-brightgreen" alt="JUnit Tests"></a>
+  <img src="https://img.shields.io/badge/version-2.4.0-blue" alt="Version 2.4.0">
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ Ein professionelles, Open-Source Monitoring-Tool zur kontinuierlichen Überwachu
 | **Dienst-Erreichbarkeit** | 🚫 Erkennt, ob Dienste (Facebook, Instagram, X, YouTube, WhatsApp, …) erreichbar oder **gesperrt** sind — unterscheidet DNS- / TCP- / SNI- / Sperrseiten-Filterung<br>🕒 Eigener langsamer Takt (Standard 6 h), Leitungs-gated, **standardmäßig aus**<br>📅 Sperr-/Störungs-Timeline je Dienst im PDF-Bericht<br>📋 Die Dienstliste kommt mit dem Programm und wächst mit jedem Update; deine Ein/Aus-Schalter bleiben erhalten |
 | **Visualisierung** | 📊 Live-Charts mit Chart.js<br>📋 Mess-Tabelle pro Messzyklus (aufklappbar)<br>🌡️ Heatmap pro Stunde (aus den verdichteten Stundenwerten)<br>🖥️ Web-Oberfläche (responsiv)<br>🔔 Browser-Push bei Ausfällen/Hoher Latenz |
 | **Berichte** | 📄 PDF-Export (24h/7 Tage/12 Monate; Zeiträume über 7 Tage werden aus den Stundenwerten gerechnet und sind auch bei Jahren an Daten in Sekunden fertig)<br>📈 3 Charts (PING/DNS/HTTP) mit Ziel-Änderungs-Markierung<br>🏆 Top 10 schlechteste Messungen (in langen Berichten: schlechteste Stunden)<br>⚠️ Verbindungsausfall-Analyse<br>📤 CSV-Export: Zeitraum gefiltert, alle Rohdaten als ZIP (gestreamt), Stundenwerte als CSV |
-| **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen mit Session-Management<br>🛡️ Passwort wird nie im Klartext übertragen |
+| **Sicherheit** | 🔐 Setup-Wizard (Web-basiert, keine CLI, läuft nur einmal)<br>🔑 Challenge-Response-Authentifizierung (SHA-256)<br>👥 Admin/User-Rollen, vom Server durchgesetzt: User lesen, laden Berichte und Exporte, starten DNS-Benchmark und „Jetzt prüfen"; Einstellungen ändert nur der Admin (sonst HTTP 403)<br>🛡️ Passwort wird nie im Klartext übertragen |
 | **Datensicherheit** | 🛟 Twin-Datenbank (gespiegelte Schreibvorgänge)<br>🩺 Selbstheilung: Trifft ein Lesezugriff auf eine defekte Seite, weicht er auf den Zwilling aus und merkt einen Neuaufbau vor; der Neuaufbau vereinigt beide Dateien in eine frische, kompakte Datenbank (automatisch beim nächsten Start oder auf Wunsch per `dbrebuild.bat` / `dbrebuild.sh`)<br>⚡ Eine Transaktion pro Messrunde, laufende H2-Hintergrund-Kompaktierung<br>🛑 Geordneter Stopp (`signalreport.jar stop`, vom Windows-Dienst genutzt) schließt beide Datenbanken sauber |
 | **Daten-Aufbereitung** | 🗜️ Stundenverdichtung: Anzahl, Min / Durchschnitt / Median / 95. Perzentil / Max und Jitter je Stunde, Typ und Ziel (`measurement_hourly`)<br>🧹 Aufbewahrung: unauffällige Rohmessungen, die älter als 90 Tage sind (einstellbar, 0 = nie), werden entfernt; fehlgeschlagene Messungen, das jeweilige Ausfall-Ende, ausgenommene Messungen und Wartungs-Marker bleiben immer erhalten<br>🕒 Aufwendige Schritte nur im Zeitfenster (Standard 03:00–05:00 oder im Maintenance-Fenster); der leichte Stundenschritt läuft laufend; „Jetzt ausführen"-Knopf mit Fortschritt und Status in den Einstellungen<br>🧵 Läuft auf eigenen Datenbankverbindungen mit kurzen Pausen, Messungen und Web-Oberfläche warten nie dahinter |
 | **Mehrsprachigkeit** | 🌐 9 Sprachen: Deutsch, English, Français, Italiano, Español, Português, Türkçe, Polski, Українська<br>🔤 Gilt für Web-UI, PDF-Berichte und CSV-Exporte<br>🎛️ Sprachwahl im Setup-Wizard und in den Einstellungen<br>📂 Erweiterbar ohne Neukompilieren: eigene Sprachdatei in `./lang/` ablegen |
@@ -155,7 +155,7 @@ SignalReport ist vollständig mehrsprachig – Web-Oberfläche, PDF-Berichte und
 
 🇩🇪 Deutsch · 🇬🇧 English · 🇫🇷 Français · 🇮🇹 Italiano · 🇪🇸 Español · 🇵🇹 Português · 🇹🇷 Türkçe · 🇵🇱 Polski · 🇺🇦 Українська
 
-- **Umstellen**: im Setup-Wizard (vor der Passwortvergabe) oder jederzeit im Tab *⚙️ Einstellungen*
+- **Umstellen**: im Setup-Wizard (vor der Passwortvergabe) oder jederzeit im Tab *⚙️ Einstellungen* (bei aktivierter Authentifizierung nur als Admin, weil die Sprache für alle gilt)
 - **Standard**: Neuinstallationen übernehmen die Systemsprache (sonst Englisch); bestehende Installationen bleiben auf Deutsch
 - **Eigene Sprache hinzufügen** (ohne Neukompilieren): eine `<code>.json`-Datei (z.B. `nl.json`) nach dem Vorbild von [`de.json`](src/main/resources/lang/de.json) in einen Ordner `lang/` neben der `signalreport.jar` legen – sie erscheint automatisch im Sprach-Dropdown
 - **Unicode im PDF**: Die DejaVu-Schrift ist eingebettet, daher werden auch Türkisch, Polnisch und kyrillische Schrift (Ukrainisch) korrekt dargestellt
@@ -198,12 +198,12 @@ signalreport/
 │   ├── network/                          # GatewayDiscovery (Traceroute), ServiceReachabilityProbe, NetworkInfo, HostIdentifier
 │   ├── storage/                          # H2MeasurementRepository (Twin-DB, Shadow-Fallback), RollupService (Stundenwerte + Aufbewahrung), DatabaseRebuilder + DTOs
 │   ├── report/                           # ReliabilityReport, ConnectivityAssessment, ServiceReachabilityAssessment/Report, PdfReportGenerator
-│   ├── web/                              # WebServer (Javalin-Orchestrator), SessionManager
+│   ├── web/                              # WebServer (Javalin-Orchestrator), AccessControl (Anmeldepflicht + Admin-Rechte), SessionManager
 │   │   ├── view/                         #   HtmlPageRenderer, SetupPageRenderer, LoginPageRenderer
 │   │   └── api/                          #   12 Routen-Registrare (Measurement, Reliability, ServiceReachability, Settings, DataPrep, System, …)
 │   ├── i18n/                             # I18n (9 Sprachen, erweiterbar)
 │   └── notification/                     # PushNotificationService
-├── src/test/java/at/mafue/signalreport/  # 32 Testklassen, 230 Tests (spiegeln die Pakete oben)
+├── src/test/java/at/mafue/signalreport/  # 34 Testklassen, 245 Tests (spiegeln die Pakete oben)
 ├── src/main/resources/web/               # Statische Assets: app.css, app.js, Logos, Favicons
 ├── src/main/resources/lang/              # Sprachdateien (de, en, fr, it, es, pt, tr, pl, uk)
 ├── src/main/resources/catalog/           # Mitgelieferte Listen: DNS-Server und Dienste (mit jedem Update aktualisiert)
@@ -244,7 +244,8 @@ signalreport/
 - **Challenge-Response Auth**: Passwörter werden nie im Klartext übertragen – SHA-256 mit Einmal-Nonces
 - **Session-Management**: 24h Session-Timeout, sichere Cookie-basierte Authentifizierung
 - **Authentifizierung**: Für öffentliche IPs (z.B. NAS mit Port-Weiterleitung) **unbedingt aktivieren** (Tab *🔐 Sicherheit*)
-- **Setup-Passwort**: Admin-Passwort wird beim ersten Start festgelegt – niemals Standardwerte belassen!
+- **Rollen**: Bei aktivierter Authentifizierung darf `user` alles ansehen, PDF-Berichte und CSV-Exporte laden, den DNS-Benchmark und „Jetzt prüfen" starten und den Dark Mode umschalten. Einstellungen ändern (Messziele, Intervall, Maintenance-Fenster, Gateways, Kundendaten, Daten-Aufbereitung, Dienst-Erreichbarkeit, eigene DNS-Server, Push, Sprache), Ausfälle aus der Wertung nehmen und die Daten-Aufbereitung starten darf nur `admin`; anderen Sessions antwortet der Server mit HTTP 403, und die Oberfläche zeigt diese Einstellungen nur lesbar. Authentifizierung ein-/ausschalten und das Admin-Passwort ändern verlangen immer das Admin-Passwort selbst.
+- **Setup-Passwort**: Admin-Passwort wird beim ersten Start festgelegt – niemals Standardwerte belassen! Das Setup lässt sich nur einmal abschließen; danach leitet `/setup` zur Hauptseite um und `POST /api/setup/complete` wird abgelehnt (403). Ein vergessenes Admin-Passwort lässt sich nur in der `config.json` zurücksetzen.
 - **Datenbank**: Alle Daten lokal gespeichert in einer crash-resistenten Twin-Datenbank (Primary + Shadow). Keine Cloud-Abhängigkeit, keine externen APIs (außer ipify.org für externe IP)
 
 ---

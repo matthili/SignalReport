@@ -112,6 +112,8 @@
   "security.enterUserPassword": "Bir kullanıcı parolası girin (en az 6 karakter)!",
   "security.confirmDisable": "Web arayüzü herkese açık olacak! Devam edilsin mi?",
   "security.checkPasswords": "Parolaları kontrol edin (en az 6 karakter)!",
+  "role.settingsReadOnly": "Kullanıcı olarak giriş yapıldı: ayarlar salt okunurdur. Ayarları yalnızca yönetici değiştirebilir.",
+  "role.securityAdminOnly": "Kullanıcı olarak giriş yapıldı: kimlik doğrulamayı ve yönetici parolasını yalnızca yönetici yönetir.",
 
   "settings.title": "Ölçüm yapılandırması",
   "settings.description": "Ölçüm hedeflerini, aralığı ve bakım penceresini değiştirin. Ayarlar anında kaydedilir.",
@@ -252,6 +254,8 @@
   "api.pushSaved": "Bildirim ayarları kaydedildi",
   "api.themeSaved": "Tema kaydedildi",
   "api.languageSaved": "Dil kaydedildi",
+  "api.adminOnly": "Bu işlemi yalnızca yönetici yapabilir.",
+  "api.setupAlreadyDone": "Kurulum zaten tamamlandı.",
 
   "gateway.near": "Yönlendirici",
   "gateway.far": "İnternet ağ geçidi",

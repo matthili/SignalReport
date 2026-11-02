@@ -112,6 +112,8 @@
   "security.enterUserPassword": "Saisissez un mot de passe utilisateur (min. 6 caractères) !",
   "security.confirmDisable": "L'interface web deviendra publique ! Continuer ?",
   "security.checkPasswords": "Vérifiez les mots de passe (min. 6 caractères) !",
+  "role.settingsReadOnly": "Connecté en tant qu'utilisateur : les paramètres sont en lecture seule. Seul l'admin peut les modifier.",
+  "role.securityAdminOnly": "Connecté en tant qu'utilisateur : seul l'admin gère l'authentification et le mot de passe admin.",
 
   "settings.title": "Configuration des mesures",
   "settings.description": "Modifiez les cibles de mesure, l'intervalle et la fenêtre de maintenance. Les paramètres sont enregistrés immédiatement.",
@@ -252,6 +254,8 @@
   "api.pushSaved": "Paramètres push enregistrés",
   "api.themeSaved": "Thème enregistré",
   "api.languageSaved": "Langue enregistrée",
+  "api.adminOnly": "Seul l'admin peut effectuer cette action.",
+  "api.setupAlreadyDone": "La configuration est déjà terminée.",
 
   "gateway.near": "Routeur",
   "gateway.far": "Passerelle Internet",

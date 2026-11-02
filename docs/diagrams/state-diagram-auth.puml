@@ -39,7 +39,8 @@ state AuthEnabled {
   }
 
   state UserSession {
-    [*] --> UserAccess : Eingeschränkter Zugriff\n(Nur Lesen)
+    [*] --> UserAccess : Eingeschränkter Zugriff\n(Lesen, Berichte, DNS-Benchmark)
+    UserAccess --> UserAccess : Einstellung ändern\n-> HTTP 403 (abgelehnt)
     UserAccess --> Logout : Abmelden (Session invalidieren)
     UserAccess --> LoginRequired : Session abgelaufen
   }
@@ -61,6 +62,8 @@ note right of SetupRequired
   • Admin-Passwort muss gesetzt werden
   • Authentifizierung optional aktivieren
   • Setup kann nicht rückgängig gemacht werden
+  • Danach: /setup leitet zur Hauptseite um,
+    POST /api/setup/complete -> HTTP 403
 end note
 
 note right of NoAuth
@@ -74,9 +77,12 @@ end note
 note right of AuthEnabled
   **AuthEnabled (Geschützter Zugriff)**
   • Challenge-Response Authentifizierung
-  • Zwei Benutzerrollen:
-    - User: Nur Lesen (Monitoring, Berichte)
-    - Admin: Vollzugriff (Einstellungen, Setup)
+  • Zwei Benutzerrollen (vom Server geprüft):
+    - User: Lesen, Berichte/Exporte, DNS-Benchmark,
+      "Jetzt prüfen", Dark Mode
+    - Admin: zusätzlich Einstellungen, DNS-Server, Sprache,
+      Push, Ausfall-Ausschluss, Daten-Aufbereitung starten
+      (User erhält dafür HTTP 403)
   • Session-Token als Cookie (24h gueltig)
   • Logout invalidiert Session sofort
 end note

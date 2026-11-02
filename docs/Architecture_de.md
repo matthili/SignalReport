@@ -28,7 +28,8 @@
 │  │   └── PdfReportGenerator (OpenPDF,       │
 │  │         DejaVu-Schrift eingebettet)      │
 │  ├── web/ WebServer (Orchestrator)          │
-│  │   ├── Setup-/Auth-Gating-Filter          │
+│  │   ├── Setup-Gating-Filter                │
+│  │   ├── AccessControl (Login + nur Admin)  │
 │  │   ├── api/ (12 Routen-Registrare)        │
 │  │   ├── view/ (Html/Setup/Login-Renderer)  │
 │  │   └── SessionManager                     │
@@ -69,11 +70,14 @@ Javalin-Schicht mit `view`-Renderern und
 Einstiegspunkt und führt die kontinuierliche Mess-Schleife aus.
 
 `web.WebServer` fungiert als Orchestrator: Er richtet Javalin ein, installiert
-zwei `before`-Filter (Setup-Gating und Auth-Gating) und ruft anschließend die
-statische `register(app, …deps)`-Methode jeder der zehn Routen-Registrar-Klassen
-in `web.api` auf (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
-`ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`, `SetupRoutes`,
-`AuthRoutes`, `ServiceReachabilityRoutes`).
+den `before`-Filter für das Setup-Gating, lässt `web.AccessControl` die
+Anmeldepflicht und die Admin-Prüfung installieren (siehe *Rollen und
+Admin-Rechte* unten) und ruft anschließend die statische
+`register(app, …deps)`-Methode jeder der zwölf Routen-Registrar-Klassen in
+`web.api` auf (`PageRoutes`, `MeasurementRoutes`, `ReliabilityRoutes`,
+`ExportRoutes`, `HostRoutes`, `DnsRoutes`, `SettingsRoutes`,
+`ServiceReachabilityRoutes`, `SetupRoutes`, `AuthRoutes`, `SystemRoutes`,
+`DataPrepRoutes`).
 
 ## Authentifizierung
 
@@ -84,6 +88,52 @@ Passwörter werden **niemals** im Klartext übertragen:
 2. Client berechnet `SHA-256(SHA-256(passwort) + nonce)` via Web Crypto API
 3. Server verifiziert die Response gegen den gespeicherten Passwort-Hash
 4. Bei Erfolg wird ein Session-Token (Cookie `SR_SESSION`) erstellt
+
+### Rollen und Admin-Rechte
+
+Der Login kennt zwei Rollen, `admin` und `user`. `web.AccessControl` setzt sie
+auf dem Server durch; bei deaktivierter Authentifizierung bleibt alles erlaubt.
+
+- **Anmeldepflicht**: Ohne gültige Session antwortet `/api/…` mit 401, Seiten
+  leiten zu `/login` um (ausgenommen sind Login, Setup, die Auth-Endpunkte, der
+  nur per Loopback erreichbare Stopp-Endpunkt und statische Dateien).
+- **Nur Admin** (`AccessControl.ADMIN_ONLY`, eine User-Session bekommt **403**
+  mit übersetzter Meldung): `POST /api/config/update` (Messziele, Intervall,
+  Maintenance-Fenster, Gateways, Kundendaten, Daten-Aufbereitung inkl.
+  Aufbewahrungsfrist), `POST /api/config/language`, `POST /api/push/settings`,
+  `POST /api/services/settings`, `POST /api/dns/settings` (eigene DNS-Server,
+  abgewählte mitgelieferte), `POST /api/outages/exclude`,
+  `POST /api/dataprep/run-now`.
+- **Für User erlaubt**: alle Lesezugriffe, PDF-Bericht, CSV-Exporte,
+  `POST /api/dns/benchmark` (auch „Nur eigene testen“),
+  `POST /api/services/check-now` (Abkühlphase) und `POST /api/theme/settings`
+  (Dark Mode).
+- **Durch das Admin-Passwort selbst geschützt**: `POST /api/auth/enable`,
+  `/disable` und `/change-admin` prüfen das Admin-Passwort per
+  Challenge-Response, unabhängig von der Session.
+
+Die Admin-Prüfung hängt als eigener `before`-Filter an genau dem Pfad der Route.
+Javalin vergleicht Filter- und Routenpfad mit derselben Logik (ein Schrägstrich
+am Ende wird z. B. bei beiden ignoriert), und die HTTP-Methode kommt aus
+`ctx.method()`, das auch die Routenwahl bestimmt (inklusive
+`X-HTTP-Method-Override`); eine anders geschriebene Anfrage kommt deshalb nicht
+an der Prüfung vorbei. Ein Test listet alle schreibenden Routen auf, die der
+`WebServer` registriert, und schlägt fehl, wenn eine weder Admin-only noch
+ausdrücklich für User freigegeben ist.
+
+Die Hauptseite wird je Anfrage mit der Rolle der Session gerendert: Für eine
+User-Session stehen die Einstellungen in einem gesperrten `<fieldset>` (nur
+lesbar), Knöpfe für Admin-Aktionen sind ausgeblendet (`body.role-user
+.admin-only`), und ein Hinweis erklärt den Grund; `app.js` liest die
+eingebettete Kennung `IS_ADMIN`, etwa um in der Ausfallliste die
+„Nicht werten"-Knöpfe wegzulassen.
+
+**Setup nur einmal**: `/setup` und `POST /api/setup/complete` müssen ohne Login
+erreichbar sein und funktionieren deshalb nur bis zum Abschluss der Einrichtung.
+Danach leitet `/setup` auf `/` um (ohne die Sprache umzustellen), und der
+Endpunkt antwortet mit 403; vorher konnte jeder im Netz das Admin-Passwort neu
+setzen. Ein vergessenes Admin-Passwort lässt sich in der `config.json`
+zurücksetzen.
 
 ## Ping-Messung
 
@@ -262,7 +312,8 @@ mehrsprachig (9 Sprachen: de, en, fr, it, es, pt, tr, pl, uk).
 - **PDF-Unicode**: die freie Schrift **DejaVu Sans** ist eingebettet (`IDENTITY_H`), damit auch Türkisch, Polnisch und Kyrillisch (Ukrainisch) korrekt dargestellt werden; dieselbe Schrift speist die JFreeChart-Beschriftungen
 
 Die Sprache wird global pro Installation in `config.json` gespeichert und ist im
-Setup-Wizard sowie im Einstellungen-Tab umstellbar.
+Setup-Wizard sowie im Einstellungen-Tab umstellbar (bei aktivierter
+Authentifizierung nur durch den Admin).
 
 ## Statische Web-Assets
 
@@ -271,7 +322,7 @@ CSS und JavaScript wurden aus `HtmlPageRenderer` in statische Dateien unter
 über `staticFiles` (gemappt auf `/web`) unter `/app.css` bzw. `/app.js` aus. Im
 Renderer bleibt nur die HTML-Struktur mit `{{i18n}}`-Platzhaltern plus ein
 kleines Inline-`<script>` mit server-injizierten Globals (`I18N`, `LOCALE`,
-`GW_LABELS`).
+`GW_LABELS`, `IS_ADMIN`).
 
 ---
 

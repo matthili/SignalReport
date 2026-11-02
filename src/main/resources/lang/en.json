@@ -112,6 +112,8 @@
   "security.enterUserPassword": "Enter a user password (min. 6 characters)!",
   "security.confirmDisable": "The web interface will become public! Continue?",
   "security.checkPasswords": "Check the passwords (min. 6 characters)!",
+  "role.settingsReadOnly": "Logged in as user: the settings are read-only. Only the admin can change them.",
+  "role.securityAdminOnly": "Logged in as user: authentication and the admin password are managed by the admin only.",
 
   "settings.title": "Measurement configuration",
   "settings.description": "Change the measurement targets, interval and maintenance window. Settings are saved immediately.",
@@ -252,6 +254,8 @@
   "api.pushSaved": "Push settings saved",
   "api.themeSaved": "Theme saved",
   "api.languageSaved": "Language saved",
+  "api.adminOnly": "Only the admin may perform this action.",
+  "api.setupAlreadyDone": "Setup has already been completed.",
 
   "gateway.near": "Router",
   "gateway.far": "Internet gateway",

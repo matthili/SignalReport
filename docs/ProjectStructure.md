@@ -64,7 +64,8 @@ SignalReport/
 │   │   │   ├── ServiceReachabilityReport.java  # Episode aggregation (state-change timeline)
 │   │   │   └── PdfReportGenerator.java   # PDF export (OpenPDF + JFreeChart)
 │   │   ├── web/                          # HTTP layer (Javalin)
-│   │   │   ├── WebServer.java            # Orchestrator (Javalin setup, gating filters, route registration)
+│   │   │   ├── WebServer.java            # Orchestrator (Javalin setup, setup gating, route registration)
+│   │   │   ├── AccessControl.java        # Login requirement + admin-only endpoints (403 for user sessions)
 │   │   │   ├── SessionManager.java       # Challenge-response auth (SHA-256)
 │   │   │   ├── ErrorResponse.java        # JSON error payload
 │   │   │   ├── view/                     # HTML renderers
@@ -72,14 +73,14 @@ SignalReport/
 │   │   │   │   ├── SetupPageRenderer.java    # HTML rendering of the setup wizard
 │   │   │   │   └── LoginPageRenderer.java    # HTML rendering of the login page
 │   │   │   └── api/                      # Route registrars (static register(app, …deps))
-│   │   │       ├── PageRoutes.java       # Page routes (/, login, setup)
+│   │   │       ├── PageRoutes.java       # Page routes (/ with the session's role, login, setup until completed)
 │   │   │       ├── MeasurementRoutes.java    # Live measurement + statistics endpoints
 │   │   │       ├── ReliabilityRoutes.java    # Connectivity + reliability + outage exclusion
 │   │   │       ├── ExportRoutes.java     # PDF/CSV export endpoints (CSV streamed; all data as ZIP; hourly-values CSV)
 │   │   │       ├── HostRoutes.java       # Host info + IP-tracking endpoints
 │   │   │       ├── DnsRoutes.java        # DNS benchmark endpoints
 │   │   │       ├── SettingsRoutes.java   # Config/theme/push settings endpoints
-│   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints
+│   │   │       ├── SetupRoutes.java      # Setup-wizard endpoints (completion only once, then 403)
 │   │   │       ├── AuthRoutes.java       # Authentication endpoints (nonce/login/logout)
 │   │   │       ├── ServiceReachabilityRoutes.java  # Service status/history/settings + check-now (cooldown)
 │   │   │       ├── DataPrepRoutes.java   # Data-preparation status + "run now" (cooldown)
@@ -88,14 +89,14 @@ SignalReport/
 │   │   │   └── I18n.java                 # Internationalisation (9 languages, extensible)
 │   │   └── notification/
 │   │       └── PushNotificationService.java  # Browser notifications
-│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (32 classes, 230 tests + 4 opt-in smoke)
+│   ├── test/java/at/mafue/signalreport/  # JUnit 5 suite, packages mirror src (34 classes, 245 tests + 4 opt-in smoke)
 │   │   ├── (root)         # ServiceReachabilitySchedulerTest (5, line-gate logic), StopCommandTest (3, stop command against a real Javalin), RebuildCommandTest (1), DataPrepSchedulerTest (5, once-per-day decision, full run + progress, manual run cooldown, non-blocking while a run is active)
 │   │   ├── config/        # ConfigTest (18), MaintenanceWindowTest (7), ServiceReachabilityConfigTest (11, catalog defaults, switches as deviations, migration), DataPrepConfigTest (10, window incl. midnight, maintenance option, retention clamp, JSON), BuiltinCatalogTest (4, built-in lists valid and unique), DnsBenchmarkConfigTest (8, address check without DNS, run composition, validation, migration)
 │   │   ├── measurement/   # MeasurementTest (5), MeasurerInterfaceTest (6), HttpMeasurerTest (3, any response counts as reachable, refused connection fails, failure reasons)
 │   │   ├── network/       # GatewayDiscoveryTest (15), HostIdentifierTest (4), ServiceReachabilityProbeSmokeTest (network, opt-in)
 │   │   ├── storage/       # H2MeasurementRepositoryTest (13, incl. side channel), StatisticsTest (8), ServiceCheckRepositoryTest (3), DatabaseRebuilderTest (4, union/fallback/swap/marker/hourly values), RollupServiceTest (12, hourly statistics, watermark, progress, repeatability, retention rules)
 │   │   ├── report/        # ReliabilityReportTest (13), ConnectivityAssessmentTest (8), ServiceReachabilityAssessmentTest (15), ServiceReachabilityReportTest (4), PdfReportSmokeTest (opt-in, 24 h + 12 months from hourly values)
-│   │   ├── web/           # SessionManagerTest (19), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin), api/DnsRoutesTest (5, catalog, own servers, validation, own-only run without network)
+│   │   ├── web/           # SessionManagerTest (19), AccessControlTest (10, roles against a real Javalin: user 403 / admin 200 / no auth all allowed, real login, trailing slash and method override, every writing route classified), api/ServiceReachabilityRoutesTest (2), api/SystemRoutesTest (2), api/ExportRoutesTest (7, streamed CSV, ZIP, hourly CSV against a real Javalin), api/DnsRoutesTest (5, catalog, own servers, validation, own-only run without network), api/SetupRoutesTest (5, setup only once)
 │   │   └── i18n/          # I18nTest (10)
 │   └── main/resources/
 │       ├── web/                          # Static files: app.css, app.js, logos, favicons, service worker

@@ -44,12 +44,14 @@ Die Anwendung gliedert sich in zehn geschichtete Packages unterhalb von
   \item[report] \texttt{ReliabilityReport} (lückenbewusste Kennzahlen),
     \texttt{ConnectivityAssessment} (Schuld-Verdikt), \texttt{ServiceReachabilityAssessment}/\texttt{Report}
     (Dienst-Erreichbarkeit) und \texttt{PdfReportGenerator} (OpenPDF + JFreeChart).
-  \item[web] \texttt{WebServer} als Javalin-Orchestrator (Setup, Setup-/Auth-Gating-Filter,
-    Registrierung der Routen), \texttt{SessionManager} und \texttt{ErrorResponse}.
+  \item[web] \texttt{WebServer} als Javalin-Orchestrator (Setup, Setup-Gating-Filter,
+    Registrierung der Routen), \texttt{AccessControl} (Anmeldepflicht und Admin-Rechte,
+    siehe Abschnitt \ref{subsec:rollen}), \texttt{SessionManager} und \texttt{ErrorResponse}.
   \item[web.view] HTML-Renderer \texttt{HtmlPageRenderer}, \texttt{SetupPageRenderer} und
     \texttt{LoginPageRenderer}.
-  \item[web.api] Zehn Routen-Registrar-Klassen (\texttt{PageRoutes}, \texttt{MeasurementRoutes},
-    \texttt{ReliabilityRoutes}, \dots) mit je einer statischen \texttt{register(app, \dots)}-Methode.
+  \item[web.api] Zwölf Routen-Registrare mit je einer statischen
+    \texttt{register(app, \dots)}-Methode, darunter \texttt{PageRoutes},
+    \texttt{MeasurementRoutes} und \texttt{ReliabilityRoutes}.
   \item[i18n] \texttt{I18n} für die Mehrsprachigkeit (9 Sprachen).
   \item[notification] \texttt{PushNotificationService} für Browser-Benachrichtigungen.
 \end{description}
@@ -77,8 +79,8 @@ Besonders hervorzuheben sind:
     ohne bestehenden Code zu ändern (Open/Closed Principle).
   \item Die \textbf{Renderer- und Routen-Aufteilung}: Das HTML-Rendering wurde in
     eigenständige Klassen ausgelagert (Paket \texttt{web.view}), und die Routen wurden
-    nach Domäne in zehn Registrar-Klassen (Paket \texttt{web.api}) zerlegt. Der
-    \texttt{WebServer} schrumpfte dadurch auf einen reinen Orchestrator von ca.\ 140 Zeilen;
+    nach Domäne in zwölf Registrar-Klassen (Paket \texttt{web.api}) zerlegt. Damit
+    schrumpfte der \texttt{WebServer} auf einen reinen Orchestrator von ca.\ 130 Zeilen;
     zusätzlich wurden CSS und JavaScript in statische Ressourcen (\texttt{app.css}/\texttt{app.js})
     ausgelagert.
   \item Die \textbf{aufgeteilte Konfiguration}: Statt verschachtelter Klassen liegt jeder
@@ -398,9 +400,13 @@ Ausfall-Analyse und abschliessende PDF-Zusammenstellung mit OpenPDF.
 
 \subsection{Use-Cases}
 
-Das Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zeigt alle 16 Anwendungsfälle,
-aufgeteilt auf die drei Akteure Benutzer, Administrator und System. Die vollständigen
-User Stories zu jedem Use Case finden sich in Abschnitt \ref{sec:userstories}.
+Das Use-Case-Diagramm (Abbildung \ref{fig:usecase}) zeigt alle 22 Anwendungsfälle,
+aufgeteilt auf die drei Akteure Benutzer, Administrator und System. Der Administrator
+erbt alle Anwendungsfälle des Benutzers und konfiguriert zusätzlich Messungen,
+Wartungsfenster, Gateways, Sprache und Authentifizierung und nimmt Ausfälle aus der
+Wertung; bei aktivierter Authentifizierung setzt der Server diese Trennung durch
+(Abschnitt \ref{subsec:rollen}). Die vollständigen User Stories zu jedem Use Case finden
+sich in Abschnitt \ref{sec:userstories}.
 
 \begin{figure}[H]
     \centering
@@ -421,3 +427,77 @@ Modus mit Admin- und User-Rollen.
     \caption{State-Diagramm: Authentifizierung}
     \label{fig:state-auth}
 \end{figure}
+
+\subsection{Rollen und Rechteprüfung}
+\label{subsec:rollen}
+
+Der Login kennt zwei Rollen: \texttt{admin} und \texttt{user}. Bis Version 2.3.0 merkte sich
+der Server die Rolle zwar in der Session, wertete sie aber nirgends aus; eine User-Session
+konnte deshalb jede Einstellung ändern. Seit Version 2.4.0 setzt die Klasse
+\texttt{AccessControl} (Paket \texttt{web}) die Rollen auf dem Server durch. Bei deaktivierter
+Authentifizierung bleibt alles erlaubt.
+
+\begin{itemize}
+  \item \textbf{Anmeldepflicht}: Ohne gültige Session antworten API-Pfade mit 401, Seiten
+    leiten zur Login-Seite um. Ausgenommen sind Login, Setup, die Auth-Endpunkte, der nur
+    per Loopback erreichbare Stopp-Endpunkt und statische Dateien.
+  \item \textbf{Admin-Rechte}: Die Endpunkte der Liste \texttt{AccessControl.ADMIN\_ONLY}
+    (Tabelle \ref{tab:rollen}) darf nur eine Admin-Session aufrufen; eine User-Session
+    erhält 403 mit einer übersetzten Meldung (Schlüssel \texttt{api.adminOnly}).
+  \item \textbf{Durch das Admin-Passwort geschützt}: Authentifizierung ein- und ausschalten
+    sowie das Admin-Passwort ändern prüfen das Admin-Passwort selbst per
+    Challenge-Response, unabhängig von der Session.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|p{6.3cm}|p{7.7cm}|}
+\hline
+\textbf{Nur Admin (User-Session: 403)} & \textbf{Auch für User erlaubt} \\
+\hline
+\raggedright
+  \texttt{POST /api/config/update} (Messziele, Intervall, Maintenance-Fenster, Gateways,
+  Kundendaten, Daten-Aufbereitung inkl.\ Aufbewahrungsfrist) \newline
+  \texttt{POST /api/config/language} \newline
+  \texttt{POST /api/push/settings} \newline
+  \texttt{POST /api/services/settings} \newline
+  \texttt{POST /api/dns/settings} (eigene DNS-Server) \newline
+  \texttt{POST /api/outages/exclude} \newline
+  \texttt{POST /api/dataprep/run-now}
+& \raggedright
+  alle \texttt{GET}-Endpunkte (Messdaten, Statistik, Einstellungen lesen, Status) \newline
+  PDF-Bericht und CSV-Exporte \newline
+  \texttt{POST /api/dns/benchmark} (auch \enquote{Nur eigene testen}) \newline
+  \texttt{POST /api/services/check-now} (mit Abkühlphase) \newline
+  \texttt{POST /api/theme/settings} (Dark Mode) \newline
+  \texttt{POST /api/auth/logout} \tabularnewline
+\hline
+\end{tabular}
+\caption{Rechte der Rollen bei aktivierter Authentifizierung}
+\label{tab:rollen}
+\end{table}
+
+\paragraph{Prüfung am Pfad der Route.} Die Admin-Prüfung hängt als eigener
+\texttt{before}-Filter an genau dem Pfad der jeweiligen Route
+(\texttt{app.before(pfad, \dots)}). Javalin vergleicht Filter- und Routenpfad mit
+derselben Logik; ein Schrägstrich am Ende etwa wird bei beiden ignoriert. Ein eigener
+Zeichenkettenvergleich mit \texttt{/api/config/update} hätte genau diese Variante
+durchgelassen. Die HTTP-Methode stammt aus \texttt{ctx.method()}, das auch die Routenwahl
+bestimmt (einschließlich des Headers \texttt{X-HTTP-Method-Override}). Ein Test listet
+zusätzlich alle schreibenden Routen auf, die der \texttt{WebServer} registriert, und
+schlägt fehl, sobald eine Route weder Admin-only noch ausdrücklich für User freigegeben
+ist; ein Tippfehler in der Liste fällt so ebenfalls auf.
+
+\paragraph{Oberfläche.} Die Hauptseite wird je Anfrage mit der Rolle der Session gerendert.
+Für eine User-Session stehen die Einstellungen in einem gesperrten \texttt{<fieldset>} und
+bleiben lesbar; Speichern, \enquote{Jetzt ausführen}, die \enquote{Nicht werten}-Knöpfe der
+Ausfallliste und die Formulare mit Admin-Passwort sind ausgeblendet, und ein Hinweis nennt
+den Grund. Die Oberfläche ist nur Komfort: Entscheidend ist die Prüfung auf dem Server.
+
+\paragraph{Einrichtung nur einmal.} Setup-Seite und \texttt{POST /api/setup/complete} müssen
+ohne Anmeldung erreichbar sein. Bis Version 2.3.0 prüfte der Endpunkt nicht, ob die
+Einrichtung bereits abgeschlossen war; jeder im Netz konnte damit das Admin-Passwort neu
+setzen. Seit 2.4.0 antwortet er danach mit 403, und \texttt{/setup} leitet zur Hauptseite um,
+ohne die Sprache umzustellen. Ein vergessenes Admin-Passwort lässt sich nur noch in der
+\texttt{config.json} zurücksetzen.

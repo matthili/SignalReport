@@ -112,6 +112,8 @@
   "security.enterUserPassword": "User-Passwort eingeben (mind. 6 Zeichen)!",
   "security.confirmDisable": "Web-Interface wird öffentlich! Fortfahren?",
   "security.checkPasswords": "Passwörter prüfen (mind. 6 Zeichen)!",
+  "role.settingsReadOnly": "Angemeldet als Benutzer: Die Einstellungen sind nur lesbar. Ändern kann sie nur der Admin.",
+  "role.securityAdminOnly": "Angemeldet als Benutzer: Authentifizierung und Admin-Passwort verwaltet nur der Admin.",
 
   "settings.title": "Messkonfiguration",
   "settings.description": "Ändere die Messziele, Intervall und Maintenance-Fenster. Einstellungen werden sofort gespeichert.",
@@ -252,6 +254,8 @@
   "api.pushSaved": "Push-Einstellungen gespeichert",
   "api.themeSaved": "Theme gespeichert",
   "api.languageSaved": "Sprache gespeichert",
+  "api.adminOnly": "Nur der Admin darf diese Aktion ausführen.",
+  "api.setupAlreadyDone": "Das Setup ist bereits abgeschlossen.",
 
   "gateway.near": "Router",
   "gateway.far": "Internet-Gateway",
